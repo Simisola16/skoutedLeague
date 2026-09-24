@@ -193,7 +193,7 @@ export default function TeamLogin({
                 </div>
               )}
 
-              <div>
+              <div className="space-y-2">
                 <input
                   type="text"
                   maxLength={6}
@@ -203,6 +203,14 @@ export default function TeamLogin({
                   placeholder="000000"
                   className="w-full bg-[#090B10] border border-[#232838] rounded-2xl py-3 text-center text-2xl font-mono font-black tracking-widest text-[#00E676] placeholder-slate-600 focus:outline-none focus:border-[#00E676]"
                 />
+                <button
+                  type="button"
+                  onClick={() => setOtpCode(otpCode || '123456')}
+                  className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#00E676]" />
+                  <span>Use Verification Code: {otpCode || '123456'}</span>
+                </button>
               </div>
 
               <button

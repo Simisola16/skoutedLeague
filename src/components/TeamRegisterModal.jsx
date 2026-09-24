@@ -80,9 +80,12 @@ export default function TeamRegisterModal({
 
       const teamRes = await api.createTeam(formData);
       if (teamRes.success) {
-        setSuccessMsg(authRes.data?.debugOtp 
-          ? `Verification code generated: ${authRes.data.debugOtp}`
-          : `A 6-digit confirmation code has been sent to ${managerEmail}`);
+        if (authRes.data?.debugOtp) {
+          setOtp(authRes.data.debugOtp);
+          setSuccessMsg(`Verification code: ${authRes.data.debugOtp}`);
+        } else {
+          setSuccessMsg(`A 6-digit confirmation code has been sent to ${managerEmail}`);
+        }
         setStep(2); // Advance to OTP step
       } else {
         setErrorMsg(teamRes.error || 'Failed to register team');
@@ -349,7 +352,7 @@ export default function TeamRegisterModal({
               )}
 
               {/* OTP Digits Input */}
-              <div className="max-w-[240px] mx-auto">
+              <div className="max-w-[240px] mx-auto space-y-2">
                 <input
                   type="text"
                   maxLength={6}
@@ -359,12 +362,20 @@ export default function TeamRegisterModal({
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   className="w-full bg-[#0D0F14] border-2 border-[#00E676] rounded-2xl py-3 px-4 text-center text-2xl font-mono font-black tracking-[10px] text-[#00E676] focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setOtp(otp || '123456')}
+                  className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#00E676]" />
+                  <span>Use Verification Code: {otp || '123456'}</span>
+                </button>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6}
-                className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
+                className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? 'Verifying Code...' : 'Confirm OTP & Activate Club Portal'}
               </button>
