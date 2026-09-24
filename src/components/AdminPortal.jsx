@@ -1,0 +1,2476 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Shield,
+  Lock,
+  Radio,
+  Calendar,
+  Users,
+  Trophy,
+  ArrowRight,
+  LogOut,
+  Plus,
+  Minus,
+  AlertTriangle,
+  Check,
+  Flame,
+  Clock,
+  Trash2,
+  RefreshCw,
+  ExternalLink,
+  ChevronRight,
+  AlertCircle,
+  Search,
+  Filter,
+  Eye,
+  Edit2,
+  Printer,
+  Mail,
+  UserCheck,
+  UserX,
+  X,
+  User,
+  CheckCircle2,
+  XCircle,
+  Send,
+  FileText
+} from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { api } from '../services/api';
+import socket from '../services/socket';
+import PlayerDetailModal from './PlayerDetailModal';
+import PlayerFormModal from './PlayerFormModal';
+
+export default function AdminPortal({ onExit }) {
+  const [adminUser, setAdminUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  // Active Admin View Tab
+  const [adminTab, setAdminTab] = useState('operator'); // 'operator' | 'fixtures' | 'teams' | 'system'
+
+  // Data
+  const [fixtures, setFixtures] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [selectedFixtureId, setSelectedFixtureId] = useState('');
+
+  // Admin Teams & Squad Explorer State
+  const [adminTeams, setAdminTeams] = useState([]);
+  const [adminTeamsLoading, setAdminTeamsLoading] = useState(false);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [teamGroupFilter, setTeamGroupFilter] = useState('All');
+
+  // Roster Inspector State
+  const [selectedTeamForRoster, setSelectedTeamForRoster] = useState(null);
+  const [selectedTeamRoster, setSelectedTeamRoster] = useState([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState('');
+  const [rosterPositionFilter, setRosterPositionFilter] = useState('All');
+  const [rosterStatusFilter, setRosterStatusFilter] = useState('All');
+
+  // Player Quick Edit & Add State
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [showAdminAddPlayerModal, setShowAdminAddPlayerModal] = useState(false);
+  const [editPlayerForm, setEditPlayerForm] = useState({
+    firstName: '',
+    lastName: '',
+    jerseyNumber: '',
+    position: 'MID',
+    role: 'Squad Player',
+    status: 'Eligible',
+    isEligible: true,
+    suspensionReason: '',
+    age: 18
+  });
+  const [editPlayerLoading, setEditPlayerLoading] = useState(false);
+  const [editPlayerErr, setEditPlayerErr] = useState('');
+  const [editPlayerSuccess, setEditPlayerSuccess] = useState('');
+
+  // Lineup Oversight State
+  const [inspectingFixtureLineups, setInspectingFixtureLineups] = useState(null);
+  const [lineupReminderStatus, setLineupReminderStatus] = useState({}); // { [fixtureId]: { loading: boolean, msg: string, err: string } }
+
+  // Printable Match Sheet State
+  const [printableSheetTeam, setPrintableSheetTeam] = useState(null);
+
+  // Player Full Details Dossier State
+  const [selectedPlayerForDetails, setSelectedPlayerForDetails] = useState(null);
+
+  // Operator Match Control State
+  const [activeFixture, setActiveFixture] = useState(null);
+  const [fixtureEvents, setFixtureEvents] = useState([]);
+  const [homePlayers, setHomePlayers] = useState([]);
+  const [awayPlayers, setAwayPlayers] = useState([]);
+
+  // Event logging
+  const [eventType, setEventType] = useState('GOAL');
+  const [eventTeamId, setEventTeamId] = useState('');
+  const [eventPlayerId, setEventPlayerId] = useState('');
+  const [assistPlayerId, setAssistPlayerId] = useState('');
+  const [eventMinute, setEventMinute] = useState(0);
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventLoading, setEventLoading] = useState(false);
+  const [eventSuccessMsg, setEventSuccessMsg] = useState('');
+
+  // Fixture creation
+  const [stage, setStage] = useState('Matchday 1');
+  const [homeTeamId, setHomeTeamId] = useState('');
+  const [awayTeamId, setAwayTeamId] = useState('');
+  const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
+  const [matchTime, setMatchTime] = useState('16:00');
+  const [venue, setVenue] = useState('Legacy Arena, Pitch 1');
+  const [createFixtureLoading, setCreateFixtureLoading] = useState(false);
+  const [createFixtureMsg, setCreateFixtureMsg] = useState('');
+  const [createFixtureErr, setCreateFixtureErr] = useState('');
+
+  // Recalculate message
+  const [syncMsg, setSyncMsg] = useState('');
+
+  // 1. Check existing session on mount
+  useEffect(() => {
+    const token = localStorage.getItem('skouted_token');
+    if (token) {
+      api.getMe()
+        .then(res => {
+          if (res.success && res.data?.role === 'admin') {
+            setAdminUser(res.data);
+          } else {
+            // Not an admin
+            setAdminUser(null);
+          }
+        })
+        .catch(() => setAdminUser(null))
+        .finally(() => setLoadingAuth(false));
+    } else {
+      setLoadingAuth(false);
+    }
+  }, []);
+
+  // 2. Fetch fixtures, teams, and admin team directory when authenticated
+  const loadAdminData = async () => {
+    try {
+      const [fixRes, teamRes, adminTeamRes] = await Promise.all([
+        api.getFixtures(),
+        api.getTeams(),
+        api.getAdminTeams({ search: teamSearch, group: teamGroupFilter })
+      ]);
+      if (fixRes.success) {
+        setFixtures(fixRes.data || []);
+        if (fixRes.data?.length > 0 && !selectedFixtureId) {
+          setSelectedFixtureId(fixRes.data[0]._id);
+        }
+      }
+      if (teamRes.success) {
+        setTeams(teamRes.data || []);
+        if (teamRes.data?.length >= 2) {
+          if (!homeTeamId) setHomeTeamId(teamRes.data[0]._id);
+          if (!awayTeamId) setAwayTeamId(teamRes.data[1]._id);
+        }
+      }
+      if (adminTeamRes?.success) {
+        setAdminTeams(adminTeamRes.data || []);
+      }
+    } catch (err) {
+      console.error('[Load Admin Data Error]:', err);
+    }
+  };
+
+  // Re-fetch admin teams on search or filter change
+  const fetchFilteredTeams = async (search = teamSearch, group = teamGroupFilter) => {
+    setAdminTeamsLoading(true);
+    try {
+      const res = await api.getAdminTeams({ search, group });
+      if (res.success) {
+        setAdminTeams(res.data || []);
+      }
+    } catch (err) {
+      console.error('[Fetch Admin Teams Error]:', err);
+    } finally {
+      setAdminTeamsLoading(false);
+    }
+  };
+
+  // Open Roster Inspector for a Team
+  const handleOpenRoster = async (team) => {
+    setSelectedTeamForRoster(team);
+    setRosterLoading(true);
+    setRosterSearch('');
+    setRosterPositionFilter('All');
+    setRosterStatusFilter('All');
+    try {
+      const res = await api.getAdminTeamPlayers(team._id);
+      if (res.success) {
+        setSelectedTeamRoster(res.data?.players || []);
+      } else {
+        alert(res.error || 'Failed to load team roster');
+      }
+    } catch (err) {
+      alert('Error fetching squad: ' + err.message);
+    } finally {
+      setRosterLoading(false);
+    }
+  };
+
+  // Toggle Player Eligibility (Eligible <-> Suspended)
+  const handleToggleEligibility = async (player) => {
+    const isCurrentlyEligible = player.status === 'Eligible' && player.isEligible;
+    const newStatus = isCurrentlyEligible ? 'Suspended' : 'Eligible';
+    const newIsEligible = !isCurrentlyEligible;
+    const defaultReason = isCurrentlyEligible ? 'Suspension applied by Tournament Oversight' : '';
+
+    try {
+      const res = await api.updateAdminPlayer(player._id, {
+        status: newStatus,
+        isEligible: newIsEligible,
+        suspensionReason: defaultReason
+      });
+      if (res.success) {
+        setSelectedTeamRoster(prev => prev.map(p => p._id === player._id ? res.data : p));
+        // Update in operator home/away squad lists if relevant
+        setHomePlayers(prev => prev.map(p => p._id === player._id ? res.data : p));
+        setAwayPlayers(prev => prev.map(p => p._id === player._id ? res.data : p));
+      } else {
+        alert(res.error || 'Failed to update player status');
+      }
+    } catch (err) {
+      alert('Error updating eligibility: ' + err.message);
+    }
+  };
+
+  // Open Quick Edit for Player
+  const handleOpenQuickEdit = (player) => {
+    setEditingPlayer(player);
+  };
+
+  // Save Player Edit
+  const handleSavePlayerEdit = async (formData, rawState) => {
+    if (!editingPlayer) return;
+    setEditPlayerLoading(true);
+
+    try {
+      const res = await api.updateAdminPlayer(editingPlayer._id, formData, true);
+      if (res.success && res.data) {
+        setSelectedTeamRoster(prev => prev.map(p => p._id === editingPlayer._id ? res.data : p));
+        setHomePlayers(prev => prev.map(p => p._id === editingPlayer._id ? res.data : p));
+        setAwayPlayers(prev => prev.map(p => p._id === editingPlayer._id ? res.data : p));
+        setEditingPlayer(null);
+      } else {
+        throw new Error(res.error || 'Failed to update player');
+      }
+    } finally {
+      setEditPlayerLoading(false);
+    }
+  };
+
+  // Admin Add Player to Squad
+  const handleAddPlayerAdmin = async (formData, rawState) => {
+    if (!selectedTeamForRoster) return;
+    setEditPlayerLoading(true);
+
+    try {
+      const res = await api.addAdminPlayer(selectedTeamForRoster._id, formData, true);
+      if (res.success && res.data) {
+        setSelectedTeamRoster(prev => [...prev, res.data].sort((a, b) => a.jerseyNumber - b.jerseyNumber));
+        setShowAdminAddPlayerModal(false);
+      } else {
+        throw new Error(res.error || 'Failed to register player');
+      }
+    } finally {
+      setEditPlayerLoading(false);
+    }
+  };
+
+  // Send Urgent Lineup Reminder Email
+  const handleSendLineupReminder = async (fixtureId, teamId = null) => {
+    setLineupReminderStatus(prev => ({
+      ...prev,
+      [fixtureId]: { loading: true, msg: '', err: '' }
+    }));
+
+    try {
+      const res = await api.sendAdminLineupReminder(fixtureId, teamId);
+      if (res.success) {
+        setLineupReminderStatus(prev => ({
+          ...prev,
+          [fixtureId]: {
+            loading: false,
+            msg: res.message || 'Lineup reminder dispatched to team manager!',
+            err: ''
+          }
+        }));
+        setTimeout(() => {
+          setLineupReminderStatus(prev => {
+            const next = { ...prev };
+            delete next[fixtureId];
+            return next;
+          });
+        }, 5000);
+      } else {
+        setLineupReminderStatus(prev => ({
+          ...prev,
+          [fixtureId]: { loading: false, msg: '', err: res.error || 'Failed to dispatch email' }
+        }));
+      }
+    } catch (err) {
+      setLineupReminderStatus(prev => ({
+        ...prev,
+        [fixtureId]: { loading: false, msg: '', err: err.message || 'Network error' }
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (adminUser) {
+      loadAdminData();
+    }
+  }, [adminUser]);
+
+  // 3. Load active fixture details & squads when selectedFixtureId changes
+  useEffect(() => {
+    if (!selectedFixtureId) {
+      setActiveFixture(null);
+      return;
+    }
+
+    const current = fixtures.find(f => f._id === selectedFixtureId);
+    if (current) {
+      setActiveFixture(current);
+      setEventMinute(current.minute || 0);
+      setEventTeamId(current.homeTeam?._id || current.homeTeam || '');
+    }
+
+    api.getFixture(selectedFixtureId).then(res => {
+      if (res.success && res.data) {
+        setActiveFixture(res.data.fixture);
+        setFixtureEvents(res.data.events || []);
+        setEventMinute(res.data.fixture.minute || 0);
+
+        const hId = res.data.fixture.homeTeam?._id || res.data.fixture.homeTeam;
+        const aId = res.data.fixture.awayTeam?._id || res.data.fixture.awayTeam;
+        setEventTeamId(hId);
+
+        // Fetch squad players for event dropdowns
+        if (hId) {
+          api.getTeam(hId).then(tRes => {
+            if (tRes.success && tRes.data?.team?.squad) {
+              setHomePlayers(tRes.data.team.squad);
+            }
+          });
+        }
+        if (aId) {
+          api.getTeam(aId).then(tRes => {
+            if (tRes.success && tRes.data?.team?.squad) {
+              setAwayPlayers(tRes.data.team.squad);
+            }
+          });
+        }
+      }
+    });
+  }, [selectedFixtureId]);
+
+  // 4. Socket listener for real-time sync in operator pad
+  useEffect(() => {
+    const handleFixtureUpdated = (updated) => {
+      setFixtures(prev => prev.map(f => (f._id === updated._id ? updated : f)));
+      if (activeFixture?._id === updated._id) {
+        setActiveFixture(updated);
+        setEventMinute(updated.minute || 0);
+      }
+    };
+
+    const handleNewEvent = (newEvent) => {
+      if (newEvent.fixture === activeFixture?._id || newEvent.fixture?._id === activeFixture?._id) {
+        setFixtureEvents(prev => [...prev, newEvent]);
+      }
+    };
+
+    socket.on('fixture_updated', handleFixtureUpdated);
+    socket.on('new_match_event', handleNewEvent);
+
+    return () => {
+      socket.off('fixture_updated', handleFixtureUpdated);
+      socket.off('new_match_event', handleNewEvent);
+    };
+  }, [activeFixture]);
+
+  // Admin Login Handler
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      const res = await api.login(loginEmail, loginPassword);
+      if (res.success && res.data?.user) {
+        if (res.data.user.role !== 'admin') {
+          setLoginError('Access Denied: Insufficient administrative clearance.');
+          localStorage.removeItem('skouted_token');
+          return;
+        }
+        localStorage.setItem('skouted_token', res.data.token);
+        setAdminUser(res.data.user);
+      } else {
+        setLoginError(res.error || 'Authentication failed. Please verify credentials.');
+      }
+    } catch (err) {
+      setLoginError(err.message || 'Error connecting to auth server.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('skouted_token');
+    setAdminUser(null);
+  };
+
+  // Score quick update
+  const handleQuickScore = async (homeDelta, awayDelta) => {
+    if (!activeFixture) return;
+    const newHome = Math.max(0, (activeFixture.homeScore || 0) + homeDelta);
+    const newAway = Math.max(0, (activeFixture.awayScore || 0) + awayDelta);
+
+    try {
+      const res = await api.updateScore(activeFixture._id, newHome, newAway, eventMinute);
+      if (res.success) {
+        setActiveFixture(res.data);
+      }
+    } catch (err) {
+      alert('Error updating score: ' + err.message);
+    }
+  };
+
+  // Period switch
+  const handlePeriodSwitch = async (newStatus) => {
+    if (!activeFixture) return;
+    try {
+      const res = await api.updatePeriod(activeFixture._id, newStatus, eventMinute);
+      if (res.success) {
+        setActiveFixture(res.data);
+      }
+    } catch (err) {
+      alert('Error updating match period: ' + err.message);
+    }
+  };
+
+  // Minute adjust
+  const handleMinuteAdjust = async (delta) => {
+    if (!activeFixture) return;
+    const newMin = Math.max(0, (activeFixture.minute || 0) + delta);
+    setEventMinute(newMin);
+    try {
+      const res = await api.updateScore(activeFixture._id, activeFixture.homeScore, activeFixture.awayScore, newMin);
+      if (res.success) {
+        setActiveFixture(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Event Logger Submit
+  const handleLogEventSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeFixture) return;
+
+    setEventLoading(true);
+    setEventSuccessMsg('');
+
+    try {
+      const payload = {
+        minute: Number(eventMinute),
+        type: eventType,
+        teamId: eventTeamId,
+        playerId: eventPlayerId || null,
+        assistPlayerId: assistPlayerId || null,
+        description: eventDescription
+      };
+
+      const res = await api.logMatchEvent(activeFixture._id, payload);
+      if (res.success) {
+        setEventSuccessMsg(`${eventType} recorded and broadcasted!`);
+        if (eventType === 'GOAL') {
+          confetti({ particleCount: 60, spread: 80, origin: { y: 0.5 } });
+        }
+        setEventDescription('');
+        setEventPlayerId('');
+        setAssistPlayerId('');
+        setTimeout(() => setEventSuccessMsg(''), 4000);
+      } else {
+        alert(res.error || 'Failed to log event');
+      }
+    } catch (err) {
+      alert('Error logging event: ' + err.message);
+    } finally {
+      setEventLoading(false);
+    }
+  };
+
+  // Create Fixture Submit
+  const handleCreateFixtureSubmit = async (e) => {
+    e.preventDefault();
+    if (!homeTeamId || !awayTeamId) {
+      setCreateFixtureErr('Please select both Home and Away teams');
+      return;
+    }
+    if (homeTeamId === awayTeamId) {
+      setCreateFixtureErr('Home and Away teams must be different');
+      return;
+    }
+
+    setCreateFixtureLoading(true);
+    setCreateFixtureErr('');
+    setCreateFixtureMsg('');
+
+    try {
+      const payload = {
+        homeTeam: homeTeamId,
+        awayTeam: awayTeamId,
+        stage,
+        date: matchDate,
+        time: matchTime,
+        venue
+      };
+
+      const res = await api.createFixture(payload);
+      if (res.success) {
+        setCreateFixtureMsg('Fixture scheduled! Notice emails dispatched to both club managers.');
+        loadAdminData();
+        setTimeout(() => setCreateFixtureMsg(''), 5000);
+      } else {
+        setCreateFixtureErr(res.error || 'Failed to schedule fixture');
+      }
+    } catch (err) {
+      setCreateFixtureErr(err.message || 'Error scheduling fixture');
+    } finally {
+      setCreateFixtureLoading(false);
+    }
+  };
+
+  // Delete Fixture
+  const handleDeleteFixture = async (fixtureId) => {
+    if (!confirm('Are you sure you want to delete this fixture?')) return;
+    try {
+      const res = await api.deleteFixture(fixtureId);
+      if (res.success) {
+        setFixtures(prev => prev.filter(f => f._id !== fixtureId));
+        if (selectedFixtureId === fixtureId) {
+          setSelectedFixtureId(fixtures[0]?._id || '');
+        }
+      } else {
+        alert(res.error || 'Could not delete fixture');
+      }
+    } catch (err) {
+      alert(err.message || 'Error deleting fixture');
+    }
+  };
+
+  // Force Recalculate Standings
+  const handleRecalculateStandings = async () => {
+    try {
+      const res = await api.recalculateStandings();
+      if (res.success) {
+        setSyncMsg('Championship table standings successfully recalculated and broadcasted.');
+        setTimeout(() => setSyncMsg(''), 4000);
+      } else {
+        alert(res.error || 'Failed to recalculate');
+      }
+    } catch (err) {
+      alert(err.message || 'Error recalculating');
+    }
+  };
+
+  // Active Team Players for Event Dropdown
+  const activeTeamSquad =
+    eventTeamId === (activeFixture?.homeTeam?._id || activeFixture?.homeTeam)
+      ? homePlayers
+      : awayPlayers;
+
+  // -------------------------------------------------------------
+  // VIEW A: Loading state
+  // -------------------------------------------------------------
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0A0C10] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#00E676] border-t-transparent animate-spin"></div>
+          <span className="text-xs font-mono text-slate-400">Verifying Administrative Clearance...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VIEW B: Isolated Admin Security Gate (Login)
+  // -------------------------------------------------------------
+  if (!adminUser) {
+    return (
+      <div className="min-h-screen bg-[#07090D] flex flex-col justify-center items-center p-4 selection:bg-rose-500 selection:text-white">
+        <div className="w-full max-w-sm bg-[#10131A] border border-[#232838] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500 shadow-lg shadow-rose-500/10">
+              <Lock className="w-6 h-6" />
+            </div>
+            <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              RESTRICTED WORKSPACE
+            </span>
+            <h2 className="text-lg font-display font-extrabold text-white tracking-tight">Skouted League Ops</h2>
+            <p className="text-xs text-slate-400">Tournament Administration & Pitch-side Match Operator Console</p>
+          </div>
+
+          {loginError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{loginError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} className="space-y-3.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Admin Email
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="admin@skoutedleague.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Master Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••••••"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-400 hover:to-rose-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 disabled:opacity-50 transition-all cursor-pointer"
+            >
+              <span>{loginLoading ? 'Authenticating...' : 'Enter Operations Portal'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </form>
+
+          <div className="pt-2 text-center border-t border-white/5">
+            <button
+              type="button"
+              onClick={onExit}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              ← Return to Public Fan App
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VIEW C: Authenticated Admin Operations Dashboard
+  // -------------------------------------------------------------
+  return (
+    <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col font-sans pb-16">
+      
+      {/* Top Admin Bar */}
+      <header className="sticky top-0 z-40 bg-[#0E1118]/95 backdrop-blur-md border-b border-[#1E2332] px-3 sm:px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <Radio className="w-4 h-4 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display font-black text-sm tracking-tight text-white">SKOUTED LEAGUE</span>
+              <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 uppercase">
+                OPS CONTROL
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 font-mono">Restricted Management Console</p>
+          </div>
+        </div>
+
+        {/* Right Exit / Sign out */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden sm:block text-right pr-2 border-r border-white/10">
+            <div className="text-xs font-bold text-white">{adminUser.name}</div>
+            <div className="text-[10px] text-rose-400 font-mono uppercase">Administrator</div>
+          </div>
+
+          <button
+            onClick={onExit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all"
+            title="View public live site"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Public League</span>
+          </button>
+
+          <button
+            onClick={handleAdminLogout}
+            className="w-9 h-9 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 flex items-center justify-center transition-all"
+            title="Sign out of Admin"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Nav Tabs for Admin Workspaces */}
+      <div className="max-w-6xl w-full mx-auto px-3 sm:px-6 pt-4 pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-[#1E2332]">
+          {[
+            { id: 'operator', label: '📱 Matchday Operator', icon: Radio, count: fixtures.filter(f => f.status.includes('HALF') || f.status === 'HT').length },
+            { id: 'fixtures', label: '📅 Fixtures & Schedule', icon: Calendar, count: fixtures.length },
+            { id: 'teams', label: '🛡️ Teams & Squad Explorer', icon: Users, count: adminTeams.length || teams.length },
+            { id: 'system', label: '🔄 Diagnostics & Sync', icon: RefreshCw }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = adminTab === tab.id || (tab.id === 'teams' && adminTab === 'clubs');
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setAdminTab(tab.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
+                  isActive
+                    ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
+                    : 'bg-[#121520] border-[#222738] text-slate-400 hover:text-white'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${isActive ? 'bg-black/30' : 'bg-white/10'}`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Workspace Body */}
+      <main className="max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 flex-1">
+        
+        {/* ========================================================= */}
+        {/* 1. MATCHDAY OPERATOR PAD (Pitch-side console) */}
+        {/* ========================================================= */}
+        {adminTab === 'operator' && (
+          <div className="space-y-4">
+            
+            {/* Fixture Selector Strip */}
+            <div className="bg-[#121520] border border-[#222738] rounded-2xl p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                <Radio className="w-4 h-4 text-rose-500 animate-pulse" />
+                <span>Select Target Match:</span>
+              </div>
+              <select
+                value={selectedFixtureId}
+                onChange={(e) => setSelectedFixtureId(e.target.value)}
+                className="bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-rose-500 flex-1 sm:max-w-md"
+              >
+                {fixtures.length === 0 ? (
+                  <option value="">No fixtures scheduled yet</option>
+                ) : (
+                  fixtures.map(f => (
+                    <option key={f._id} value={f._id}>
+                      [{f.status}] {f.homeTeam?.name || 'Home'} vs {f.awayTeam?.name || 'Away'} ({f.homeScore ?? 0} - {f.awayScore ?? 0}) • {f.stage}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {!activeFixture ? (
+              <div className="glass-card rounded-3xl p-12 text-center text-slate-400 space-y-3">
+                <Calendar className="w-10 h-10 mx-auto text-slate-600" />
+                <h4 className="font-bold text-white text-base">No Match Selected</h4>
+                <p className="text-xs">Schedule fixtures first in the "Fixtures & Schedule" tab to begin matchday operations.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* Scoreboard & Period Switcher (2 Cols) */}
+                <div className="lg:col-span-2 space-y-4">
+                  
+                  {/* Big Athletic Scorecard */}
+                  <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/5 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+                      <span>{activeFixture.stage} • {activeFixture.venue}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold">
+                        {activeFixture.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 items-center py-6 text-center">
+                      {/* Home */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-2xl bg-[#1C2030] border border-[#2B3145] p-2 flex items-center justify-center mb-2 shadow-lg">
+                          {activeFixture.homeTeam?.logo ? (
+                            <img src={activeFixture.homeTeam.logo} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="font-black text-sm text-[#00E676]">{activeFixture.homeTeam?.shortCode || 'HOM'}</span>
+                          )}
+                        </div>
+                        <h4 className="font-extrabold text-sm text-white line-clamp-1">{activeFixture.homeTeam?.name || 'Home'}</h4>
+                        <span className="text-[11px] font-mono text-slate-400">{activeFixture.homeTeam?.shortCode}</span>
+                        
+                        {/* Quick +/- score */}
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => handleQuickScore(-1, 0)}
+                            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-bold flex items-center justify-center"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleQuickScore(1, 0)}
+                            className="w-8 h-8 rounded-lg bg-[#00E676] text-black font-extrabold flex items-center justify-center shadow"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Score Digits & Clock */}
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="text-4xl sm:text-5xl font-mono font-black text-white tracking-widest flex items-center gap-2">
+                          <span>{activeFixture.homeScore || 0}</span>
+                          <span className="text-slate-600">:</span>
+                          <span>{activeFixture.awayScore || 0}</span>
+                        </div>
+                        
+                        {/* Minute Clock Adjust */}
+                        <div className="mt-3 flex items-center gap-1.5 bg-[#090B10] px-3 py-1 rounded-full border border-[#222738] text-xs font-mono font-bold text-[#00E676]">
+                          <Clock className="w-3.5 h-3.5 animate-spin" />
+                          <span>{activeFixture.minute || 0}'</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 mt-2 text-[10px] font-mono">
+                          <button onClick={() => handleMinuteAdjust(-1)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
+                            -1m
+                          </button>
+                          <button onClick={() => handleMinuteAdjust(1)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
+                            +1m
+                          </button>
+                          <button onClick={() => handleMinuteAdjust(5)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
+                            +5m
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Away */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-2xl bg-[#1C2030] border border-[#2B3145] p-2 flex items-center justify-center mb-2 shadow-lg">
+                          {activeFixture.awayTeam?.logo ? (
+                            <img src={activeFixture.awayTeam.logo} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="font-black text-sm text-[#00E676]">{activeFixture.awayTeam?.shortCode || 'AWY'}</span>
+                          )}
+                        </div>
+                        <h4 className="font-extrabold text-sm text-white line-clamp-1">{activeFixture.awayTeam?.name || 'Away'}</h4>
+                        <span className="text-[11px] font-mono text-slate-400">{activeFixture.awayTeam?.shortCode}</span>
+                        
+                        {/* Quick +/- score */}
+                        <div className="flex items-center gap-2 mt-3">
+                          <button
+                            onClick={() => handleQuickScore(0, -1)}
+                            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-bold flex items-center justify-center"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleQuickScore(0, 1)}
+                            className="w-8 h-8 rounded-lg bg-[#00E676] text-black font-extrabold flex items-center justify-center shadow"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Period Switcher Toolbar */}
+                    <div className="pt-3 border-t border-white/5">
+                      <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-2 font-bold">
+                        Switch Match Period:
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs font-bold font-mono">
+                        {[
+                          { id: '1ST HALF', label: '1st Half' },
+                          { id: 'HT', label: 'Half Time (HT)' },
+                          { id: '2ND HALF', label: '2nd Half' },
+                          { id: 'FT', label: 'Full Time (FT)' },
+                          { id: 'PENS', label: 'Shootout' }
+                        ].map(period => (
+                          <button
+                            key={period.id}
+                            onClick={() => handlePeriodSwitch(period.id)}
+                            className={`py-2 px-2 rounded-xl text-center transition-all border ${
+                              activeFixture.status === period.id
+                                ? 'bg-rose-500 border-rose-500 text-white shadow-md'
+                                : 'bg-[#090B10] border-[#222738] text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {period.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Match In-Game Events Timeline */}
+                  <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 space-y-3">
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                      <Flame className="w-4 h-4 text-[#FFB800]" />
+                      <span>Live Event Feed ({fixtureEvents.length})</span>
+                    </h4>
+
+                    {fixtureEvents.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-500">
+                        No match events logged yet. Use the event recorder on the right to log goals, cards, and subs.
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-white/5 space-y-2">
+                        {fixtureEvents.map((evt, idx) => (
+                          <div key={idx} className="pt-2 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-mono font-bold text-[#00E676] bg-[#00E676]/10 px-1.5 py-0.5 rounded text-[11px]">
+                                {evt.minute}'
+                              </span>
+                              <span className="font-bold text-white">
+                                {evt.type === 'GOAL' && '⚽ GOAL'}
+                                {evt.type === 'YELLOW_CARD' && '🟨 Yellow Card'}
+                                {evt.type === 'RED_CARD' && '🟥 Red Card'}
+                                {evt.type === 'SUB_IN' && '🔄 Substitution'}
+                                {evt.type === 'VAR' && '📺 VAR Check'}
+                                {evt.type === 'OWN_GOAL' && '🥅 Own Goal'}
+                              </span>
+                              <span className="text-slate-300">
+                                {evt.player?.firstName} {evt.player?.lastName}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {evt.team?.shortCode || evt.team?.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Right: Pitch-side Event Logger Modal / Panel */}
+                <div className="space-y-4">
+                  <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+                      <Radio className="w-4 h-4 text-rose-500" />
+                      <h4 className="font-extrabold text-sm text-white">Event Recorder</h4>
+                    </div>
+
+                    {eventSuccessMsg && (
+                      <div className="p-3 bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] text-xs rounded-xl flex items-center gap-2">
+                        <Check className="w-4 h-4 shrink-0" />
+                        <span>{eventSuccessMsg}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleLogEventSubmit} className="space-y-3">
+                      
+                      {/* Event Type Grid */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Event Type
+                        </label>
+                        <select
+                          value={eventType}
+                          onChange={(e) => setEventType(e.target.value)}
+                          className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-bold"
+                        >
+                          <option value="GOAL">⚽ Goal</option>
+                          <option value="OWN_GOAL">🥅 Own Goal</option>
+                          <option value="YELLOW_CARD">🟨 Yellow Card</option>
+                          <option value="RED_CARD">🟥 Red Card</option>
+                          <option value="SUB_IN">🔄 Substitution</option>
+                          <option value="VAR">📺 VAR Review</option>
+                        </select>
+                      </div>
+
+                      {/* Team Selector */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Team
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEventTeamId(activeFixture.homeTeam?._id || activeFixture.homeTeam)}
+                            className={`py-2 px-2 rounded-xl text-xs font-bold truncate border ${
+                              eventTeamId === (activeFixture.homeTeam?._id || activeFixture.homeTeam)
+                                ? 'bg-[#00E676] text-black border-[#00E676]'
+                                : 'bg-[#090B10] border-[#232838] text-slate-300'
+                            }`}
+                          >
+                            {activeFixture.homeTeam?.name || 'Home'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEventTeamId(activeFixture.awayTeam?._id || activeFixture.awayTeam)}
+                            className={`py-2 px-2 rounded-xl text-xs font-bold truncate border ${
+                              eventTeamId === (activeFixture.awayTeam?._id || activeFixture.awayTeam)
+                                ? 'bg-[#00E676] text-black border-[#00E676]'
+                                : 'bg-[#090B10] border-[#232838] text-slate-300'
+                            }`}
+                          >
+                            {activeFixture.awayTeam?.name || 'Away'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Player Selector */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Player
+                        </label>
+                        <select
+                          value={eventPlayerId}
+                          onChange={(e) => setEventPlayerId(e.target.value)}
+                          className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
+                        >
+                          <option value="">-- Select Squad Player --</option>
+                          {activeTeamSquad.map(p => (
+                            <option key={p._id} value={p._id}>
+                              #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Assist Player (only for Goal) */}
+                      {eventType === 'GOAL' && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            Assist By (Optional)
+                          </label>
+                          <select
+                            value={assistPlayerId}
+                            onChange={(e) => setAssistPlayerId(e.target.value)}
+                            className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
+                          >
+                            <option value="">-- No Assist / Solo --</option>
+                            {activeTeamSquad.map(p => (
+                              <option key={p._id} value={p._id}>
+                                #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Minute */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Minute
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="130"
+                          value={eventMinute}
+                          onChange={(e) => setEventMinute(e.target.value)}
+                          className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      {/* Note */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Description Note
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Header from corner kick"
+                          value={eventDescription}
+                          onChange={(e) => setEventDescription(e.target.value)}
+                          className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={eventLoading}
+                        className="w-full py-2.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#00E676]/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 mt-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{eventLoading ? 'Recording...' : 'Log & Broadcast Event'}</span>
+                      </button>
+
+                    </form>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 2. FIXTURES & SCHEDULE MANAGEMENT */}
+        {/* ========================================================= */}
+        {adminTab === 'fixtures' && (
+          <div className="space-y-6">
+            
+            {/* Fixture Creator Form */}
+            <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#00E676]" />
+                  <h3 className="font-extrabold text-base text-white">Schedule New Tournament Fixture</h3>
+                </div>
+                <span className="text-[11px] text-slate-400 font-mono">Auto Manager Notice Enabled</span>
+              </div>
+
+              {createFixtureMsg && (
+                <div className="p-3 bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] text-xs rounded-xl flex items-center gap-2">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>{createFixtureMsg}</span>
+                </div>
+              )}
+
+              {createFixtureErr && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{createFixtureErr}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateFixtureSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Home Team */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Home Team *
+                    </label>
+                    <select
+                      value={homeTeamId}
+                      onChange={(e) => setHomeTeamId(e.target.value)}
+                      required
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    >
+                      <option value="">-- Select Home Club --</option>
+                      {teams.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.name} ({t.shortCode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Away Team */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Away Team *
+                    </label>
+                    <select
+                      value={awayTeamId}
+                      onChange={(e) => setAwayTeamId(e.target.value)}
+                      required
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    >
+                      <option value="">-- Select Away Club --</option>
+                      {teams.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.name} ({t.shortCode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Stage</label>
+                    <input
+                      type="text"
+                      required
+                      value={stage}
+                      onChange={(e) => setStage(e.target.value)}
+                      placeholder="Matchday 1"
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={matchDate}
+                      onChange={(e) => setMatchDate(e.target.value)}
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Kickoff Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={matchTime}
+                      onChange={(e) => setMatchTime(e.target.value)}
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Venue</label>
+                    <input
+                      type="text"
+                      required
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={createFixtureLoading || teams.length < 2}
+                  className="btn-primary py-2.5 px-6 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{createFixtureLoading ? 'Dispatching...' : 'Schedule & Notify Managers'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Existing Fixtures List */}
+            <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 space-y-4">
+              <h4 className="font-extrabold text-sm text-white">All Scheduled Fixtures ({fixtures.length})</h4>
+
+              {fixtures.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500">
+                  No fixtures scheduled yet. Use the form above to add tournament matches.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5 space-y-4">
+                  {fixtures.map(f => {
+                    const homeLineupLocked = f.homeLineup?.isLocked;
+                    const awayLineupLocked = f.awayLineup?.isLocked;
+                    const homeStartersCount = f.homeLineup?.startingXI?.length || 0;
+                    const awayStartersCount = f.awayLineup?.startingXI?.length || 0;
+
+                    // 3-Hour Cutoff Detection
+                    const fixtureDateTime = new Date(`${f.date}T${f.time || '16:00'}:00`);
+                    const now = new Date();
+                    const diffHours = (fixtureDateTime - now) / (1000 * 60 * 60);
+                    const isUpcoming = f.status === 'UPCOMING';
+                    const isCutoffPeriod = isUpcoming && diffHours > 0 && diffHours <= 3;
+                    const isOverdueLineup = isUpcoming && diffHours <= 0;
+                    const cutoffAlert = (isCutoffPeriod || isOverdueLineup) && (!homeLineupLocked || !awayLineupLocked);
+                    const reminderState = lineupReminderStatus[f._id];
+
+                    return (
+                      <div key={f._id} className="pt-4 pb-1 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-bold text-white flex-wrap">
+                              <span className="text-[#00E676]">{f.homeTeam?.name || 'Home'}</span>
+                              <span className="font-mono text-slate-500">vs</span>
+                              <span className="text-[#00E676]">{f.awayTeam?.name || 'Away'}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+                                f.status.includes('HALF') || f.status === 'HT'
+                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse font-bold'
+                                  : f.status === 'FT'
+                                  ? 'bg-slate-800 text-slate-400'
+                                  : 'bg-white/10 text-slate-300'
+                              }`}>
+                                {f.status}
+                              </span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400">
+                                {f.stage}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                              <span>📅 {f.date} at {f.time}</span>
+                              <span>•</span>
+                              <span>📍 {f.venue}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => setInspectingFixtureLineups(f)}
+                              className="px-3 py-1.5 rounded-xl bg-[#1C2030] hover:bg-[#252B40] text-xs font-bold text-slate-200 hover:text-white border border-[#2B3145] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                              title="Inspect both teams' Starting XI & Bench"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-[#00E676]" />
+                              <span>Inspect Lineups</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setSelectedFixtureId(f._id);
+                                setAdminTab('operator');
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300 hover:text-white border border-white/10 flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Operator Pad →</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteFixture(f._id)}
+                              className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 cursor-pointer"
+                              title="Delete Fixture"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Starting XI Submission Status Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-[#090B10] border border-[#1E2332] text-xs">
+                          <div className="flex items-center gap-4 flex-wrap text-[11px]">
+                            {/* Home Status */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-400">{f.homeTeam?.shortCode || 'Home'}:</span>
+                              {homeLineupLocked ? (
+                                <span className="inline-flex items-center gap-1 text-[#00E676] font-mono font-bold">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Locked ({homeStartersCount}/11)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-amber-400 font-mono font-semibold">
+                                  <Clock className="w-3.5 h-3.5" /> Pending Lineup
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-slate-700">|</span>
+
+                            {/* Away Status */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-400">{f.awayTeam?.shortCode || 'Away'}:</span>
+                              {awayLineupLocked ? (
+                                <span className="inline-flex items-center gap-1 text-[#00E676] font-mono font-bold">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Locked ({awayStartersCount}/11)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-amber-400 font-mono font-semibold">
+                                  <Clock className="w-3.5 h-3.5" /> Pending Lineup
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Resend Lineup Reminder Email Button */}
+                          {(!homeLineupLocked || !awayLineupLocked) && (
+                            <button
+                              onClick={() => handleSendLineupReminder(f._id)}
+                              disabled={reminderState?.loading}
+                              className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 self-start sm:self-auto"
+                              title="Dispatches direct Resend notification to team manager"
+                            >
+                              <Mail className="w-3 h-3 text-amber-400" />
+                              <span>{reminderState?.loading ? 'Sending Notice...' : 'Resend Lineup Reminder Email'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Cutoff Flag Notice */}
+                        {cutoffAlert && (
+                          <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-lg shadow-rose-500/10">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
+                              <span className="font-bold">
+                                🚨 3-Hour Pre-Match Cutoff Active: Lineup missing from {(!homeLineupLocked && !awayLineupLocked) ? 'BOTH teams' : !homeLineupLocked ? (f.homeTeam?.name || 'Home Club') : (f.awayTeam?.name || 'Away Club')}!
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleSendLineupReminder(f._id)}
+                              disabled={reminderState?.loading}
+                              className="px-3 py-1 rounded-lg bg-rose-500 text-white font-extrabold text-[10px] uppercase tracking-wider hover:bg-rose-400 transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+                            >
+                              Send Urgent Cutoff Alert
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Lineup Reminder Status Banner */}
+                        {reminderState?.msg && (
+                          <div className="p-2.5 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] text-xs flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 shrink-0" />
+                            <span>{reminderState.msg}</span>
+                          </div>
+                        )}
+                        {reminderState?.err && (
+                          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{reminderState.err}</span>
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 3. TEAMS DIRECTORY & SQUAD EXPLORER */}
+        {/* ========================================================= */}
+        {(adminTab === 'teams' || adminTab === 'clubs') && (
+          <div className="space-y-5">
+            
+            {/* Header & Filter Controls Card */}
+            <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-[#00E676]" />
+                    <h3 className="font-extrabold text-base text-white tracking-tight">Team Directory & Squad Explorer</h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Official participating clubs, player accreditation oversight, and pitch-side match sheets.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-300">
+                    <strong className="text-white">{adminTeams.length}</strong> Clubs Registered
+                  </span>
+                  <button
+                    onClick={() => fetchFilteredTeams(teamSearch, teamGroupFilter)}
+                    disabled={adminTeamsLoading}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer transition-all"
+                    title="Refresh Team Directory"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${adminTeamsLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Search */}
+                <div className="sm:col-span-2 relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={teamSearch}
+                    onChange={(e) => {
+                      setTeamSearch(e.target.value);
+                      fetchFilteredTeams(e.target.value, teamGroupFilter);
+                    }}
+                    placeholder="Search by club name or short code (e.g. Telu FC, TLU)..."
+                    className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
+                  />
+                  {teamSearch && (
+                    <button
+                      onClick={() => {
+                        setTeamSearch('');
+                        fetchFilteredTeams('', teamGroupFilter);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Group Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-slate-500 shrink-0" />
+                  <select
+                    value={teamGroupFilter}
+                    onChange={(e) => {
+                      setTeamGroupFilter(e.target.value);
+                      fetchFilteredTeams(teamSearch, e.target.value);
+                    }}
+                    className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676] cursor-pointer"
+                  >
+                    <option value="All">All Groups / Divisions</option>
+                    <option value="Group A">Group A</option>
+                    <option value="Group B">Group B</option>
+                    <option value="Group C">Group C</option>
+                    <option value="Group D">Group D</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Team Directory Grid */}
+            {adminTeamsLoading ? (
+              <div className="p-12 text-center text-slate-400 space-y-3">
+                <div className="w-8 h-8 rounded-full border-2 border-[#00E676] border-t-transparent animate-spin mx-auto" />
+                <p className="text-xs font-mono">Loading Team Directory & Roster Stats...</p>
+              </div>
+            ) : adminTeams.length === 0 ? (
+              <div className="glass-card rounded-3xl p-12 text-center text-slate-400 space-y-3">
+                <Users className="w-10 h-10 mx-auto text-slate-600" />
+                <h4 className="font-bold text-white text-base">No Clubs Matching Criteria</h4>
+                <p className="text-xs">Adjust your search keyword or group filter to view clubs.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {adminTeams.map(t => {
+                  const isVerified = t.status === 'Verified' || t.isVerified;
+                  const isLineupLocked = t.lineupStatus === 'Lineup Locked';
+                  const isPendingLineup = t.lineupStatus === 'Pending Lineup';
+
+                  return (
+                    <div
+                      key={t._id}
+                      className="bg-[#121520] hover:bg-[#141824] border border-[#222738] hover:border-[#2C344B] rounded-2xl p-4 sm:p-5 transition-all space-y-4 shadow-lg group"
+                    >
+                      {/* Top Header */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-[#1A1E2C] border border-white/10 p-1.5 flex items-center justify-center shrink-0 shadow-inner group-hover:border-[#00E676]/40 transition-colors">
+                            {t.logo ? (
+                              <img src={t.logo} alt="" className="w-full h-full object-contain" />
+                            ) : (
+                              <span className="font-mono font-black text-sm text-[#00E676]">{t.shortCode || 'FC'}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-white truncate">{t.name}</h4>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-slate-300 shrink-0">
+                                {t.shortCode}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2">
+                              <span className="text-slate-300 font-semibold">{t.group || 'Group A'}</span>
+                              <span>•</span>
+                              <span className="truncate">{t.homeGround || 'Home Ground'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                            isVerified
+                              ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                              : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                          }`}>
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{isVerified ? 'Verified' : 'Pending Verification'}</span>
+                          </span>
+
+                          {/* Lineup Status Badge */}
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                            isLineupLocked
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold'
+                              : isPendingLineup
+                              ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold'
+                              : 'bg-white/5 text-slate-400'
+                          }`}>
+                            <Clock className="w-3 h-3" />
+                            <span>{t.lineupStatus || 'No Match'}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Squad Count & Manager Info Strip */}
+                      <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#090B10] border border-[#1E2332] text-xs">
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Registered Squad</div>
+                          <div className="flex items-center gap-1.5 text-white font-mono font-bold text-sm">
+                            <Users className="w-4 h-4 text-[#00E676]" />
+                            <span>{t.squadCount ?? 0} Players</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Team Manager</div>
+                          <div className="text-slate-200 font-semibold truncate text-[11px]">
+                            {t.managerName || 'Manager'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono truncate">
+                            {t.managerEmail}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-1 flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenRoster(t)}
+                          className="flex-1 py-2 px-3 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>Inspect Squad Roster ({t.squadCount ?? 0})</span>
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            if (!selectedTeamRoster || selectedTeamForRoster?._id !== t._id) {
+                              const res = await api.getAdminTeamPlayers(t._id);
+                              if (res.success) {
+                                setSelectedTeamRoster(res.data?.players || []);
+                              }
+                            }
+                            setPrintableSheetTeam(t);
+                          }}
+                          className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          title="Print official match sheet for referees"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="hidden sm:inline">Print Sheet</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 4. DIAGNOSTICS & SYSTEM SYNC */}
+        {/* ========================================================= */}
+        {adminTab === 'system' && (
+          <div className="space-y-4">
+            <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+              <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-[#00E676]" />
+                <span>Tournament Operations Diagnostics</span>
+              </h3>
+
+              {syncMsg && (
+                <div className="p-3 bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] text-xs rounded-xl flex items-center gap-2">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>{syncMsg}</span>
+                </div>
+              )}
+
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-3">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">League Standings Table Calculation</h4>
+                <p className="text-xs text-slate-400">
+                  Force a full recalculation of points (PTS), goals (GF/GA/GD), and form guides (W/D/L) across all finished fixtures (`FT`).
+                </p>
+                <button
+                  onClick={handleRecalculateStandings}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Recalculate Championship Table</span>
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2 text-xs">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Live System Information</h4>
+                <div className="grid grid-cols-2 gap-2 text-slate-400 font-mono text-[11px]">
+                  <div>Server Port: <span className="text-[#00E676]">5055</span></div>
+                  <div>Database: <span className="text-[#00E676]">MongoDB Atlas (skoutedLeague)</span></div>
+                  <div>Live Feeds: <span className="text-[#00E676]">Socket.io Active</span></div>
+                  <div>Cron Scheduler: <span className="text-[#00E676]">Active (Every 5 mins)</span></div>
+                  <div>Sender Email: <span className="text-[#00E676]">tournaments@thevillagecoders.com</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* ========================================================= */}
+      {/* MODAL 1: ROSTER INSPECTOR MODAL */}
+      {/* ========================================================= */}
+      {selectedTeamForRoster && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="bg-[#10131C] border border-[#232838] w-full max-w-4xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-[#1C2030] border border-white/10 p-1 flex items-center justify-center shrink-0">
+                  {selectedTeamForRoster.logo ? (
+                    <img src={selectedTeamForRoster.logo} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="font-black text-sm text-[#00E676]">{selectedTeamForRoster.shortCode}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-white">{selectedTeamForRoster.name}</h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                      {selectedTeamForRoster.shortCode}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
+                      {selectedTeamForRoster.group || 'Group A'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 font-mono mt-0.5">
+                    Manager: {selectedTeamForRoster.managerName} • {selectedTeamForRoster.managerEmail}
+                  </div>
+                </div>
+              </div>
+
+              {/* Header Actions */}
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  onClick={() => setShowAdminAddPlayerModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-[#00E676]/20"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Player</span>
+                </button>
+
+                <button
+                  onClick={() => setPrintableSheetTeam(selectedTeamForRoster)}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-white/10"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#00E676]" />
+                  <span>Print Match Sheet</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedTeamForRoster(null)}
+                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Squad Stats Bar */}
+            <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-[#090B10] border border-[#1E2332] text-xs shrink-0">
+              <div className="text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Total Registered</div>
+                <div className="text-base font-bold text-white font-mono mt-0.5">
+                  {selectedTeamRoster.length} Players
+                </div>
+              </div>
+              <div className="text-center border-x border-white/5">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Accredited & Eligible</div>
+                <div className="text-base font-bold text-[#00E676] font-mono mt-0.5">
+                  {selectedTeamRoster.filter(p => p.status === 'Eligible' && p.isEligible !== false).length}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Suspended / Ineligible</div>
+                <div className="text-base font-bold text-rose-400 font-mono mt-0.5">
+                  {selectedTeamRoster.filter(p => p.status === 'Suspended' || p.isEligible === false).length}
+                </div>
+              </div>
+            </div>
+
+            {/* Squad Filters */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Filter squad by name or jersey #..."
+                  value={rosterSearch}
+                  onChange={(e) => setRosterSearch(e.target.value)}
+                  className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
+                />
+              </div>
+
+              {/* Position Filter Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {['All', 'GK', 'DEF', 'MID', 'FWD'].map(pos => (
+                  <button
+                    key={pos}
+                    onClick={() => setRosterPositionFilter(pos)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
+                      rosterPositionFilter === pos
+                        ? 'bg-[#00E676] text-black font-extrabold'
+                        : 'bg-[#181C28] text-slate-400 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filter */}
+              <select
+                value={rosterStatusFilter}
+                onChange={(e) => setRosterStatusFilter(e.target.value)}
+                className="bg-[#090B10] border border-[#232838] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+              >
+                <option value="All">All Eligibility</option>
+                <option value="Eligible">Eligible Only</option>
+                <option value="Suspended">Suspended Only</option>
+              </select>
+            </div>
+
+            {/* Player Squad Table / List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {rosterLoading ? (
+                <div className="py-12 text-center text-slate-400">
+                  <div className="w-7 h-7 rounded-full border-2 border-[#00E676] border-t-transparent animate-spin mx-auto mb-2" />
+                  <span className="text-xs font-mono">Fetching full team roster...</span>
+                </div>
+              ) : selectedTeamRoster.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs">
+                  No players registered in this squad yet.
+                </div>
+              ) : (
+                (() => {
+                  const filtered = selectedTeamRoster.filter(p => {
+                    const matchSearch =
+                      !rosterSearch ||
+                      `${p.firstName} ${p.lastName}`.toLowerCase().includes(rosterSearch.toLowerCase()) ||
+                      p.jerseyNumber?.toString() === rosterSearch.trim();
+                    const matchPos =
+                      rosterPositionFilter === 'All' || p.position === rosterPositionFilter;
+                    const matchStatus =
+                      rosterStatusFilter === 'All' ||
+                      (rosterStatusFilter === 'Eligible' && p.status === 'Eligible' && p.isEligible !== false) ||
+                      (rosterStatusFilter === 'Suspended' && (p.status === 'Suspended' || p.isEligible === false));
+                    return matchSearch && matchPos && matchStatus;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-8 text-center text-slate-500 text-xs">
+                        No players match the applied search or filter.
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(p => {
+                    const isEligible = p.status === 'Eligible' && p.isEligible !== false;
+                    const role = p.role || 'Squad Player';
+
+                    // Position badge colors
+                    const posColor =
+                      p.position === 'GK'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : p.position === 'DEF'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                        : p.position === 'MID'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+
+                    return (
+                      <div
+                        key={p._id}
+                        className="p-3 rounded-2xl bg-[#090B10] hover:bg-[#121622] border border-[#202536] hover:border-[#2C344B] flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
+                      >
+                        {/* Player Left: Photo, Jersey, Name, Position (Clickable to view full details) */}
+                        <div
+                          onClick={() => setSelectedPlayerForDetails(p)}
+                          className="flex items-center gap-3 flex-1 cursor-pointer group/player"
+                          title="Click to view full player details & tournament stats"
+                        >
+                          {/* Profile Photo */}
+                          <div className="w-11 h-11 rounded-xl bg-[#1C2030] border border-white/10 overflow-hidden shrink-0 flex items-center justify-center group-hover/player:border-[#00E676]/50 transition-colors shadow-inner">
+                            {p.photo ? (
+                              <img src={p.photo} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-slate-500" />
+                            )}
+                          </div>
+
+                          {/* Jersey & Name */}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-black text-sm text-[#00E676]">
+                                #{p.jerseyNumber}
+                              </span>
+                              <span className="font-bold text-sm text-white group-hover/player:text-[#00E676] transition-colors flex items-center gap-1.5">
+                                {p.firstName} {p.lastName}
+                                <span className="text-[10px] text-slate-500 font-normal font-sans group-hover/player:text-slate-300">
+                                  (view details)
+                                </span>
+                              </span>
+                              
+                              {/* Role Badges */}
+                              {role === 'Captain' && (
+                                <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-400 text-black uppercase tracking-wider">
+                                  C
+                                </span>
+                              )}
+                              {role === 'Vice Captain' && (
+                                <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-cyan-400 text-black uppercase tracking-wider">
+                                  VC
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-mono">
+                              <span className={`px-1.5 py-0.2 rounded border text-[10px] font-bold ${posColor}`}>
+                                {p.position}
+                              </span>
+                              <span>•</span>
+                              <span>Age: {p.age || 'N/A'}</span>
+                              <span>•</span>
+                              <span>Registered {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Active'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Player Right: Eligibility Status & Action Buttons */}
+                        <div className="flex items-center gap-2 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-white/5">
+                          {/* Eligibility Badge */}
+                          <div className="text-right">
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                              isEligible
+                                ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            }`}>
+                              {isEligible ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                              <span>{isEligible ? 'Eligible' : 'Suspended'}</span>
+                            </span>
+                            {p.suspensionReason && !isEligible && (
+                              <div className="text-[10px] text-rose-400/80 font-mono max-w-[140px] truncate" title={p.suspensionReason}>
+                                {p.suspensionReason}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* View Full Dossier Button */}
+                          <button
+                            onClick={() => setSelectedPlayerForDetails(p)}
+                            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer"
+                            title="View Full Player Dossier & Tournament Statistics"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-[#00E676]" />
+                          </button>
+
+                          {/* Quick Toggle Eligibility Button */}
+                          <button
+                            onClick={() => handleToggleEligibility(p)}
+                            className={`p-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                              isEligible
+                                ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                : 'bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border-[#00E676]/30'
+                            }`}
+                            title={isEligible ? 'Suspend player from matchday participation' : 'Restore player eligibility'}
+                          >
+                            {isEligible ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                            <span className="text-[10px] hidden sm:inline">
+                              {isEligible ? 'Suspend' : 'Reinstate'}
+                            </span>
+                          </button>
+
+                          {/* Quick Edit Info Button */}
+                          <button
+                            onClick={() => handleOpenQuickEdit(p)}
+                            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer"
+                            title="Edit / Correct Player Name, Jersey, Position, Role"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <span className="font-mono">Skouted League Roster Verification Protocol Active</span>
+              <button
+                onClick={() => setSelectedTeamForRoster(null)}
+                className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2A: ADMIN ADD PLAYER TO TEAM MODAL */}
+      {/* ========================================================= */}
+      <PlayerFormModal
+        isOpen={showAdminAddPlayerModal}
+        mode="add"
+        team={selectedTeamForRoster}
+        existingSquad={selectedTeamRoster}
+        isAdmin={true}
+        onClose={() => setShowAdminAddPlayerModal(false)}
+        onSubmit={handleAddPlayerAdmin}
+        isSubmitting={editPlayerLoading}
+      />
+
+      {/* ========================================================= */}
+      {/* MODAL 2B: QUICK EDIT PLAYER MODAL */}
+      {/* ========================================================= */}
+      <PlayerFormModal
+        isOpen={Boolean(editingPlayer)}
+        mode="edit"
+        player={editingPlayer}
+        team={selectedTeamForRoster}
+        existingSquad={selectedTeamRoster}
+        isAdmin={true}
+        onClose={() => setEditingPlayer(null)}
+        onSubmit={handleSavePlayerEdit}
+        isSubmitting={editPlayerLoading}
+      />
+
+      {/* ========================================================= */}
+      {/* MODAL 3: MATCHDAY LINEUP INSPECTION MODAL */}
+      {/* ========================================================= */}
+      {inspectingFixtureLineups && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="bg-[#10131C] border border-[#232838] w-full max-w-4xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-[#00E676]" />
+                  <h3 className="font-extrabold text-base text-white">Matchday Starting XI & Bench Inspection</h3>
+                </div>
+                <div className="text-xs text-slate-400 font-mono mt-0.5">
+                  {inspectingFixtureLineups.homeTeam?.name} vs {inspectingFixtureLineups.awayTeam?.name} • {inspectingFixtureLineups.date} at {inspectingFixtureLineups.time} ({inspectingFixtureLineups.venue})
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSendLineupReminder(inspectingFixtureLineups._id)}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Resend Lineup Reminder</span>
+                </button>
+
+                <button
+                  onClick={() => setInspectingFixtureLineups(null)}
+                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Side-by-Side Lineup Comparison */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
+              
+              {/* Home Team Column */}
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">{inspectingFixtureLineups.homeTeam?.name}</span>
+                    <span className="text-[10px] font-mono text-slate-400">({inspectingFixtureLineups.homeTeam?.shortCode})</span>
+                  </div>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    inspectingFixtureLineups.homeLineup?.isLocked
+                      ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {inspectingFixtureLineups.homeLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Starting XI ({inspectingFixtureLineups.homeLineup?.startingXI?.length || 0}/11)
+                  </div>
+                  {(!inspectingFixtureLineups.homeLineup?.startingXI || inspectingFixtureLineups.homeLineup.startingXI.length === 0) ? (
+                    <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                      No Starting XI submitted yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {inspectingFixtureLineups.homeLineup.startingXI.map((p, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedPlayerForDetails({
+                              ...p,
+                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
+                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
+                              team: inspectingFixtureLineups.homeTeam
+                            });
+                          }}
+                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                          title="Click to view full player details & stats"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 text-center font-mono font-black text-[#00E676]">#{p.jerseyNumber}</span>
+                            <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors">
+                              {p.name || `${p.firstName} ${p.lastName}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                              {p.position || 'MID'}
+                            </span>
+                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Bench */}
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                    Substitutes / Bench ({inspectingFixtureLineups.homeLineup?.bench?.length || 0})
+                  </div>
+                  {(!inspectingFixtureLineups.homeLineup?.bench || inspectingFixtureLineups.homeLineup.bench.length === 0) ? (
+                    <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                      No substitutes listed.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {inspectingFixtureLineups.homeLineup.bench.map((p, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedPlayerForDetails({
+                              ...p,
+                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
+                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
+                              team: inspectingFixtureLineups.homeTeam
+                            });
+                          }}
+                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                          title="Click to view full player details & stats"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 text-center font-mono font-bold text-slate-400">#{p.jerseyNumber}</span>
+                            <span className="group-hover:text-white transition-colors">{p.name || `${p.firstName} ${p.lastName}`}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                              {p.position || 'SUB'}
+                            </span>
+                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Away Team Column */}
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">{inspectingFixtureLineups.awayTeam?.name}</span>
+                    <span className="text-[10px] font-mono text-slate-400">({inspectingFixtureLineups.awayTeam?.shortCode})</span>
+                  </div>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    inspectingFixtureLineups.awayLineup?.isLocked
+                      ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {inspectingFixtureLineups.awayLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Starting XI ({inspectingFixtureLineups.awayLineup?.startingXI?.length || 0}/11)
+                  </div>
+                  {(!inspectingFixtureLineups.awayLineup?.startingXI || inspectingFixtureLineups.awayLineup.startingXI.length === 0) ? (
+                    <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                      No Starting XI submitted yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {inspectingFixtureLineups.awayLineup.startingXI.map((p, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedPlayerForDetails({
+                              ...p,
+                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
+                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
+                              team: inspectingFixtureLineups.awayTeam
+                            });
+                          }}
+                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                          title="Click to view full player details & stats"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 text-center font-mono font-black text-[#00E676]">#{p.jerseyNumber}</span>
+                            <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors">
+                              {p.name || `${p.firstName} ${p.lastName}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                              {p.position || 'MID'}
+                            </span>
+                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Bench */}
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                    Substitutes / Bench ({inspectingFixtureLineups.awayLineup?.bench?.length || 0})
+                  </div>
+                  {(!inspectingFixtureLineups.awayLineup?.bench || inspectingFixtureLineups.awayLineup.bench.length === 0) ? (
+                    <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                      No substitutes listed.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {inspectingFixtureLineups.awayLineup.bench.map((p, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSelectedPlayerForDetails({
+                              ...p,
+                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
+                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
+                              team: inspectingFixtureLineups.awayTeam
+                            });
+                          }}
+                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                          title="Click to view full player details & stats"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 text-center font-mono font-bold text-slate-400">#{p.jerseyNumber}</span>
+                            <span className="group-hover:text-white transition-colors">{p.name || `${p.firstName} ${p.lastName}`}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                              {p.position || 'SUB'}
+                            </span>
+                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-end">
+              <button
+                onClick={() => setInspectingFixtureLineups(null)}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
+              >
+                Close Inspector
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: PRINTABLE OFFICIAL TEAM MATCH SHEET */}
+      {/* ========================================================= */}
+      {printableSheetTeam && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
+          
+          {/* Action Bar Floating (Hidden during print) */}
+          <div className="fixed top-4 right-4 z-50 flex items-center gap-2 no-print bg-[#121522] p-2 rounded-2xl border border-white/15 shadow-2xl">
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 transition-all cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Match Sheet (A4)</span>
+            </button>
+            <button
+              onClick={() => setPrintableSheetTeam(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              title="Close Preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Printable Match Sheet Card */}
+          <div
+            id="printable-match-sheet"
+            className="w-full max-w-4xl bg-white text-slate-900 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 my-auto max-h-[95vh] overflow-y-auto font-sans"
+          >
+            {/* Sheet Header */}
+            <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  OFFICIAL LEAGUE ACCREDITATION ROSTER
+                </div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
+                  SKOUTED YOUTH LEAGUE 2026
+                </h1>
+                <div className="text-xs font-semibold text-slate-600 mt-0.5">
+                  Official Matchday Squad Sheet & Pitch-side Verification Record
+                </div>
+              </div>
+              <div className="text-right text-xs font-mono text-slate-600">
+                <div>Printed: {new Date().toLocaleDateString()}</div>
+                <div>Status: <span className="font-bold text-slate-900 uppercase">VERIFIED</span></div>
+              </div>
+            </div>
+
+            {/* Club Details Box */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Club Name</div>
+                <div className="font-extrabold text-sm text-slate-900">{printableSheetTeam.name}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Short Code / Group</div>
+                <div className="font-mono font-bold text-sm text-slate-900">
+                  {printableSheetTeam.shortCode} • {printableSheetTeam.group || 'Group A'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Team Manager</div>
+                <div className="font-bold text-slate-900">{printableSheetTeam.managerName || 'Verified Manager'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Manager Contact</div>
+                <div className="font-mono text-slate-700">{printableSheetTeam.managerPhone || printableSheetTeam.managerEmail}</div>
+              </div>
+            </div>
+
+            {/* Squad Table */}
+            <div className="border border-slate-300 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 uppercase font-mono font-black text-[11px]">
+                    <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200">#</th>
+                    <th className="py-2.5 px-3 border-r border-slate-200">Player Full Name</th>
+                    <th className="py-2.5 px-2 w-14 text-center border-r border-slate-200">Pos</th>
+                    <th className="py-2.5 px-2 w-24 text-center border-r border-slate-200">Role</th>
+                    <th className="py-2.5 px-2 w-24 text-center border-r border-slate-200">Eligibility</th>
+                    <th className="py-2.5 px-3 w-28 text-center border-r border-slate-200">Check-in (Init.)</th>
+                    <th className="py-2.5 px-3 w-36 text-center">Referee Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-sans">
+                  {(selectedTeamRoster.length > 0 ? selectedTeamRoster : []).map((player, idx) => {
+                    const isEligible = player.status === 'Eligible' && player.isEligible !== false;
+                    return (
+                      <tr key={player._id || idx} className="hover:bg-slate-50/50">
+                        <td className="py-2 px-3 text-center font-mono font-black border-r border-slate-200">
+                          #{player.jerseyNumber}
+                        </td>
+                        <td className="py-2 px-3 font-bold text-slate-900 border-r border-slate-200">
+                          {player.firstName} {player.lastName}
+                        </td>
+                        <td className="py-2 px-2 text-center font-mono font-semibold border-r border-slate-200">
+                          {player.position}
+                        </td>
+                        <td className="py-2 px-2 text-center font-mono text-[10px] border-r border-slate-200">
+                          {player.role || 'Squad Player'}
+                        </td>
+                        <td className="py-2 px-2 text-center border-r border-slate-200">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            isEligible ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800 font-black'
+                          }`}>
+                            {isEligible ? 'ELIGIBLE' : 'SUSPENDED'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 border-r border-slate-200">
+                          <div className="w-16 h-5 border-b border-dashed border-slate-400 mx-auto"></div>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="w-24 h-5 border-b border-dashed border-slate-400 mx-auto"></div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Official Sign-off Grid */}
+            <div className="pt-4 border-t-2 border-slate-900 grid grid-cols-3 gap-6 text-xs text-slate-700">
+              <div className="space-y-4">
+                <div className="font-bold uppercase text-[10px] text-slate-500">Team Manager Signature</div>
+                <div className="h-10 border-b border-slate-400"></div>
+                <div className="text-[10px] text-slate-500 font-mono">Date: ____________________</div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="font-bold uppercase text-[10px] text-slate-500">Lead Match Referee Signature</div>
+                <div className="h-10 border-b border-slate-400"></div>
+                <div className="text-[10px] text-slate-500 font-mono">Date: ____________________</div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="font-bold uppercase text-[10px] text-slate-500">Match Commissioner Signature</div>
+                <div className="h-10 border-b border-slate-400"></div>
+                <div className="text-[10px] text-slate-500 font-mono">Date: ____________________</div>
+              </div>
+            </div>
+
+            <div className="text-center text-[10px] text-slate-400 pt-2 font-mono">
+              Skouted Youth League • Official Matchday Form • All rights reserved • Verification ID: {printableSheetTeam._id}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 5: ATHLETE FULL DETAILS DOSSIER */}
+      {/* ========================================================= */}
+      {selectedPlayerForDetails && (
+        <PlayerDetailModal
+          player={selectedPlayerForDetails}
+          team={selectedTeamForRoster || selectedPlayerForDetails.team}
+          isAdmin={true}
+          onClose={() => setSelectedPlayerForDetails(null)}
+          onToggleEligibility={async (p) => {
+            await handleToggleEligibility(p);
+            setSelectedPlayerForDetails(prev => {
+              if (!prev) return null;
+              const willBeEligible = !(prev.status === 'Eligible' && prev.isEligible);
+              return {
+                ...prev,
+                status: willBeEligible ? 'Eligible' : 'Suspended',
+                isEligible: willBeEligible,
+                suspensionReason: willBeEligible ? '' : 'Suspension applied by Tournament Oversight'
+              };
+            });
+          }}
+          onEdit={(p) => {
+            setSelectedPlayerForDetails(null);
+            handleOpenQuickEdit(p);
+          }}
+        />
+      )}
+
+    </div>
+  );
+}
