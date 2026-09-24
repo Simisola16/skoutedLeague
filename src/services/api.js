@@ -133,6 +133,15 @@ export const api = {
     return res.json();
   },
 
+  autoGenerateFixtures: async (payload) => {
+    const res = await fetch(`${API_BASE}/fixtures/auto-generate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
   updateScore: async (id, homeScore, awayScore, minute) => {
     const res = await fetch(`${API_BASE}/fixtures/${id}/score`, {
       method: 'PATCH',

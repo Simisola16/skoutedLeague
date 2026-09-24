@@ -3,6 +3,11 @@ import {
   Shield,
   ShieldCheck,
   Sparkles,
+  Wand2,
+  Zap,
+  CalendarDays,
+  Settings2,
+  Layers,
   Lock,
   Radio,
   Calendar,
@@ -130,6 +135,19 @@ export default function AdminPortal({ onExit }) {
   const [createFixtureLoading, setCreateFixtureLoading] = useState(false);
   const [createFixtureMsg, setCreateFixtureMsg] = useState('');
   const [createFixtureErr, setCreateFixtureErr] = useState('');
+
+  // Automated Tournament Scheduling Engine State
+  const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
+  const [autoScheduleMode, setAutoScheduleMode] = useState('BY_GROUPS'); // 'BY_GROUPS' | 'ALL_IN_ONE' | 'KNOCKOUT'
+  const [autoScheduleStartDate, setAutoScheduleStartDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+  const [autoScheduleDaysBetween, setAutoScheduleDaysBetween] = useState(7);
+  const [autoScheduleTimeSlots, setAutoScheduleTimeSlots] = useState(['10:00', '13:00', '15:30', '18:00']);
+  const [autoScheduleVenues, setAutoScheduleVenues] = useState(['Legacy Arena Pitch 1', 'Legacy Arena Pitch 2', 'National Stadium Arena']);
+  const [autoScheduleClearExisting, setAutoScheduleClearExisting] = useState(true);
+  const [autoScheduleNotifyManagers, setAutoScheduleNotifyManagers] = useState(false);
+  const [autoScheduleLoading, setAutoScheduleLoading] = useState(false);
+  const [autoScheduleSuccessMsg, setAutoScheduleSuccessMsg] = useState('');
+  const [autoScheduleErrMsg, setAutoScheduleErrMsg] = useState('');
 
   // Recalculate message
   const [syncMsg, setSyncMsg] = useState('');
@@ -388,6 +406,57 @@ export default function AdminPortal({ onExit }) {
       setTimeout(() => setTeamVerificationToast(null), 6000);
     } finally {
       setVerifyingTeamId('');
+    }
+  };
+
+  // Automated Tournament Scheduling Engine Handler
+  const handleAutoGenerateFixtures = async () => {
+    setAutoScheduleLoading(true);
+    setAutoScheduleErrMsg('');
+    setAutoScheduleSuccessMsg('');
+
+    try {
+      const res = await api.autoGenerateFixtures({
+        mode: autoScheduleMode,
+        startDate: autoScheduleStartDate,
+        daysBetweenRounds: Number(autoScheduleDaysBetween),
+        timeSlots: autoScheduleTimeSlots,
+        venues: autoScheduleVenues,
+        clearExistingUpcoming: autoScheduleClearExisting,
+        autoNotifyManagers: autoScheduleNotifyManagers
+      });
+
+      if (res.success) {
+        try {
+          confetti({
+            particleCount: 90,
+            spread: 80,
+            origin: { y: 0.6 }
+          });
+        } catch (e) {}
+
+        setAutoScheduleSuccessMsg(res.message);
+        
+        // Refresh fixtures and standings in admin portal
+        const updatedFix = await api.getFixtures();
+        if (updatedFix.success) {
+          setFixtures(updatedFix.data || []);
+          if (updatedFix.data?.length > 0 && !selectedFixtureId) {
+            setSelectedFixtureId(updatedFix.data[0]._id);
+          }
+        }
+
+        setTimeout(() => {
+          setShowAutoScheduleModal(false);
+          setAutoScheduleSuccessMsg('');
+        }, 2200);
+      } else {
+        setAutoScheduleErrMsg(res.error || 'Failed to auto-generate tournament schedule');
+      }
+    } catch (err) {
+      setAutoScheduleErrMsg('Error generating schedule: ' + err.message);
+    } finally {
+      setAutoScheduleLoading(false);
     }
   };
 
@@ -1209,14 +1278,77 @@ export default function AdminPortal({ onExit }) {
         {adminTab === 'fixtures' && (
           <div className="space-y-6">
             
+            {/* Automated Tournament Fixtures Engine Hero Banner */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#121828] via-[#151D30] to-[#0D1220] border border-[#2B354F] rounded-3xl p-6 sm:p-7 shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-[#00E676]/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+              <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-[#00E676] text-xs font-mono font-bold tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>ALGORITHMIC FIXTURE SCHEDULER</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-display font-black text-white tracking-tight">
+                    Automated Tournament Fixture Engine
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Generate mathematically balanced round-robin match schedules, group stage fixtures, or knockout cups with automated venue allocation, time slot distribution, and real-time manager notifications in one click.
+                  </p>
+                  
+                  {/* Status pills */}
+                  <div className="flex flex-wrap items-center gap-2.5 pt-2 text-xs font-mono">
+                    <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-slate-300">
+                      <strong className="text-[#00E676]">{teams.length}</strong> Registered Clubs
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-slate-300">
+                      <strong className="text-[#00E676]">{[...new Set(teams.map(t => t.group || 'Group A'))].length}</strong> Active Groups
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-slate-300">
+                      <strong className="text-white">{fixtures.length}</strong> Scheduled Matches
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={() => {
+                      setAutoScheduleErrMsg('');
+                      setAutoScheduleSuccessMsg('');
+                      setShowAutoScheduleModal(true);
+                    }}
+                    className="px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-[#00E676]/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    <Wand2 className="w-4 h-4 text-black" />
+                    <span>⚡ Auto-Generate Tournament Schedule</span>
+                  </button>
+                  <span className="text-[11px] text-center text-slate-400 font-mono">
+                    Berger circle algorithm • Zero self-matchups
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Fixture Creator Form */}
             <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-[#00E676]" />
-                  <h3 className="font-extrabold text-base text-white">Schedule New Tournament Fixture</h3>
+                  <h3 className="font-extrabold text-base text-white">Manual Fixture Scheduler</h3>
                 </div>
-                <span className="text-[11px] text-slate-400 font-mono">Auto Manager Notice Enabled</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoScheduleErrMsg('');
+                      setAutoScheduleSuccessMsg('');
+                      setShowAutoScheduleModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Auto-Schedule Wizard</span>
+                  </button>
+                  <span className="text-[11px] text-slate-400 font-mono">Auto Manager Notice Enabled</span>
+                </div>
               </div>
 
               {createFixtureMsg && (
@@ -1817,6 +1949,35 @@ export default function AdminPortal({ onExit }) {
                 </div>
               )}
 
+              {/* Automated Tournament Engine Controls */}
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#00E676]" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Automated Tournament Fixture Engine</h4>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30 font-bold self-start sm:self-auto">
+                    ALGORITHMIC ENGINE ACTIVE
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Run the Berger round-robin polygon scheduling engine to automatically generate balanced match schedules for Group Stages, full Championship leagues, or Cup knockout stages with automated pitch and time slot allocation.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setAutoScheduleErrMsg('');
+                      setAutoScheduleSuccessMsg('');
+                      setShowAutoScheduleModal(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
+                  >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    <span>Launch Auto-Scheduler Wizard</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-3">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">League Standings Table Calculation</h4>
                 <p className="text-xs text-slate-400">
@@ -1824,7 +1985,7 @@ export default function AdminPortal({ onExit }) {
                 </p>
                 <button
                   onClick={handleRecalculateStandings}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Recalculate Championship Table</span>
@@ -2612,6 +2773,476 @@ export default function AdminPortal({ onExit }) {
 
             <div className="text-center text-[10px] text-slate-400 pt-2 font-mono">
               Skouted Youth League • Official Matchday Form • All rights reserved • Verification ID: {printableSheetTeam._id}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 6: AUTOMATED TOURNAMENT FIXTURE GENERATOR MODAL */}
+      {/* ========================================================= */}
+      {showAutoScheduleModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="bg-[#10131C] border border-[#2B354F] w-full max-w-3xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-6 my-auto max-h-[92vh] flex flex-col text-slate-100">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-lg shadow-[#00E676]/10">
+                  <Wand2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-black text-lg text-white tracking-tight">
+                      Automated Tournament Scheduler
+                    </h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30 font-bold uppercase">
+                      Algorithmic Engine
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Berger circle method • Balanced home/away rotation • Pitch & time slot distribution
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowAutoScheduleModal(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Error & Success Feedback Banners */}
+            {autoScheduleErrMsg && (
+              <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2.5 shrink-0 shadow-lg shadow-rose-500/10">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{autoScheduleErrMsg}</span>
+              </div>
+            )}
+
+            {autoScheduleSuccessMsg && (
+              <div className="p-3.5 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/40 text-[#00E676] text-xs flex items-center gap-2.5 shrink-0 shadow-lg shadow-[#00E676]/10">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="font-bold">{autoScheduleSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Scrollable Form Body */}
+            <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+              
+              {/* 1. Tournament Competition Mode */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#00E676]" />
+                  <span>1. Select Tournament Competition Format</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    {
+                      id: 'BY_GROUPS',
+                      title: 'Group Stage',
+                      sub: 'Round-Robin by Groups',
+                      desc: 'Teams only play round-robin against opponents in their group (Group A, Group B).',
+                      badge: 'Berger Algorithm'
+                    },
+                    {
+                      id: 'ALL_IN_ONE',
+                      title: 'All-In-One League',
+                      sub: 'Full Championship',
+                      desc: 'Every registered club plays every other club once across sequential matchdays.',
+                      badge: 'Championship'
+                    },
+                    {
+                      id: 'KNOCKOUT',
+                      title: 'Knockout Bracket',
+                      sub: 'Cup Elimination',
+                      desc: 'Generates single-elimination tournament match bracket for registered teams.',
+                      badge: 'Direct Knockout'
+                    }
+                  ].map(mode => {
+                    const isSelected = autoScheduleMode === mode.id;
+                    return (
+                      <div
+                        key={mode.id}
+                        onClick={() => setAutoScheduleMode(mode.id)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-[#00E676]/10 border-[#00E676] shadow-lg shadow-[#00E676]/10 ring-1 ring-[#00E676]'
+                            : 'bg-[#090B10] border-[#222738] hover:border-[#323B50]'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-white">{mode.title}</span>
+                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-extrabold ${
+                              isSelected ? 'bg-[#00E676] text-black' : 'bg-white/10 text-slate-400'
+                            }`}>
+                              {mode.badge}
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-semibold text-[#00E676]">{mode.sub}</div>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">{mode.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-[#00E676] bg-[#00E676]' : 'border-slate-600'
+                          }`}>
+                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                          </div>
+                          <span className={isSelected ? 'text-[#00E676]' : 'text-slate-500'}>
+                            {isSelected ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Schedule Timing & Matchday Progression */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-[#00E676]" />
+                  <span>2. Matchday Calendar & Intervals</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
+                  {/* Start Date */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Tournament Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={autoScheduleStartDate}
+                      onChange={(e) => setAutoScheduleStartDate(e.target.value)}
+                      className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">Matchday 1 will kick off on this date</span>
+                  </div>
+
+                  {/* Days Between Rounds */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Interval Between Matchdays (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={autoScheduleDaysBetween}
+                      onChange={(e) => setAutoScheduleDaysBetween(Math.max(1, Number(e.target.value)))}
+                      className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
+                    />
+                    
+                    {/* Quick Interval Preset Chips */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {[
+                        { label: '3d (Fast)', val: 3 },
+                        { label: '7d (Weekly)', val: 7 },
+                        { label: '14d (Bi-weekly)', val: 14 }
+                      ].map(chip => (
+                        <button
+                          key={chip.val}
+                          type="button"
+                          onClick={() => setAutoScheduleDaysBetween(chip.val)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                            autoScheduleDaysBetween === chip.val
+                              ? 'bg-[#00E676] text-black font-extrabold'
+                              : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Daily Kickoff Time Slots & Stadium Venues */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Time Slots */}
+                <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span>Kickoff Time Slots</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAutoScheduleTimeSlots(['10:00', '13:00', '15:30', '18:00'])}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 font-mono"
+                    >
+                      Reset Default
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {autoScheduleTimeSlots.map((ts, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#121622] border border-[#2B3145] text-xs font-mono text-slate-200"
+                      >
+                        {ts}
+                        {autoScheduleTimeSlots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setAutoScheduleTimeSlots(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-500 hover:text-rose-400 ml-1"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Add Custom Time Slot */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="time"
+                      id="newTimeSlotInput"
+                      defaultValue="19:00"
+                      className="bg-[#121622] border border-[#2B3145] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById('newTimeSlotInput');
+                        if (el && el.value && !autoScheduleTimeSlots.includes(el.value)) {
+                          setAutoScheduleTimeSlots(prev => [...prev, el.value].sort());
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
+                    >
+                      + Add Time
+                    </button>
+                  </div>
+                </div>
+
+                {/* Venues */}
+                <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span>Venues / Pitches</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAutoScheduleVenues(['Legacy Arena Pitch 1', 'Legacy Arena Pitch 2', 'National Stadium Arena'])}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 font-mono"
+                    >
+                      Reset Default
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {autoScheduleVenues.map((v, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#121622] border border-[#2B3145] text-[11px] font-mono text-slate-200"
+                      >
+                        {v}
+                        {autoScheduleVenues.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setAutoScheduleVenues(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-500 hover:text-rose-400 ml-1"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Add Custom Venue */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      id="newVenueInput"
+                      placeholder="e.g. Arena Pitch 3"
+                      className="bg-[#121622] border border-[#2B3145] rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#00E676] flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById('newVenueInput');
+                        if (el && el.value.trim() && !autoScheduleVenues.includes(el.value.trim())) {
+                          setAutoScheduleVenues(prev => [...prev, el.value.trim()]);
+                          el.value = '';
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold shrink-0"
+                    >
+                      + Add Venue
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 4. Automated Execution Settings */}
+              <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5 text-[#00E676]" />
+                  <span>Automation & Notification Preferences</span>
+                </label>
+
+                <div className="space-y-2 text-xs">
+                  {/* Clear Existing Checkbox */}
+                  <label className="flex items-start gap-2.5 p-2 rounded-xl bg-[#121622] border border-[#232838] cursor-pointer hover:border-white/15 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={autoScheduleClearExisting}
+                      onChange={(e) => setAutoScheduleClearExisting(e.target.checked)}
+                      className="mt-0.5 accent-[#00E676] w-4 h-4 rounded cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-bold text-white">Reset Existing Unplayed Fixtures</div>
+                      <div className="text-[11px] text-slate-400">
+                        Removes existing upcoming (unplayed) fixtures so the new schedule starts fresh with no duplicate matches.
+                      </div>
+                    </div>
+                  </label>
+
+                  {/* Auto Notify Managers Checkbox */}
+                  <label className="flex items-start gap-2.5 p-2 rounded-xl bg-[#121622] border border-[#232838] cursor-pointer hover:border-white/15 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={autoScheduleNotifyManagers}
+                      onChange={(e) => setAutoScheduleNotifyManagers(e.target.checked)}
+                      className="mt-0.5 accent-[#00E676] w-4 h-4 rounded cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-bold text-white">Email Match Announcements to Club Managers</div>
+                      <div className="text-[11px] text-slate-400">
+                        Automatically dispatch fixture schedule confirmation emails with date, kickoff time, and venue to verified team managers.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* 5. Pre-flight Calculation & Summary Card */}
+              {(() => {
+                const detectedGroups = [...new Set(teams.map(t => t.group || 'Group A'))].sort();
+                let estMatches = 0;
+                let estRounds = 0;
+
+                if (autoScheduleMode === 'BY_GROUPS') {
+                  detectedGroups.forEach(grp => {
+                    const count = teams.filter(t => (t.group || 'Group A') === grp).length;
+                    if (count >= 2) {
+                      estMatches += (count * (count - 1)) / 2;
+                    }
+                    const r = count % 2 === 0 ? count - 1 : count;
+                    if (r > estRounds) estRounds = r;
+                  });
+                } else if (autoScheduleMode === 'ALL_IN_ONE') {
+                  const n = teams.length;
+                  estMatches = (n * (n - 1)) / 2;
+                  estRounds = n % 2 === 0 ? n - 1 : n;
+                } else if (autoScheduleMode === 'KNOCKOUT') {
+                  estMatches = Math.floor(teams.length / 2);
+                  estRounds = 1;
+                }
+
+                return (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#00E676]/10 via-[#101926] to-[#0A0D15] border border-[#00E676]/30 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[#00E676]" />
+                        <span className="font-bold text-xs text-white uppercase tracking-wider">
+                          Pre-Flight Engine Simulation
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold">
+                        Calculated
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Teams</div>
+                        <div className="text-base font-bold font-mono text-[#00E676] mt-0.5">
+                          {teams.length}
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Groups</div>
+                        <div className="text-base font-bold font-mono text-white mt-0.5">
+                          {autoScheduleMode === 'BY_GROUPS' ? detectedGroups.length : 1}
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Matches</div>
+                        <div className="text-base font-bold font-mono text-[#00E676] mt-0.5">
+                          {estMatches}
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Matchdays</div>
+                        <div className="text-base font-bold font-mono text-white mt-0.5">
+                          {estRounds} Rounds
+                        </div>
+                      </div>
+                    </div>
+
+                    {teams.length < 2 && (
+                      <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span>At least 2 registered teams are required to generate an automated schedule.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+                <ShieldCheck className="w-4 h-4 text-[#00E676]" />
+                <span>Zero duplicate or self-matchups guarantee</span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowAutoScheduleModal(false)}
+                  disabled={autoScheduleLoading}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAutoGenerateFixtures}
+                  disabled={autoScheduleLoading || teams.length < 2}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-[#00E676]/25 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {autoScheduleLoading ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                      <span>Generating Match Schedule...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>Generate & Broadcast Schedule</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>
