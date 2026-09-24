@@ -1,4 +1,9 @@
-const API_BASE = '/api';
+const BACKEND_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''
+    : 'https://skoutedyouthleague-backend.onrender.com');
+
+const API_BASE = `${BACKEND_URL}/api`;
 
 function getAuthHeaders() {
   const token = localStorage.getItem('skouted_token');
