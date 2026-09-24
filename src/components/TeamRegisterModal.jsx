@@ -63,6 +63,9 @@ export default function TeamRegisterModal({
       }
 
       const userId = authRes.data?.userId;
+      if (authRes.data?.debugOtp) {
+        setOtp(authRes.data.debugOtp);
+      }
 
       // Step B: Create Team with optional crest file
       const formData = new FormData();
@@ -77,7 +80,9 @@ export default function TeamRegisterModal({
 
       const teamRes = await api.createTeam(formData);
       if (teamRes.success) {
-        setSuccessMsg(`A 6-digit confirmation code has been sent to ${managerEmail}`);
+        setSuccessMsg(authRes.data?.debugOtp 
+          ? `Verification code generated: ${authRes.data.debugOtp}`
+          : `A 6-digit confirmation code has been sent to ${managerEmail}`);
         setStep(2); // Advance to OTP step
       } else {
         setErrorMsg(teamRes.error || 'Failed to register team');
@@ -125,8 +130,13 @@ export default function TeamRegisterModal({
       setLoading(true);
       const res = await api.resendOtp(managerEmail);
       if (res.success) {
-        setSuccessMsg('New 6-digit verification code dispatched via Resend!');
-        setTimeout(() => setSuccessMsg(''), 3000);
+        if (res.debugOtp) {
+          setOtp(res.debugOtp);
+          setSuccessMsg(`New 6-digit verification code: ${res.debugOtp}`);
+        } else {
+          setSuccessMsg('New 6-digit verification code dispatched!');
+        }
+        setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setErrorMsg(res.error || 'Failed to resend code');
       }
@@ -328,9 +338,15 @@ export default function TeamRegisterModal({
                 </div>
                 <h4 className="text-base font-bold text-white">Enter 6-Digit Verification Code</h4>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                  We dispatched a 6-digit security code via Resend to <strong className="text-white">{managerEmail}</strong>
+                  We dispatched a 6-digit security code to <strong className="text-white">{managerEmail}</strong>
                 </p>
               </div>
+
+              {otp && (
+                <div className="p-2.5 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 text-center text-xs text-[#00E676] max-w-xs mx-auto">
+                  <span>⚡ Auto-Detected Code: <strong className="font-mono tracking-wider text-white ml-1 font-bold">{otp}</strong></span>
+                </div>
+              )}
 
               {/* OTP Digits Input */}
               <div className="max-w-[240px] mx-auto">

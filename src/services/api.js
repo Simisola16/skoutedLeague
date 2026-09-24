@@ -261,6 +261,15 @@ export const api = {
     return res.json();
   },
 
+  verifyAdminTeam: async (teamId, status = 'Verified') => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status })
+    });
+    return res.json();
+  },
+
   // Authenticated Team Manager Dashboard Endpoints
   getTeamDashboard: async () => {
     const res = await fetch(`${API_BASE}/team/dashboard`, {

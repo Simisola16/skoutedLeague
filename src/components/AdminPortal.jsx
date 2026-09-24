@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Shield,
+  ShieldCheck,
+  Sparkles,
   Lock,
   Radio,
   Calendar,
@@ -63,6 +65,8 @@ export default function AdminPortal({ onExit }) {
   const [adminTeamsLoading, setAdminTeamsLoading] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamGroupFilter, setTeamGroupFilter] = useState('All');
+  const [verifyingTeamId, setVerifyingTeamId] = useState('');
+  const [teamVerificationToast, setTeamVerificationToast] = useState(null);
 
   // Roster Inspector State
   const [selectedTeamForRoster, setSelectedTeamForRoster] = useState(null);
@@ -320,6 +324,70 @@ export default function AdminPortal({ onExit }) {
         ...prev,
         [fixtureId]: { loading: false, msg: '', err: err.message || 'Network error' }
       }));
+    }
+  };
+
+  // Direct Admin Team & Manager Verification (Bypass OTP)
+  const handleVerifyTeam = async (teamId, status = 'Verified') => {
+    setVerifyingTeamId(teamId);
+    try {
+      const res = await api.verifyAdminTeam(teamId, status);
+      if (res.success) {
+        if (status === 'Verified') {
+          try {
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.8 }
+            });
+          } catch (e) {}
+        }
+
+        // Update local adminTeams list immediately
+        setAdminTeams(prev => prev.map(t => {
+          if (t._id === teamId) {
+            return {
+              ...t,
+              status: status,
+              isVerified: status === 'Verified',
+              managerUser: t.managerUser ? { ...t.managerUser, isVerified: status === 'Verified' } : null
+            };
+          }
+          return t;
+        }));
+
+        // Also update selectedTeamForRoster if open
+        setSelectedTeamForRoster(prev => {
+          if (prev && prev._id === teamId) {
+            return {
+              ...prev,
+              status: status,
+              isVerified: status === 'Verified'
+            };
+          }
+          return prev;
+        });
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: res.message || (status === 'Verified' ? 'Team and Manager account successfully verified (No OTP needed)!' : `Team status updated to ${status}`)
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to update team verification'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Verification error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setVerifyingTeamId('');
     }
   };
 
@@ -1524,6 +1592,35 @@ export default function AdminPortal({ onExit }) {
               </div>
             </div>
 
+            {/* Verification Alert Toast */}
+            {teamVerificationToast && (
+              <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs transition-all shadow-lg animate-in fade-in slide-in-from-top-2 ${
+                teamVerificationToast.type === 'success'
+                  ? 'bg-[#00E676]/15 border-[#00E676]/30 text-[#00E676]'
+                  : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  {teamVerificationToast.type === 'success' ? (
+                    <ShieldCheck className="w-5 h-5 shrink-0 text-[#00E676]" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+                  )}
+                  <div>
+                    <strong className="block text-white font-bold">
+                      {teamVerificationToast.type === 'success' ? 'Verification Updated' : 'Action Failed'}
+                    </strong>
+                    <span className="opacity-90">{teamVerificationToast.msg}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTeamVerificationToast(null)}
+                  className="text-current opacity-70 hover:opacity-100 p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Team Directory Grid */}
             {adminTeamsLoading ? (
               <div className="p-12 text-center text-slate-400 space-y-3">
@@ -1573,16 +1670,27 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         </div>
 
-                        {/* Status Badges */}
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                            isVerified
-                              ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
-                              : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                          }`}>
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>{isVerified ? 'Verified' : 'Pending Verification'}</span>
-                          </span>
+                        {/* Status Badges & Quick Action */}
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleVerifyTeam(t._id, isVerified ? 'Pending Verification' : 'Verified')}
+                            disabled={verifyingTeamId === t._id}
+                            title={isVerified ? "Click to set back to Pending" : "Click to verify team immediately without OTP"}
+                            className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
+                              isVerified
+                                ? 'bg-[#00E676]/15 text-[#00E676] hover:bg-[#00E676]/25 border border-[#00E676]/30'
+                                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 shadow-sm shadow-amber-500/10 animate-pulse'
+                            }`}
+                          >
+                            {verifyingTeamId === t._id ? (
+                              <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+                            ) : isVerified ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
+                            ) : (
+                              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                            )}
+                            <span>{isVerified ? 'Verified ✓' : 'Pending OTP'}</span>
+                          </button>
 
                           {/* Lineup Status Badge */}
                           <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 ${
@@ -1618,6 +1726,41 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         </div>
                       </div>
+
+                      {/* Instant Admin Verification Banner (Bypass OTP) */}
+                      {!isVerified && (
+                        <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-[#00E676]/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-500/30">
+                              <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 text-[11px] leading-tight">
+                              <div className="font-bold text-white flex items-center gap-1.5">
+                                <span>Pending Email OTP</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">Unverified</span>
+                              </div>
+                              <span className="text-slate-400 text-[10px]">Verify to let manager login without needing email OTP</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleVerifyTeam(t._id, 'Verified')}
+                            disabled={verifyingTeamId === t._id}
+                            className="py-1.5 px-3.5 rounded-lg bg-[#00E676] hover:bg-[#00c968] active:scale-[0.98] text-black font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#00E676]/20 cursor-pointer shrink-0"
+                          >
+                            {verifyingTeamId === t._id ? (
+                              <>
+                                <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                                <span>Verifying...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Verify (Bypass OTP)</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
 
                       {/* Action Buttons */}
                       <div className="pt-1 flex items-center gap-2">
@@ -1731,6 +1874,13 @@ export default function AdminPortal({ onExit }) {
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
                       {selectedTeamForRoster.group || 'Group A'}
                     </span>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      (selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified)
+                        ? 'bg-[#00E676]/15 text-[#00E676] border-[#00E676]/30'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    }`}>
+                      {(selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified) ? 'Verified' : 'Pending OTP'}
+                    </span>
                   </div>
                   <div className="text-xs text-slate-400 font-mono mt-0.5">
                     Manager: {selectedTeamForRoster.managerName} • {selectedTeamForRoster.managerEmail}
@@ -1739,7 +1889,33 @@ export default function AdminPortal({ onExit }) {
               </div>
 
               {/* Header Actions */}
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                {/* Admin Direct Verify Action (Bypass OTP) */}
+                <button
+                  onClick={() => handleVerifyTeam(
+                    selectedTeamForRoster._id,
+                    (selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified) ? 'Pending Verification' : 'Verified'
+                  )}
+                  disabled={verifyingTeamId === selectedTeamForRoster._id}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    (selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified)
+                      ? 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                      : 'bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold border-[#00E676] shadow-lg shadow-[#00E676]/20'
+                  }`}
+                  title="Toggle team verification without requiring manager OTP"
+                >
+                  {verifyingTeamId === selectedTeamForRoster._id ? (
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {(selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified)
+                      ? 'Set Pending'
+                      : 'Verify Club (No OTP)'}
+                  </span>
+                </button>
+
                 <button
                   onClick={() => setShowAdminAddPlayerModal(true)}
                   className="px-3 py-1.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-[#00E676]/20"

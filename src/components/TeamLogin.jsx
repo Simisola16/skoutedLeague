@@ -32,7 +32,12 @@ export default function TeamLogin({
         }
       } else if (res.requiresVerification) {
         setRequiresOtp(true);
-        setErrorMsg('Please enter the 6-digit verification code sent to your email.');
+        if (res.debugOtp) {
+          setOtpCode(res.debugOtp);
+          setOtpSuccessMsg(`Verification code generated: ${res.debugOtp}`);
+        } else {
+          setErrorMsg(res.error || 'Please enter the 6-digit verification code sent to your email.');
+        }
       } else {
         setErrorMsg(res.error || 'Invalid manager credentials');
       }
@@ -72,8 +77,13 @@ export default function TeamLogin({
     try {
       const res = await api.resendOtp(email.trim());
       if (res.success) {
-        setOtpSuccessMsg('New 6-digit OTP dispatched to your inbox.');
-        setTimeout(() => setOtpSuccessMsg(''), 4000);
+        if (res.debugOtp) {
+          setOtpCode(res.debugOtp);
+          setOtpSuccessMsg(`New 6-digit OTP generated: ${res.debugOtp}`);
+        } else {
+          setOtpSuccessMsg('New 6-digit OTP dispatched to your inbox.');
+        }
+        setTimeout(() => setOtpSuccessMsg(''), 5000);
       } else {
         setErrorMsg(res.error || 'Failed to resend code');
       }
@@ -176,6 +186,12 @@ export default function TeamLogin({
                   Sent to <strong className="text-white">{email}</strong>
                 </p>
               </div>
+
+              {otpCode && (
+                <div className="p-2.5 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 text-center text-xs text-[#00E676]">
+                  <span>⚡ Auto-Detected Code: <strong className="font-mono tracking-wider text-white ml-1 font-bold">{otpCode}</strong></span>
+                </div>
+              )}
 
               <div>
                 <input
