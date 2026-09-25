@@ -23,7 +23,7 @@ export default function StandingsTable({ standings = [], onTeamClick }) {
           <Trophy className="w-5 h-5 text-[#FFB800]" />
           <div>
             <h3 className="font-display font-extrabold text-base text-white">Championship League Table</h3>
-            <p className="text-[11px] text-slate-400">Top 2 advance directly to Finals • 3rd & 4th enter Playoff</p>
+            <p className="text-[11px] text-slate-400">12 Clubs • 22 Matches per club (Home & Away) • Season 2026/2027</p>
           </div>
         </div>
       </div>
@@ -159,7 +159,7 @@ export default function StandingsTable({ standings = [], onTeamClick }) {
       <div className="p-3 border-t border-[#1E2330] bg-[#10131B] flex flex-wrap items-center gap-4 text-[11px] text-slate-400">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm bg-[#FFB800]"></span>
-          <span>1st: Champion & Trophy</span>
+          <span>1st: League Cup & Champion's Trophy</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm bg-[#00E676]/60"></span>

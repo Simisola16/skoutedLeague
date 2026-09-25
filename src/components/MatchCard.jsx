@@ -47,6 +47,11 @@ export default function MatchCard({
         {/* Stage & Status */}
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-400">{fixture.stage}</span>
+          {fixture.leg && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+              Leg {fixture.leg}
+            </span>
+          )}
           <span className="text-slate-600">•</span>
           
           {isLive ? (

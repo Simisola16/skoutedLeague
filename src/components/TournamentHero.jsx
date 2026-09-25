@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Shield, MapPin, Users, Award, ChevronDown, ArrowRight, Radio, Flame, Sparkles } from 'lucide-react';
+import { Trophy, Shield, MapPin, Users, Award, ChevronDown, ArrowRight, Radio, Flame, Sparkles, Star } from 'lucide-react';
 
 export default function TournamentHero({
   liveMatchesCount = 0,
@@ -51,31 +51,31 @@ export default function TournamentHero({
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></span>
               <span className="text-[11px] sm:text-xs font-mono font-extrabold text-[#00E676] tracking-wider uppercase">
-                REGISTRATION OPEN • SEASON 2026
+                REGISTRATION OPEN • SEASON 2026/2027
               </span>
             </div>
           )}
           <span className="text-slate-600 hidden sm:inline">•</span>
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400">
             <Sparkles className="w-3 h-3 text-[#FFB800]" />
-            Official Youth Championship
+            Premier Youth Championship
           </span>
         </div>
 
         {/* Hero Title & Branding */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-display tracking-tight text-white uppercase leading-[1.1] max-w-4xl">
-          Skouted League <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] via-[#10B981] to-[#38BDF8]">Championship</span>
+          Skouted Youth League <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] via-[#10B981] to-[#38BDF8]">Championship</span>
         </h1>
 
         {/* High-Energy Tagline */}
         <p className="mt-3 sm:mt-4 text-base sm:text-xl font-medium text-slate-300 max-w-2xl">
-          Where Champions Are Made <span className="text-[#00E676] font-bold">|</span> Season 2026
+          Where Champions Are Made <span className="text-[#00E676] font-bold">|</span> Season 2026/2027
         </p>
         <p className="text-xs sm:text-sm text-slate-400 max-w-xl mt-1.5">
           The premier grassroots and youth scouting tournament. Real-time scores, verified squad dossiers, and professional matchday operations.
         </p>
 
-        {/* 2 to 3 Concise Stat/Feature Highlights */}
+        {/* 3 Core Highlight Feature Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full max-w-4xl mt-6 sm:mt-8 text-left">
           
           {/* Card 1: Format */}
@@ -85,8 +85,8 @@ export default function TournamentHero({
             </div>
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">Competition Format</div>
-              <div className="text-sm font-bold text-white mt-0.5">16 Elite Squads</div>
-              <div className="text-[11px] text-slate-400">Group Stages & Knockouts</div>
+              <div className="text-sm font-bold text-white mt-0.5">12 Clubs • League Format</div>
+              <div className="text-[11px] text-slate-400">22 Matches / 2 Legs (Home & Away)</div>
             </div>
           </div>
 
@@ -96,24 +96,56 @@ export default function TournamentHero({
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">Host Venues</div>
-              <div className="text-sm font-bold text-white mt-0.5">Main Stadium Arena</div>
-              <div className="text-[11px] text-slate-400">Lagos, NG • Pitch Arena 1 & 2</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">Host Stadium</div>
+              <div className="text-sm font-bold text-white mt-0.5">Lekan Salami Stadium</div>
+              <div className="text-[11px] text-slate-400">Adamasingba, Ibadan</div>
             </div>
           </div>
 
-          {/* Card 3: Honors / Prize */}
+          {/* Card 3: Honors */}
           <div className="glass-card rounded-2xl p-4 border border-[#232A3B] bg-[#141722]/80 hover:border-[#FFB800]/40 transition-all flex items-start gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-[#FFB800]/10 border border-[#FFB800]/25 flex items-center justify-center shrink-0 text-[#FFB800]">
               <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">Grand Honors</div>
-              <div className="text-sm font-bold text-white mt-0.5">₦2,500,000 Pool</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">Tournament Honors</div>
+              <div className="text-sm font-bold text-white mt-0.5">League Cup & Trophy</div>
               <div className="text-[11px] text-slate-400">Golden Boot, Glove & MVP</div>
             </div>
           </div>
 
+        </div>
+
+        {/* Dedicated Tournament Honors & Awards Showcase Bar */}
+        <div className="w-full max-w-4xl mt-5 p-3.5 rounded-2xl bg-[#11141F]/90 border border-[#222838] flex flex-wrap items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-2">
+            <Award className="w-4 h-4 text-[#FFB800] shrink-0" />
+            <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-white">
+              Official Honors & Awards:
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
+              <span>🏆</span>
+              <span className="font-semibold">League Cup & Champion's Trophy</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
+              <span>👟</span>
+              <span className="font-semibold">Golden Boot (Top Scorer)</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
+              <span>🧤</span>
+              <span className="font-semibold">Golden Glove (Best GK)</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
+              <span>⭐</span>
+              <span className="font-semibold">Tournament MVP</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676]">
+              <span>🌟</span>
+              <span className="font-semibold">Scouting & Pro Showcase</span>
+            </span>
+          </div>
         </div>
 
         {/* Primary Action Buttons (Call-to-Action) */}

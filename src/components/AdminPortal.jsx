@@ -127,22 +127,25 @@ export default function AdminPortal({ onExit }) {
 
   // Fixture creation
   const [stage, setStage] = useState('Matchday 1');
+  const [matchday, setMatchday] = useState(1);
+  const [leg, setLeg] = useState(1);
   const [homeTeamId, setHomeTeamId] = useState('');
   const [awayTeamId, setAwayTeamId] = useState('');
   const [matchDate, setMatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [matchTime, setMatchTime] = useState('16:00');
-  const [venue, setVenue] = useState('Legacy Arena, Pitch 1');
+  const [venue, setVenue] = useState('Lekan Salami Stadium, Adamasingba, Ibadan');
   const [createFixtureLoading, setCreateFixtureLoading] = useState(false);
   const [createFixtureMsg, setCreateFixtureMsg] = useState('');
   const [createFixtureErr, setCreateFixtureErr] = useState('');
 
   // Automated Tournament Scheduling Engine State
   const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
-  const [autoScheduleMode, setAutoScheduleMode] = useState('BY_GROUPS'); // 'BY_GROUPS' | 'ALL_IN_ONE' | 'KNOCKOUT'
+  const [autoScheduleMode, setAutoScheduleMode] = useState('LEAGUE_22'); // 'LEAGUE_22' | 'ALL_IN_ONE' | 'BY_GROUPS' | 'KNOCKOUT'
+  const [autoScheduleLegs, setAutoScheduleLegs] = useState('2_LEGS'); // '2_LEGS' (Home & Away) | '1_LEG' (Single Leg Neutral)
   const [autoScheduleStartDate, setAutoScheduleStartDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [autoScheduleDaysBetween, setAutoScheduleDaysBetween] = useState(7);
   const [autoScheduleTimeSlots, setAutoScheduleTimeSlots] = useState(['10:00', '13:00', '15:30', '18:00']);
-  const [autoScheduleVenues, setAutoScheduleVenues] = useState(['Legacy Arena Pitch 1', 'Legacy Arena Pitch 2', 'National Stadium Arena']);
+  const [autoScheduleVenues, setAutoScheduleVenues] = useState(['Lekan Salami Stadium, Adamasingba, Ibadan', 'Legacy Arena Pitch 1']);
   const [autoScheduleClearExisting, setAutoScheduleClearExisting] = useState(true);
   const [autoScheduleNotifyManagers, setAutoScheduleNotifyManagers] = useState(false);
   const [autoScheduleLoading, setAutoScheduleLoading] = useState(false);
@@ -418,6 +421,7 @@ export default function AdminPortal({ onExit }) {
     try {
       const res = await api.autoGenerateFixtures({
         mode: autoScheduleMode,
+        legs: autoScheduleLegs === '2_LEGS' ? 2 : 1,
         startDate: autoScheduleStartDate,
         daysBetweenRounds: Number(autoScheduleDaysBetween),
         timeSlots: autoScheduleTimeSlots,
@@ -668,6 +672,8 @@ export default function AdminPortal({ onExit }) {
         homeTeam: homeTeamId,
         awayTeam: awayTeamId,
         stage,
+        matchday: Number(matchday) || 1,
+        leg: Number(leg) || 1,
         date: matchDate,
         time: matchTime,
         venue
@@ -1408,7 +1414,7 @@ export default function AdminPortal({ onExit }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Stage</label>
                     <input
@@ -1419,6 +1425,32 @@ export default function AdminPortal({ onExit }) {
                       placeholder="Matchday 1"
                       className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Matchday</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="22"
+                      required
+                      value={matchday}
+                      onChange={(e) => setMatchday(Math.max(1, Math.min(22, Number(e.target.value))))}
+                      placeholder="1-22"
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Match Leg</label>
+                    <select
+                      value={leg}
+                      onChange={(e) => setLeg(Number(e.target.value))}
+                      className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    >
+                      <option value={1}>Leg 1 (Home)</option>
+                      <option value={2}>Leg 2 (Away)</option>
+                    </select>
                   </div>
 
                   <div>
@@ -1512,6 +1544,16 @@ export default function AdminPortal({ onExit }) {
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400">
                                 {f.stage}
                               </span>
+                              {f.matchday && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E676]/10 text-[#00E676] font-bold border border-[#00E676]/20">
+                                  Matchday {f.matchday}
+                                </span>
+                              )}
+                              {f.leg && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+                                  Leg {f.leg}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
                               <span>📅 {f.date} at {f.time}</span>
@@ -2840,21 +2882,28 @@ export default function AdminPortal({ onExit }) {
                   <span>1. Select Tournament Competition Format</span>
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
                     {
-                      id: 'BY_GROUPS',
-                      title: 'Group Stage',
-                      sub: 'Round-Robin by Groups',
-                      desc: 'Teams only play round-robin against opponents in their group (Group A, Group B).',
-                      badge: 'Berger Algorithm'
+                      id: 'LEAGUE_22',
+                      title: '12-Club Youth League',
+                      sub: '22 Matchdays (Round-Robin)',
+                      desc: 'Official 12-team youth league championship. Clubs play home and away across 22 matchdays.',
+                      badge: 'Default • Official'
                     },
                     {
                       id: 'ALL_IN_ONE',
                       title: 'All-In-One League',
                       sub: 'Full Championship',
-                      desc: 'Every registered club plays every other club once across sequential matchdays.',
-                      badge: 'Championship'
+                      desc: 'Every registered club plays round-robin matches based on the selected leg mode.',
+                      badge: 'Berger Algorithm'
+                    },
+                    {
+                      id: 'BY_GROUPS',
+                      title: 'Group Stage',
+                      sub: 'Round-Robin by Groups',
+                      desc: 'Teams only play round-robin against opponents in their group (Group A, Group B).',
+                      badge: 'Group Stage'
                     },
                     {
                       id: 'KNOCKOUT',
@@ -2903,11 +2952,74 @@ export default function AdminPortal({ onExit }) {
                 </div>
               </div>
 
-              {/* 2. Schedule Timing & Matchday Progression */}
+              {/* 2. Match Legs Configuration (Home & Away Engine) */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#00E676]" />
+                  <span>2. Match Leg Engine Configuration</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    {
+                      id: '2_LEGS',
+                      title: '2 Legs (Home & Away)',
+                      badge: 'Default • Official',
+                      desc: 'Each club faces every opponent twice: Leg 1 (Home) and Leg 2 (Away with inverted home/away). Fixtures are scheduled so clubs never face the same opponent on consecutive matchdays.',
+                      matchesPerClub: '22 Matches / Club (for 12 clubs)'
+                    },
+                    {
+                      id: '1_LEG',
+                      title: 'Single Leg (Neutral)',
+                      badge: 'Single Meeting',
+                      desc: 'Each club plays each opponent once in a single round-robin matchup at neutral or designated venues.',
+                      matchesPerClub: '11 Matches / Club (for 12 clubs)'
+                    }
+                  ].map(legOption => {
+                    const isSelected = autoScheduleLegs === legOption.id;
+                    return (
+                      <div
+                        key={legOption.id}
+                        onClick={() => setAutoScheduleLegs(legOption.id)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-[#00E676]/10 border-[#00E676] shadow-lg shadow-[#00E676]/10 ring-1 ring-[#00E676]'
+                            : 'bg-[#090B10] border-[#222738] hover:border-[#323B50]'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-white">{legOption.title}</span>
+                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-extrabold ${
+                              isSelected ? 'bg-[#00E676] text-black' : 'bg-white/10 text-slate-400'
+                            }`}>
+                              {legOption.badge}
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-semibold text-[#00E676]">{legOption.matchesPerClub}</div>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">{legOption.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                          <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-[#00E676] bg-[#00E676]' : 'border-slate-600'
+                          }`}>
+                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                          </div>
+                          <span className={isSelected ? 'text-[#00E676]' : 'text-slate-500'}>
+                            {isSelected ? 'Active Mode' : 'Select'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Schedule Timing & Matchday Progression */}
               <div className="space-y-3">
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-[#00E676]" />
-                  <span>2. Matchday Calendar & Intervals</span>
+                  <span>3. Matchday Calendar & Intervals</span>
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
@@ -2964,7 +3076,7 @@ export default function AdminPortal({ onExit }) {
                 </div>
               </div>
 
-              {/* 3. Daily Kickoff Time Slots & Stadium Venues */}
+              {/* 4. Daily Kickoff Time Slots & Stadium Venues */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Time Slots */}
@@ -3035,7 +3147,7 @@ export default function AdminPortal({ onExit }) {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setAutoScheduleVenues(['Legacy Arena Pitch 1', 'Legacy Arena Pitch 2', 'National Stadium Arena'])}
+                      onClick={() => setAutoScheduleVenues(['Lekan Salami Stadium, Adamasingba, Ibadan', 'Legacy Arena Pitch 1'])}
                       className="text-[10px] text-slate-500 hover:text-slate-300 font-mono"
                     >
                       Reset Default
@@ -3067,7 +3179,7 @@ export default function AdminPortal({ onExit }) {
                     <input
                       type="text"
                       id="newVenueInput"
-                      placeholder="e.g. Arena Pitch 3"
+                      placeholder="e.g. Lekan Salami Stadium"
                       className="bg-[#121622] border border-[#2B3145] rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#00E676] flex-1"
                     />
                     <button
@@ -3088,11 +3200,11 @@ export default function AdminPortal({ onExit }) {
 
               </div>
 
-              {/* 4. Automated Execution Settings */}
+              {/* 5. Automated Execution Settings */}
               <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
                 <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Settings2 className="w-3.5 h-3.5 text-[#00E676]" />
-                  <span>Automation & Notification Preferences</span>
+                  <span>5. Automation & Notification Preferences</span>
                 </label>
 
                 <div className="space-y-2 text-xs">
@@ -3130,25 +3242,26 @@ export default function AdminPortal({ onExit }) {
                 </div>
               </div>
 
-              {/* 5. Pre-flight Calculation & Summary Card */}
+              {/* 6. Pre-flight Calculation & Summary Card */}
               {(() => {
                 const detectedGroups = [...new Set(teams.map(t => t.group || 'Group A'))].sort();
                 let estMatches = 0;
                 let estRounds = 0;
+                const mult = autoScheduleLegs === '2_LEGS' ? 2 : 1;
 
-                if (autoScheduleMode === 'BY_GROUPS') {
+                if (autoScheduleMode === 'LEAGUE_22' || autoScheduleMode === 'ALL_IN_ONE') {
+                  const n = teams.length;
+                  estMatches = ((n * (n - 1)) / 2) * mult;
+                  estRounds = (n % 2 === 0 ? n - 1 : n) * mult;
+                } else if (autoScheduleMode === 'BY_GROUPS') {
                   detectedGroups.forEach(grp => {
                     const count = teams.filter(t => (t.group || 'Group A') === grp).length;
                     if (count >= 2) {
-                      estMatches += (count * (count - 1)) / 2;
+                      estMatches += ((count * (count - 1)) / 2) * mult;
                     }
-                    const r = count % 2 === 0 ? count - 1 : count;
+                    const r = (count % 2 === 0 ? count - 1 : count) * mult;
                     if (r > estRounds) estRounds = r;
                   });
-                } else if (autoScheduleMode === 'ALL_IN_ONE') {
-                  const n = teams.length;
-                  estMatches = (n * (n - 1)) / 2;
-                  estRounds = n % 2 === 0 ? n - 1 : n;
                 } else if (autoScheduleMode === 'KNOCKOUT') {
                   estMatches = Math.floor(teams.length / 2);
                   estRounds = 1;
@@ -3176,9 +3289,9 @@ export default function AdminPortal({ onExit }) {
                         </div>
                       </div>
                       <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                        <div className="text-[10px] uppercase font-bold text-slate-400">Groups</div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Match Engine</div>
                         <div className="text-base font-bold font-mono text-white mt-0.5">
-                          {autoScheduleMode === 'BY_GROUPS' ? detectedGroups.length : 1}
+                          {autoScheduleLegs === '2_LEGS' ? '2 Legs (H&A)' : 'Single Leg'}
                         </div>
                       </div>
                       <div className="p-2 rounded-xl bg-black/40 border border-white/5">
@@ -3190,7 +3303,7 @@ export default function AdminPortal({ onExit }) {
                       <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                         <div className="text-[10px] uppercase font-bold text-slate-400">Matchdays</div>
                         <div className="text-base font-bold font-mono text-white mt-0.5">
-                          {estRounds} Rounds
+                          {estRounds} Matchdays
                         </div>
                       </div>
                     </div>

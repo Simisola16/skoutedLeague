@@ -10,10 +10,12 @@ export default function FixtureCreatorModal({
 }) {
   const [homeTeam, setHomeTeam] = useState(teams[0]?._id || '');
   const [awayTeam, setAwayTeam] = useState(teams[1]?._id || '');
+  const [matchday, setMatchday] = useState(1);
+  const [leg, setLeg] = useState(1);
   const [stage, setStage] = useState('Matchday 1');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('16:00');
-  const [venue, setVenue] = useState('Pitch 1, Legacy Football Arena');
+  const [venue, setVenue] = useState('Lekan Salami Stadium, Adamasingba, Ibadan');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -39,7 +41,9 @@ export default function FixtureCreatorModal({
       const res = await api.createFixture({
         homeTeam,
         awayTeam,
-        stage,
+        stage: stage || `Matchday ${matchday}`,
+        leg: Number(leg) || 1,
+        matchday: Number(matchday) || 1,
         date,
         time,
         venue
@@ -123,14 +127,52 @@ export default function FixtureCreatorModal({
             </select>
           </div>
 
+          {/* Matchday & Leg Grid */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                Matchday (1-22) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="22"
+                required
+                value={matchday}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setMatchday(val);
+                  setStage(`Matchday ${val}`);
+                  if (val > 11) setLeg(2);
+                  else setLeg(1);
+                }}
+                className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                Leg Mode *
+              </label>
+              <select
+                value={leg}
+                onChange={(e) => setLeg(Number(e.target.value))}
+                className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
+              >
+                <option value={1}>Leg 1 (Matchdays 1-11)</option>
+                <option value={2}>Leg 2 (Matchdays 12-22)</option>
+              </select>
+            </div>
+          </div>
+
           {/* Stage / Round */}
           <div>
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-              Tournament Stage / Group
+              Tournament Stage / Title
             </label>
             <input
               type="text"
-              placeholder="e.g. Group A - Matchday 1 or Quarter-Final"
+              placeholder="e.g. Matchday 1 or Quarter-Final"
               value={stage}
               onChange={(e) => setStage(e.target.value)}
               className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
