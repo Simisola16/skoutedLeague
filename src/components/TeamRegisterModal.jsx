@@ -63,9 +63,6 @@ export default function TeamRegisterModal({
       }
 
       const userId = authRes.data?.userId;
-      if (authRes.data?.debugOtp) {
-        setOtp(authRes.data.debugOtp);
-      }
 
       // Step B: Create Team with optional crest file
       const formData = new FormData();
@@ -80,12 +77,8 @@ export default function TeamRegisterModal({
 
       const teamRes = await api.createTeam(formData);
       if (teamRes.success) {
-        if (authRes.data?.debugOtp) {
-          setOtp(authRes.data.debugOtp);
-          setSuccessMsg(`Verification code: ${authRes.data.debugOtp}`);
-        } else {
-          setSuccessMsg(`A 6-digit confirmation code has been sent to ${managerEmail}`);
-        }
+        setOtp('');
+        setSuccessMsg(`A 6-digit confirmation code has been sent to ${managerEmail}`);
         setStep(2); // Advance to OTP step
       } else {
         setErrorMsg(teamRes.error || 'Failed to register team');
@@ -133,12 +126,8 @@ export default function TeamRegisterModal({
       setLoading(true);
       const res = await api.resendOtp(managerEmail);
       if (res.success) {
-        if (res.debugOtp) {
-          setOtp(res.debugOtp);
-          setSuccessMsg(`New 6-digit verification code: ${res.debugOtp}`);
-        } else {
-          setSuccessMsg('New 6-digit verification code dispatched!');
-        }
+        setOtp('');
+        setSuccessMsg(`New 6-digit verification code dispatched to ${managerEmail}`);
         setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setErrorMsg(res.error || 'Failed to resend code');
@@ -345,12 +334,6 @@ export default function TeamRegisterModal({
                 </p>
               </div>
 
-              {otp && (
-                <div className="p-2.5 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 text-center text-xs text-[#00E676] max-w-xs mx-auto">
-                  <span>⚡ Auto-Detected Code: <strong className="font-mono tracking-wider text-white ml-1 font-bold">{otp}</strong></span>
-                </div>
-              )}
-
               {/* OTP Digits Input */}
               <div className="max-w-[240px] mx-auto space-y-2">
                 <input
@@ -360,16 +343,8 @@ export default function TeamRegisterModal({
                   placeholder="• • • • • •"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-[#0D0F14] border-2 border-[#00E676] rounded-2xl py-3 px-4 text-center text-2xl font-mono font-black tracking-[10px] text-[#00E676] focus:outline-none"
+                  className="w-full bg-[#0D0F14] border-2 border-[#00E676] rounded-2xl py-3 px-4 text-center text-2xl font-mono font-black tracking-[10px] text-[#00E676] focus:outline-none placeholder-slate-600"
                 />
-                <button
-                  type="button"
-                  onClick={() => setOtp(otp || '123456')}
-                  className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#00E676]" />
-                  <span>Use Verification Code: {otp || '123456'}</span>
-                </button>
               </div>
 
               <button

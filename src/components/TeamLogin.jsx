@@ -32,12 +32,8 @@ export default function TeamLogin({
         }
       } else if (res.requiresVerification) {
         setRequiresOtp(true);
-        if (res.debugOtp) {
-          setOtpCode(res.debugOtp);
-          setOtpSuccessMsg(`Verification code generated: ${res.debugOtp}`);
-        } else {
-          setErrorMsg(res.error || 'Please enter the 6-digit verification code sent to your email.');
-        }
+        setOtpCode('');
+        setOtpSuccessMsg('A 6-digit verification code has been dispatched to your email.');
       } else {
         setErrorMsg(res.error || 'Invalid manager credentials');
       }
@@ -77,12 +73,8 @@ export default function TeamLogin({
     try {
       const res = await api.resendOtp(email.trim());
       if (res.success) {
-        if (res.debugOtp) {
-          setOtpCode(res.debugOtp);
-          setOtpSuccessMsg(`New 6-digit OTP generated: ${res.debugOtp}`);
-        } else {
-          setOtpSuccessMsg('New 6-digit OTP dispatched to your inbox.');
-        }
+        setOtpCode('');
+        setOtpSuccessMsg('New 6-digit verification code dispatched to your email.');
         setTimeout(() => setOtpSuccessMsg(''), 5000);
       } else {
         setErrorMsg(res.error || 'Failed to resend code');
@@ -187,30 +179,16 @@ export default function TeamLogin({
                 </p>
               </div>
 
-              {otpCode && (
-                <div className="p-2.5 rounded-xl bg-[#00E676]/10 border border-[#00E676]/30 text-center text-xs text-[#00E676]">
-                  <span>⚡ Auto-Detected Code: <strong className="font-mono tracking-wider text-white ml-1 font-bold">{otpCode}</strong></span>
-                </div>
-              )}
-
               <div className="space-y-2">
                 <input
                   type="text"
                   maxLength={6}
                   required
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
                   className="w-full bg-[#090B10] border border-[#232838] rounded-2xl py-3 text-center text-2xl font-mono font-black tracking-widest text-[#00E676] placeholder-slate-600 focus:outline-none focus:border-[#00E676]"
                 />
-                <button
-                  type="button"
-                  onClick={() => setOtpCode(otpCode || '123456')}
-                  className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#00E676]" />
-                  <span>Use Verification Code: {otpCode || '123456'}</span>
-                </button>
               </div>
 
               <button
