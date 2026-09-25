@@ -33,9 +33,11 @@ import {
   Filter,
   Palette,
   Send,
-  Loader2
+  Loader2,
+  ArrowRightLeft
 } from 'lucide-react';
 import { api } from '../services/api';
+import socket from '../services/socket';
 import PlayerDetailModal from './PlayerDetailModal';
 import PlayerFormModal from './PlayerFormModal';
 
@@ -105,6 +107,7 @@ export default function TeamDashboard({
 
   // Core Data
   const [dashboardData, setDashboardData] = useState(null);
+  const [leagueSettings, setLeagueSettings] = useState(null);
   const [squad, setSquad] = useState([]);
   const [fixtures, setFixtures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -197,6 +200,9 @@ export default function TeamDashboard({
 
       if (dashRes.success && dashRes.data) {
         setDashboardData(dashRes.data);
+        if (dashRes.data.leagueSettings) {
+          setLeagueSettings(dashRes.data.leagueSettings);
+        }
         const t = dashRes.data.team || {};
         setProfileForm({
           homeGround: t.homeGround || '',
@@ -235,6 +241,27 @@ export default function TeamDashboard({
 
   useEffect(() => {
     loadTeamData();
+
+    // Fetch initial public league settings if needed
+    api.getLeagueSettings().then(res => {
+      if (res.success && res.data) {
+        setLeagueSettings(res.data);
+      }
+    }).catch(err => console.error('[League Settings Error]:', err));
+
+    // Listen for realtime league settings and transfer window updates
+    socket.on('league_settings_updated', (updatedSettings) => {
+      setLeagueSettings(updatedSettings);
+      if (updatedSettings.transferWindowStatus === 'open') {
+        notify('⚡ Transfer Window is now officially OPEN! Registration unlocked for all clubs.', 'success');
+      } else if (updatedSettings.registrationLocked) {
+        notify('🔒 Squad registration has been locked by tournament officials.', 'error');
+      }
+    });
+
+    return () => {
+      socket.off('league_settings_updated');
+    };
   }, []);
 
   // Guard against direct URL access to player creation when not approved
@@ -365,6 +392,19 @@ export default function TeamDashboard({
 
     if (!isApprovedCheck) {
       notify('Locked: Your team registration is currently awaiting admin verification. Player registration is locked.', 'error');
+      return;
+    }
+
+    const currentMax = leagueSettings?.maxSquadSize || dashboardData?.maxSquadLimit || 35;
+    if (squad.length >= currentMax) {
+      notify('Squad capacity reached. Maximum allowed is 35 players.', 'error');
+      return;
+    }
+
+    const isWindowOpen = leagueSettings?.transferWindowStatus === 'open' || dashboardData?.leagueSettings?.transferWindowStatus === 'open';
+    const isLocked = Boolean(leagueSettings ? leagueSettings.registrationLocked : dashboardData?.leagueSettings?.registrationLocked);
+    if (isLocked && !isWindowOpen) {
+      notify('Player registration is currently closed. New players cannot be added until the mid-season transfer window opens.', 'error');
       return;
     }
 
@@ -570,7 +610,11 @@ export default function TeamDashboard({
 
   const team = dashboardData?.team || {};
   const user = dashboardData?.user || currentUser || {};
-  const squadCapacity = Math.round((squad.length / 25) * 100);
+  const maxSquadSize = leagueSettings?.maxSquadSize || dashboardData?.maxSquadLimit || dashboardData?.leagueSettings?.maxSquadSize || 35;
+  const isTransferWindowOpen = leagueSettings?.transferWindowStatus === 'open' || dashboardData?.leagueSettings?.transferWindowStatus === 'open';
+  const isRegistrationLocked = Boolean(leagueSettings ? leagueSettings.registrationLocked : dashboardData?.leagueSettings?.registrationLocked);
+  const isRegistrationClosed = isRegistrationLocked && !isTransferWindowOpen;
+  const squadCapacity = Math.round((squad.length / maxSquadSize) * 100);
 
   const verificationStatus = team.verificationStatus || (team.status === 'Verified' ? 'approved' : 'pending');
   const isApproved = verificationStatus === 'approved';
@@ -708,7 +752,7 @@ export default function TeamDashboard({
         <div className="max-w-7xl mx-auto hidden lg:flex items-center gap-1 mt-3 pt-3 border-t border-white/5">
           {[
             { id: 'overview', label: 'Overview', icon: Trophy },
-            { id: 'squad', label: `Squad Roster (${squad.length}/25)`, icon: Users },
+            { id: 'squad', label: `Squad Roster (${squad.length}/${maxSquadSize})`, icon: Users },
             { id: 'lineup', label: 'Matchday Lineup', icon: Shirt },
             { id: 'matches', label: 'Fixtures & Results', icon: Calendar },
             { id: 'settings', label: 'Club Identity & Settings', icon: Palette }
@@ -809,6 +853,51 @@ export default function TeamDashboard({
               >
                 Contact Support
               </a>
+            </div>
+          </div>
+        )}
+
+        {/* Transfer Window Live Active Banner */}
+        {isTransferWindowOpen && isApproved && (
+          <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-[#00E676]/20 via-[#0C1A14] to-[#0A0D14] border border-[#00E676]/50 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-[#00E676]/10 animate-in fade-in duration-300">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#00E676]/20 border border-[#00E676]/40 flex items-center justify-center shrink-0 text-[#00E676] mt-0.5">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-[#00E676] text-black font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00E676]/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                    <span>Transfer Window OPEN</span>
+                  </span>
+                  <span className="text-xs font-bold text-white">Official Mid-Season Registration Window</span>
+                  {leagueSettings?.transferWindowClosesAt && (
+                    <span className="text-[10px] font-mono text-slate-300 bg-white/10 px-2 py-0.5 rounded-full">
+                      Closes: {new Date(leagueSettings.transferWindowClosesAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                  Squad additions are unlocked for all accredited clubs. Register new signings up to the <strong className="text-white font-bold">35-player maximum</strong> ({Math.max(0, maxSquadSize - squad.length)} slots remaining) before the window closes.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-3">
+              <div className="text-right font-mono text-xs hidden sm:block">
+                <div className="text-slate-400 text-[10px] uppercase">Roster Slots</div>
+                <div className="text-[#00E676] font-bold">{squad.length} / {maxSquadSize} Registered</div>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab('squad');
+                  setShowAddPlayerModal(true);
+                }}
+                disabled={squad.length >= maxSquadSize}
+                className="btn-primary px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#00E676]/20 cursor-pointer disabled:opacity-50"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Add Signing</span>
+              </button>
             </div>
           </div>
         )}
@@ -957,8 +1046,10 @@ export default function TeamDashboard({
                         <Users className="w-4 h-4 text-[#00E676]" />
                         <h4 className="font-extrabold text-sm text-white">Squad Roster</h4>
                       </div>
-                      <span className="text-xs font-mono font-bold text-[#00E676]">
-                        {squad.length} / 25
+                      <span className={`text-xs font-mono font-bold ${
+                        squad.length >= maxSquadSize ? 'text-rose-400' : squad.length >= 30 ? 'text-amber-400' : 'text-[#00E676]'
+                      }`}>
+                        {squad.length} / {maxSquadSize}
                       </span>
                     </div>
 
@@ -966,14 +1057,14 @@ export default function TeamDashboard({
                       <div className="w-full h-2.5 rounded-full bg-[#1A1F2E] overflow-hidden border border-white/5">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            squadCapacity >= 100 ? 'bg-amber-400' : 'bg-[#00E676]'
+                            squad.length >= maxSquadSize ? 'bg-rose-500' : squad.length >= 30 ? 'bg-amber-400' : 'bg-[#00E676]'
                           }`}
-                          style={{ width: `${Math.min(100, squadCapacity)}%` }}
+                          style={{ width: `${Math.min(100, Math.round((squad.length / maxSquadSize) * 100))}%` }}
                         ></div>
                       </div>
                       <div className="flex justify-between text-[11px] text-slate-400">
-                        <span>{25 - squad.length} slots remaining</span>
-                        <span>{squadCapacity}% Filled</span>
+                        <span>{Math.max(0, maxSquadSize - squad.length)} slots remaining</span>
+                        <span>{Math.round((squad.length / maxSquadSize) * 100)}% Filled</span>
                       </div>
                     </div>
 
@@ -983,14 +1074,30 @@ export default function TeamDashboard({
                           notify('Locked: Awaiting Admin Verification. Player registration unlocks once league officials approve your club.', 'error');
                           return;
                         }
+                        if (isRegistrationClosed) {
+                          notify('Player registration is locked. The transfer window will open immediately after Leg 1 concludes.', 'error');
+                          return;
+                        }
+                        if (squad.length >= maxSquadSize) {
+                          notify('Squad capacity reached. Maximum allowed is 35 players.', 'error');
+                          return;
+                        }
                         setActiveTab('squad');
                         setShowAddPlayerModal(true);
                       }}
-                      disabled={!isApproved}
-                      title={!isApproved ? 'Locked: Awaiting Admin Verification' : 'Register New Player'}
-                      className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      disabled={!isApproved || isRegistrationClosed || squad.length >= maxSquadSize}
+                      title={
                         !isApproved
-                          ? 'bg-amber-500/10 hover:bg-amber-500/15 text-amber-300 border border-amber-500/25 cursor-not-allowed'
+                          ? 'Locked: Awaiting Admin Verification'
+                          : isRegistrationClosed
+                          ? 'Player registration is locked. The transfer window will open immediately after Leg 1 concludes.'
+                          : squad.length >= maxSquadSize
+                          ? 'Squad capacity reached. Maximum allowed is 35 players.'
+                          : 'Register New Player'
+                      }
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        !isApproved || isRegistrationClosed || squad.length >= maxSquadSize
+                          ? 'bg-white/5 text-slate-400 border border-white/10 cursor-not-allowed'
                           : 'bg-white/5 hover:bg-white/10 text-white border border-white/10 cursor-pointer'
                       }`}
                     >
@@ -998,6 +1105,16 @@ export default function TeamDashboard({
                         <>
                           <Lock className="w-3.5 h-3.5 text-amber-400" />
                           <span>Locked: Awaiting Admin Verification</span>
+                        </>
+                      ) : isRegistrationClosed ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Registration Locked (Mid-Season Break Pending)</span>
+                        </>
+                      ) : squad.length >= maxSquadSize ? (
+                        <>
+                          <Users className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Squad Full ({maxSquadSize}/{maxSquadSize})</span>
                         </>
                       ) : (
                         <>
@@ -1093,8 +1210,139 @@ export default function TeamDashboard({
             {/* ========================================================= */}
             {activeTab === 'squad' && (
               <div className="space-y-5">
-                
-                {/* Squad Action Bar */}
+
+                {/* 1. Transfer Window Status & Lock Banners */}
+                {isRegistrationClosed && (
+                  <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-amber-500/10 via-[#121622] to-[#121622] border border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400 mt-0.5">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            REGISTRATION CUTOFF ACTIVE
+                          </span>
+                          <span className="text-xs font-bold text-white">Player Registration Locked</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                          Player registration is locked. The transfer window will open immediately after Leg 1 concludes.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-black/40 border border-amber-500/30 text-amber-300 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Awaiting Matchday 11</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {isTransferWindowOpen && (
+                  <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-[#00E676]/15 via-[#0C1A14] to-[#0A0D14] border border-[#00E676]/40 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-[#00E676]/10 animate-in fade-in duration-300">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-2xl bg-[#00E676]/20 border border-[#00E676]/40 flex items-center justify-center shrink-0 text-[#00E676] mt-0.5">
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-[#00E676] text-black font-extrabold flex items-center gap-1.5 shadow-md shadow-[#00E676]/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                            <span>Transfer Window OPEN</span>
+                          </span>
+                          <span className="text-xs font-bold text-white">
+                            {Math.max(0, maxSquadSize - squad.length)} Open Slots Remaining (up to {maxSquadSize})
+                          </span>
+                          {leagueSettings?.transferWindowClosesAt && (
+                            <span className="text-[10px] font-mono text-slate-300 bg-white/10 px-2 py-0.5 rounded-full">
+                              Closes: {new Date(leagueSettings.transferWindowClosesAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                          The official mid-season transfer window is active! Registered clubs can recruit new talent or release players to finalize rosters before Leg 2 begins.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Prominent Squad Counter Badge & Capacity Bar Card */}
+                <div className="rounded-3xl bg-[#121622] border border-[#232838] p-5 sm:p-6 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-[#00E676]" />
+                        <h3 className="font-extrabold text-base text-white">Official Squad Registration</h3>
+                        {isTransferWindowOpen ? (
+                          <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30 flex items-center gap-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#00E676]" />
+                            <span>Transfer Window OPEN</span>
+                          </span>
+                        ) : isRegistrationClosed ? (
+                          <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-amber-400" />
+                            <span>Registration Locked</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            Registration Open
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Hard cap at <strong className="text-white">35 players</strong> per team. All registered players are eligible for official match selection.
+                      </p>
+                    </div>
+
+                    {/* Prominent Squad Counter Badge */}
+                    <div className="flex items-center gap-3 self-start sm:self-auto">
+                      <div className={`px-4 py-2 rounded-2xl border font-mono flex items-center gap-2.5 shadow-lg ${
+                        squad.length >= maxSquadSize
+                          ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                          : squad.length >= 30
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                          : 'bg-[#00E676]/10 border-[#00E676]/30 text-[#00E676]'
+                      }`}>
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400 font-sans font-bold">Roster Capacity</div>
+                          <div className="text-base font-black">
+                            {squad.length} / {maxSquadSize} Players Registered
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual 3-Color Capacity Progress Bar */}
+                  <div className="space-y-1.5">
+                    <div className="w-full h-3 rounded-full bg-[#090B10] overflow-hidden border border-white/5 p-0.5">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          squad.length >= maxSquadSize
+                            ? 'bg-rose-500 shadow-md shadow-rose-500/40'
+                            : squad.length >= 30
+                            ? 'bg-amber-400 shadow-md shadow-amber-400/40'
+                            : 'bg-[#00E676] shadow-md shadow-[#00E676]/40'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.round((squad.length / maxSquadSize) * 100))}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                      <span>
+                        {squad.length >= maxSquadSize ? (
+                          <strong className="text-rose-400">Squad limit reached (0 slots remaining)</strong>
+                        ) : (
+                          <span><strong className="text-white">{Math.max(0, maxSquadSize - squad.length)}</strong> slots available for registration</span>
+                        )}
+                      </span>
+                      <span>{Math.round((squad.length / maxSquadSize) * 100)}% Capacity</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Squad Action & Filter Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#121622] border border-[#232838] p-4 rounded-3xl">
                   
                   {/* Search and Position Filter */}
@@ -1134,14 +1382,34 @@ export default function TeamDashboard({
                         notify('Locked: Awaiting Admin Verification. You will receive an email once approved.', 'error');
                         return;
                       }
+                      if (isRegistrationClosed) {
+                        notify('Player registration is locked. The transfer window will open immediately after Leg 1 concludes.', 'error');
+                        return;
+                      }
+                      if (squad.length >= maxSquadSize) {
+                        notify('Squad capacity reached. Maximum allowed is 35 players.', 'error');
+                        return;
+                      }
                       setShowAddPlayerModal(true);
                     }}
-                    disabled={!isApproved || squad.length >= 25}
-                    title={!isApproved ? 'Locked: Awaiting Admin Verification' : `Register Player (${squad.length}/25)`}
+                    disabled={!isApproved || isRegistrationClosed || squad.length >= maxSquadSize}
+                    title={
+                      !isApproved
+                        ? 'Locked: Awaiting Admin Verification'
+                        : isRegistrationClosed
+                        ? 'Player registration is locked. The transfer window will open immediately after Leg 1 concludes.'
+                        : squad.length >= maxSquadSize
+                        ? 'Squad capacity reached. Maximum allowed is 35 players.'
+                        : `Register Player (${squad.length}/${maxSquadSize})`
+                    }
                     className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
                       !isApproved
                         ? 'bg-amber-500/15 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-not-allowed shadow-amber-500/5'
-                        : 'btn-primary shadow-[#00E676]/20 disabled:opacity-50'
+                        : isRegistrationClosed
+                        ? 'bg-white/5 text-slate-400 border border-white/10 cursor-not-allowed'
+                        : squad.length >= maxSquadSize
+                        ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 cursor-not-allowed'
+                        : 'btn-primary shadow-[#00E676]/20'
                     }`}
                   >
                     {!isApproved ? (
@@ -1149,10 +1417,20 @@ export default function TeamDashboard({
                         <Lock className="w-4 h-4 text-amber-400" />
                         <span>Locked: Awaiting Admin Verification</span>
                       </>
+                    ) : isRegistrationClosed ? (
+                      <>
+                        <Lock className="w-4 h-4 text-slate-400" />
+                        <span>Registration Locked</span>
+                      </>
+                    ) : squad.length >= maxSquadSize ? (
+                      <>
+                        <Users className="w-4 h-4 text-rose-400" />
+                        <span>Squad Capacity Reached (35/35)</span>
+                      </>
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        <span>Register Player ({squad.length}/25)</span>
+                        <span>Register Player ({squad.length}/{maxSquadSize})</span>
                       </>
                     )}
                   </button>

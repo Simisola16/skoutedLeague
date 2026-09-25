@@ -39,7 +39,8 @@ import {
   CheckCircle2,
   XCircle,
   Send,
-  FileText
+  FileText,
+  ArrowRightLeft
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
@@ -58,7 +59,13 @@ export default function AdminPortal({ onExit }) {
   const [loginError, setLoginError] = useState('');
 
   // Active Admin View Tab
-  const [adminTab, setAdminTab] = useState('operator'); // 'operator' | 'fixtures' | 'teams' | 'system'
+  const [adminTab, setAdminTab] = useState('operator'); // 'operator' | 'fixtures' | 'teams' | 'transfer' | 'system'
+
+  // League Settings & Transfer Window State
+  const [leagueSettings, setLeagueSettings] = useState(null);
+  const [settingsUpdating, setSettingsUpdating] = useState(false);
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [transferWindowClosingDate, setTransferWindowClosingDate] = useState('');
 
   // Data
   const [fixtures, setFixtures] = useState([]);
@@ -182,10 +189,11 @@ export default function AdminPortal({ onExit }) {
   // 2. Fetch fixtures, teams, and admin team directory when authenticated
   const loadAdminData = async () => {
     try {
-      const [fixRes, teamRes, adminTeamRes] = await Promise.all([
+      const [fixRes, teamRes, adminTeamRes, settingsRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
-        api.getAdminTeams({ search: teamSearch, group: teamGroupFilter })
+        api.getAdminTeams({ search: teamSearch, group: teamGroupFilter }),
+        api.getAdminSettings()
       ]);
       if (fixRes.success) {
         setFixtures(fixRes.data || []);
@@ -203,8 +211,106 @@ export default function AdminPortal({ onExit }) {
       if (adminTeamRes?.success) {
         setAdminTeams(adminTeamRes.data || []);
       }
+      if (settingsRes?.success && settingsRes.data) {
+        setLeagueSettings(settingsRes.data);
+        if (settingsRes.data.transferWindowClosesAt) {
+          setTransferWindowClosingDate(new Date(settingsRes.data.transferWindowClosesAt).toISOString().split('T')[0]);
+        }
+      }
     } catch (err) {
       console.error('[Load Admin Data Error]:', err);
+    }
+  };
+
+  // Real-time listener for league settings and transfer window updates
+  useEffect(() => {
+    const handleSettingsUpdated = (updated) => {
+      setLeagueSettings(updated);
+      if (updated.transferWindowClosesAt) {
+        setTransferWindowClosingDate(new Date(updated.transferWindowClosesAt).toISOString().split('T')[0]);
+      }
+    };
+
+    socket.on('league_settings_updated', handleSettingsUpdated);
+    return () => {
+      socket.off('league_settings_updated', handleSettingsUpdated);
+    };
+  }, []);
+
+  // Update League Settings API handler
+  const handleUpdateLeagueSettings = async (patch) => {
+    setSettingsUpdating(true);
+    try {
+      const res = await api.updateAdminSettings(patch);
+      if (res.success && res.data) {
+        setLeagueSettings(res.data);
+        if (res.data.transferWindowClosesAt) {
+          setTransferWindowClosingDate(new Date(res.data.transferWindowClosesAt).toISOString().split('T')[0]);
+        }
+        setTeamVerificationToast({
+          type: 'success',
+          msg: patch.transferWindowStatus
+            ? `Transfer Window is now ${patch.transferWindowStatus.toUpperCase()}`
+            : 'League settings successfully updated and broadcast to all platforms.'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      } else {
+        throw new Error(res.error || 'Failed to update league settings');
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Settings update failed: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setSettingsUpdating(false);
+    }
+  };
+
+  // Toggle Transfer Window (Open / Closed)
+  const handleToggleTransferWindow = () => {
+    const isCurrentlyOpen = leagueSettings?.transferWindowStatus === 'open';
+    const nextStatus = isCurrentlyOpen ? 'closed' : 'open';
+    const patch = {
+      transferWindowStatus: nextStatus,
+      registrationLocked: nextStatus === 'open' ? false : leagueSettings?.registrationLocked,
+      seasonPhase: nextStatus === 'open' ? 'mid_season_break' : leagueSettings?.seasonPhase
+    };
+    handleUpdateLeagueSettings(patch);
+  };
+
+  // Toggle Registration Lock
+  const handleToggleRegistrationLock = () => {
+    const isCurrentlyLocked = Boolean(leagueSettings?.registrationLocked);
+    handleUpdateLeagueSettings({ registrationLocked: !isCurrentlyLocked });
+  };
+
+  // Broadcast Transfer Window Announcement via Resend
+  const handleBroadcastTransferWindow = async () => {
+    if (!window.confirm('Dispatch Transfer Window Announcement email via Resend to all 12 verified team managers?')) {
+      return;
+    }
+    setBroadcastLoading(true);
+    try {
+      const res = await api.broadcastTransferWindowEmail();
+      if (res.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Transfer Window announcement broadcast dispatched to ${res.sentCount || 12} verified team managers via Resend.`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      } else {
+        throw new Error(res.error || 'Failed to send broadcast');
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Failed to dispatch email broadcast: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setBroadcastLoading(false);
     }
   };
 
@@ -1011,7 +1117,8 @@ export default function AdminPortal({ onExit }) {
             { id: 'operator', label: '📱 Matchday Operator', icon: Radio, count: fixtures.filter(f => f.status.includes('HALF') || f.status === 'HT').length },
             { id: 'fixtures', label: '📅 Fixtures & Schedule', icon: Calendar, count: fixtures.length },
             { id: 'teams', label: '🛡️ Teams & Squad Explorer', icon: Users, count: adminTeams.length || teams.length },
-            { id: 'system', label: '🔄 Diagnostics & Sync', icon: RefreshCw }
+            { id: 'transfer', label: '🔄 Transfer Window & Roster Engine', icon: ArrowRightLeft, isLive: leagueSettings?.transferWindowStatus === 'open' },
+            { id: 'system', label: '⚙️ Diagnostics & Sync', icon: RefreshCw }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = adminTab === tab.id || (tab.id === 'teams' && adminTab === 'clubs');
@@ -1019,7 +1126,7 @@ export default function AdminPortal({ onExit }) {
               <button
                 key={tab.id}
                 onClick={() => setAdminTab(tab.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
                   isActive
                     ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
                     : 'bg-[#121520] border-[#222738] text-slate-400 hover:text-white'
@@ -1027,6 +1134,12 @@ export default function AdminPortal({ onExit }) {
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{tab.label}</span>
+                {tab.isLive && (
+                  <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-[#00E676] text-black">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                    <span>OPEN</span>
+                  </span>
+                )}
                 {tab.count !== undefined && (
                   <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${isActive ? 'bg-black/30' : 'bg-white/10'}`}>
                     {tab.count}
@@ -2206,6 +2319,316 @@ export default function AdminPortal({ onExit }) {
         )}
 
         {/* ========================================================= */}
+        {/* 3B. TRANSFER WINDOW & SQUAD CAPACITY ENGINE */}
+        {/* ========================================================= */}
+        {adminTab === 'transfer' && (
+          <div className="space-y-6">
+            
+            {/* Header Hero Banner */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#121B28] via-[#101726] to-[#0A0D15] border border-[#2B354F] rounded-3xl p-6 sm:p-7 shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-[#00E676]/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+              <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-[#00E676] text-xs font-mono font-bold tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>OFFICIAL ROSTER & TRANSFER ENGINE</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-display font-black text-white tracking-tight">
+                    Roster Capacity & Mid-Season Transfer Window
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Automated transfer window state machine with Leg 1 completion hooks, 35-player hard squad caps, registration cutoffs, and automated email broadcasts via Resend.
+                  </p>
+                </div>
+
+                {/* Primary Quick Toggle Button */}
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full sm:w-auto shrink-0">
+                  <button
+                    onClick={handleToggleTransferWindow}
+                    disabled={settingsUpdating}
+                    className={`px-5 py-3.5 rounded-2xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl transition-all cursor-pointer disabled:opacity-50 ${
+                      leagueSettings?.transferWindowStatus === 'open'
+                        ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/20'
+                        : 'bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black shadow-[#00E676]/25'
+                    }`}
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />
+                    <span>
+                      {settingsUpdating
+                        ? 'Updating Engine...'
+                        : leagueSettings?.transferWindowStatus === 'open'
+                        ? 'Close Transfer Window'
+                        : '⚡ Open Transfer Window Now'}
+                    </span>
+                  </button>
+                  <span className="text-[11px] text-center text-slate-400 font-mono">
+                    {leagueSettings?.transferWindowStatus === 'open'
+                      ? 'Registration currently unlocked for all clubs'
+                      : 'Player registration locked once cutoff lapses'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4 Status Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Card 1: Window Status */}
+              <div className="p-4 rounded-2xl bg-[#121622] border border-[#232838] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">Transfer Window</span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    leagueSettings?.transferWindowStatus === 'open' ? 'bg-[#00E676] animate-ping' : 'bg-slate-600'
+                  }`} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-black font-display uppercase ${
+                    leagueSettings?.transferWindowStatus === 'open' ? 'text-[#00E676]' : 'text-slate-400'
+                  }`}>
+                    {leagueSettings?.transferWindowStatus === 'open' ? 'OPEN' : 'CLOSED'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {leagueSettings?.transferWindowStatus === 'open'
+                    ? 'Clubs can add new players up to 35 maximum'
+                    : 'Additions blocked until mid-season window'}
+                </p>
+              </div>
+
+              {/* Card 2: Registration Lock */}
+              <div className="p-4 rounded-2xl bg-[#121622] border border-[#232838] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">Registration Gate</span>
+                  <Lock className={`w-3.5 h-3.5 ${leagueSettings?.registrationLocked ? 'text-amber-400' : 'text-[#00E676]'}`} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-black font-display uppercase ${
+                    leagueSettings?.registrationLocked ? 'text-amber-400' : 'text-[#00E676]'
+                  }`}>
+                    {leagueSettings?.registrationLocked ? 'LOCKED' : 'UNLOCKED'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {leagueSettings?.registrationLocked
+                    ? 'Player additions locked on team dashboards'
+                    : 'Approved clubs are eligible to add players'}
+                </p>
+              </div>
+
+              {/* Card 3: Season Phase */}
+              <div className="p-4 rounded-2xl bg-[#121622] border border-[#232838] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">Season Phase</span>
+                  <Trophy className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black font-mono uppercase text-white truncate">
+                    {leagueSettings?.seasonPhase?.replace('_', ' ') || 'PRE SEASON'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {leagueSettings?.seasonPhase === 'mid_season_break'
+                    ? 'Leg 1 completed • Mid-season recess'
+                    : leagueSettings?.seasonPhase === 'leg_1'
+                    ? 'Leg 1 underway • Initial cutoff active'
+                    : leagueSettings?.seasonPhase === 'leg_2'
+                    ? 'Leg 2 underway • Registrations locked'
+                    : 'Tournament pre-season stage'}
+                </p>
+              </div>
+
+              {/* Card 4: Squad Hard Cap */}
+              <div className="p-4 rounded-2xl bg-[#121622] border border-[#232838] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">Max Squad Limit</span>
+                  <Users className="w-3.5 h-3.5 text-[#00E676]" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-black font-mono text-[#00E676]">
+                    {leagueSettings?.maxSquadSize || 35} Players
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Hard cap: 36th player rejected across API & portal
+                </p>
+              </div>
+
+            </div>
+
+            {/* Main Operations Controls Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              
+              {/* Left Column: Direct Manual Controls */}
+              <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-[#00E676]" />
+                    <h4 className="font-extrabold text-sm text-white">Manual Admin Overrides</h4>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400">Real-time socket sync</span>
+                </div>
+
+                {/* 1. Transfer Window Toggle */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-xs text-white">Transfer Window (Open / Closed)</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Status: <strong className={leagueSettings?.transferWindowStatus === 'open' ? 'text-[#00E676]' : 'text-slate-300'}>
+                        {leagueSettings?.transferWindowStatus === 'open' ? 'OPEN' : 'CLOSED'}
+                      </strong>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleToggleTransferWindow}
+                    disabled={settingsUpdating}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      leagueSettings?.transferWindowStatus === 'open'
+                        ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30'
+                        : 'bg-[#00E676]/20 hover:bg-[#00E676]/30 text-[#00E676] border border-[#00E676]/30'
+                    }`}
+                  >
+                    {leagueSettings?.transferWindowStatus === 'open' ? 'Close Window' : 'Open Window'}
+                  </button>
+                </div>
+
+                {/* 2. Registration Lock Toggle */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-xs text-white">Player Registration Lock</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Status: <strong className={leagueSettings?.registrationLocked ? 'text-amber-400' : 'text-[#00E676]'}>
+                        {leagueSettings?.registrationLocked ? 'LOCKED' : 'UNLOCKED'}
+                      </strong>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleToggleRegistrationLock}
+                    disabled={settingsUpdating}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      leagueSettings?.registrationLocked
+                        ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {leagueSettings?.registrationLocked ? 'Unlock Registration' : 'Lock Registration'}
+                  </button>
+                </div>
+
+                {/* 3. Window Closing Date Picker */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-xs text-white">Window Closing Date</label>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Current: {leagueSettings?.transferWindowClosesAt ? new Date(leagueSettings.transferWindowClosesAt).toLocaleDateString() : 'Not Set'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={transferWindowClosingDate}
+                      onChange={(e) => setTransferWindowClosingDate(e.target.value)}
+                      className="flex-1 bg-[#121622] border border-[#232838] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                    <button
+                      onClick={() => handleUpdateLeagueSettings({ transferWindowClosesAt: transferWindowClosingDate ? new Date(transferWindowClosingDate) : null })}
+                      disabled={settingsUpdating}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Save Date
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Season Phase Dropdown */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2">
+                  <label className="font-bold text-xs text-white">Current Season Phase</label>
+                  <select
+                    value={leagueSettings?.seasonPhase || 'pre_season'}
+                    onChange={(e) => handleUpdateLeagueSettings({ seasonPhase: e.target.value })}
+                    disabled={settingsUpdating}
+                    className="w-full bg-[#121622] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                  >
+                    <option value="pre_season">Pre-Season (Initial Registration Window)</option>
+                    <option value="leg_1">Leg 1 (Matches Underway • Initial Cutoff Active)</option>
+                    <option value="mid_season_break">Mid-Season Break (Transfer Window Active)</option>
+                    <option value="leg_2">Leg 2 (Fixtures Resumed • Registrations Locked)</option>
+                    <option value="completed">Championship Completed</option>
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Right Column: Resend Broadcast & Automated State Machine */}
+              <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-5 flex flex-col justify-between">
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-[#00E676]" />
+                      <h4 className="font-extrabold text-sm text-white">Manager Email Broadcast Engine</h4>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">Resend API Integration</span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Dispatch official email notifications to all 12 accredited club managers from <strong className="text-white">Skouted League &lt;tournaments@thevillagecoders.com&gt;</strong> with live squad counts, the 35-player ceiling, and direct dashboard access links.
+                  </p>
+
+                  <div className="p-4 rounded-2xl bg-[#090B10] border border-white/5 space-y-2.5 text-xs text-slate-300 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Sender Address:</span>
+                      <span className="text-white font-bold">tournaments@thevillagecoders.com</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Email Subject:</span>
+                      <span className="text-emerald-400 truncate max-w-[200px]" title="Transfer Window Officially Open | Skouted Youth League Championship">
+                        Transfer Window Officially Open | ...
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Eligible Recipients:</span>
+                      <span className="text-white">{adminTeams.filter(t => (t.verificationStatus === 'approved' || (t.status === 'Verified' && t.verificationStatus !== 'rejected'))).length || 12} Verified Clubs</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleBroadcastTransferWindow}
+                    disabled={broadcastLoading}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-[#00E676]/25 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {broadcastLoading ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                        <span>Dispatching via Resend...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Broadcast Announcement to All Club Managers</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Automated Leg 1 Hook Info Box */}
+                <div className="p-4 rounded-2xl bg-[#0A0E18] border border-[#232838] space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-white">
+                    <Sparkles className="w-4 h-4 text-[#00E676]" />
+                    <span>Automated Leg 1 Completion Hook</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    When the final fixture of Matchday 11 (the conclusion of Leg 1 for all 12 teams) is marked as <strong className="text-white">Full Time (FT)</strong>, the backend automatically transitions <code className="text-[#00E676]">transferWindowStatus</code> to <code className="text-[#00E676]">'open'</code>, sets <code className="text-[#00E676]">registrationLocked = false</code>, updates <code className="text-[#00E676]">seasonPhase = 'mid_season_break'</code>, and dispatches individual manager emails.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================= */}
         {/* 4. DIAGNOSTICS & SYSTEM SYNC */}
         {/* ========================================================= */}
         {adminTab === 'system' && (
@@ -2248,6 +2671,47 @@ export default function AdminPortal({ onExit }) {
                   >
                     <Wand2 className="w-3.5 h-3.5" />
                     <span>Launch Auto-Scheduler Wizard</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Transfer Window Quick Access Card in System tab */}
+              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ArrowRightLeft className="w-4 h-4 text-[#00E676]" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Transfer Window & Roster Engine</h4>
+                  </div>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold self-start sm:self-auto ${
+                    leagueSettings?.transferWindowStatus === 'open'
+                      ? 'bg-[#00E676]/15 border-[#00E676]/30 text-[#00E676]'
+                      : 'bg-white/5 border-white/10 text-slate-400'
+                  }`}>
+                    {leagueSettings?.transferWindowStatus === 'open' ? 'WINDOW OPEN' : 'WINDOW CLOSED'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Manage the official mid-season transfer window, registration cutoffs, 35-player squad hard cap, and automated Leg 1 completion hooks.
+                </p>
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    onClick={() => setAdminTab('transfer')}
+                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 border border-white/15 cursor-pointer"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>Open Transfer Window Engine</span>
+                  </button>
+                  <button
+                    onClick={handleToggleTransferWindow}
+                    disabled={settingsUpdating}
+                    className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all ${
+                      leagueSettings?.transferWindowStatus === 'open'
+                        ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30'
+                        : 'bg-[#00E676]/20 hover:bg-[#00E676]/30 text-[#00E676] border border-[#00E676]/30'
+                    }`}
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>{leagueSettings?.transferWindowStatus === 'open' ? 'Close Window' : 'Open Window'}</span>
                   </button>
                 </div>
               </div>

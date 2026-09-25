@@ -390,5 +390,35 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword })
     });
     return res.json();
+  },
+
+  // Competition & Transfer Window Settings Endpoints
+  getLeagueSettings: async () => {
+    const res = await fetch(`${API_BASE}/league/settings`);
+    return res.json();
+  },
+
+  getAdminSettings: async () => {
+    const res = await fetch(`${API_BASE}/admin/settings`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  updateAdminSettings: async (settingsData) => {
+    const res = await fetch(`${API_BASE}/admin/settings`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(settingsData)
+    });
+    return res.json();
+  },
+
+  broadcastTransferWindowEmail: async () => {
+    const res = await fetch(`${API_BASE}/admin/settings/broadcast-transfer-window`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
   }
 };
