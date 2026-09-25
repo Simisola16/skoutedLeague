@@ -9,7 +9,7 @@ export default function FanSubscriptionModal({
   defaultTeamId = ''
 }) {
   const [email, setEmail] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState(defaultTeamId || (teams[0]?._id || ''));
+  const [selectedTeam, setSelectedTeam] = useState(defaultTeamId || 'ALL');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -18,8 +18,8 @@ export default function FanSubscriptionModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !selectedTeam) {
-      setErrorMsg('Please enter your email and select your team');
+    if (!email) {
+      setErrorMsg('Please enter your email address');
       return;
     }
 
@@ -97,6 +97,7 @@ export default function FanSubscriptionModal({
                 onChange={(e) => setSelectedTeam(e.target.value)}
                 className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
               >
+                <option value="ALL">⭐ All League Clubs (Every Match Goal Alert)</option>
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>
                     {t.name} ({t.shortCode})
