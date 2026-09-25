@@ -2882,38 +2882,17 @@ export default function AdminPortal({ onExit }) {
                   <span>1. Select Tournament Competition Format</span>
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   {[
                     {
                       id: 'LEAGUE_22',
-                      title: '12-Club Youth League',
-                      sub: '22 Matchdays (Round-Robin)',
-                      desc: 'Official 12-team youth league championship. Clubs play home and away across 22 matchdays.',
-                      badge: 'Default • Official'
-                    },
-                    {
-                      id: 'ALL_IN_ONE',
-                      title: 'All-In-One League',
-                      sub: 'Full Championship',
-                      desc: 'Every registered club plays round-robin matches based on the selected leg mode.',
-                      badge: 'Berger Algorithm'
-                    },
-                    {
-                      id: 'BY_GROUPS',
-                      title: 'Group Stage',
-                      sub: 'Round-Robin by Groups',
-                      desc: 'Teams only play round-robin against opponents in their group (Group A, Group B).',
-                      badge: 'Group Stage'
-                    },
-                    {
-                      id: 'KNOCKOUT',
-                      title: 'Knockout Bracket',
-                      sub: 'Cup Elimination',
-                      desc: 'Generates single-elimination tournament match bracket for registered teams.',
-                      badge: 'Direct Knockout'
+                      title: '12-Club Youth League Championship',
+                      sub: '22 Matchdays (Round-Robin Home & Away)',
+                      desc: 'Official 12-team youth league championship structure. Clubs face every opponent home & away across 22 sequential matchdays using the Berger rotation engine.',
+                      badge: 'Official Competition Format'
                     }
                   ].map(mode => {
-                    const isSelected = autoScheduleMode === mode.id;
+                    const isSelected = autoScheduleMode === mode.id || true;
                     return (
                       <div
                         key={mode.id}
@@ -2943,7 +2922,7 @@ export default function AdminPortal({ onExit }) {
                             {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
                           </div>
                           <span className={isSelected ? 'text-[#00E676]' : 'text-slate-500'}>
-                            {isSelected ? 'Selected' : 'Select'}
+                            {isSelected ? 'Official Active Format' : 'Select'}
                           </span>
                         </div>
                       </div>
@@ -3244,28 +3223,10 @@ export default function AdminPortal({ onExit }) {
 
               {/* 6. Pre-flight Calculation & Summary Card */}
               {(() => {
-                const detectedGroups = [...new Set(teams.map(t => t.group || 'Group A'))].sort();
-                let estMatches = 0;
-                let estRounds = 0;
                 const mult = autoScheduleLegs === '2_LEGS' ? 2 : 1;
-
-                if (autoScheduleMode === 'LEAGUE_22' || autoScheduleMode === 'ALL_IN_ONE') {
-                  const n = teams.length;
-                  estMatches = ((n * (n - 1)) / 2) * mult;
-                  estRounds = (n % 2 === 0 ? n - 1 : n) * mult;
-                } else if (autoScheduleMode === 'BY_GROUPS') {
-                  detectedGroups.forEach(grp => {
-                    const count = teams.filter(t => (t.group || 'Group A') === grp).length;
-                    if (count >= 2) {
-                      estMatches += ((count * (count - 1)) / 2) * mult;
-                    }
-                    const r = (count % 2 === 0 ? count - 1 : count) * mult;
-                    if (r > estRounds) estRounds = r;
-                  });
-                } else if (autoScheduleMode === 'KNOCKOUT') {
-                  estMatches = Math.floor(teams.length / 2);
-                  estRounds = 1;
-                }
+                const n = teams.length;
+                const estMatches = n >= 2 ? ((n * (n - 1)) / 2) * mult : 0;
+                const estRounds = n >= 2 ? (n % 2 === 0 ? n - 1 : n) * mult : 0;
 
                 return (
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-[#00E676]/10 via-[#101926] to-[#0A0D15] border border-[#00E676]/30 space-y-3">
