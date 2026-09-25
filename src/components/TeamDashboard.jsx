@@ -237,6 +237,23 @@ export default function TeamDashboard({
     loadTeamData();
   }, []);
 
+  // Guard against direct URL access to player creation when not approved
+  useEffect(() => {
+    if (dashboardData?.team) {
+      const vStatus = dashboardData.team.verificationStatus || (dashboardData.team.status === 'Verified' ? 'approved' : 'pending');
+      const isApprv = vStatus === 'approved';
+      if (window.location.pathname === '/team/players/new' || window.location.pathname === '/team/squad/new') {
+        if (!isApprv) {
+          window.history.replaceState({}, '', '/team/dashboard');
+          notify('Locked: Your team registration is currently under review by league officials. Player registration is locked until verification.', 'error');
+        } else {
+          setActiveTab('squad');
+          setShowAddPlayerModal(true);
+        }
+      }
+    }
+  }, [dashboardData]);
+
   // Update selected fixture lineup state when fixture changes
   useEffect(() => {
     if (!selectedFixtureId || fixtures.length === 0) return;
@@ -343,6 +360,14 @@ export default function TeamDashboard({
   // Add Player Handler
   // -------------------------------------------------------------
   const handleAddPlayerSubmit = async (formData, rawState) => {
+    const isApprovedCheck = (dashboardData?.team?.verificationStatus === 'approved') || 
+      (dashboardData?.team?.status === 'Verified' && dashboardData?.team?.verificationStatus !== 'rejected' && dashboardData?.team?.verificationStatus !== 'pending');
+
+    if (!isApprovedCheck) {
+      notify('Locked: Your team registration is currently awaiting admin verification. Player registration is locked.', 'error');
+      return;
+    }
+
     setAddPlayerLoading(true);
 
     try {
@@ -547,6 +572,11 @@ export default function TeamDashboard({
   const user = dashboardData?.user || currentUser || {};
   const squadCapacity = Math.round((squad.length / 25) * 100);
 
+  const verificationStatus = team.verificationStatus || (team.status === 'Verified' ? 'approved' : 'pending');
+  const isApproved = verificationStatus === 'approved';
+  const isPending = verificationStatus === 'pending';
+  const isRejected = verificationStatus === 'rejected';
+
   return (
     <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans pb-24 lg:pb-12 selection:bg-[#00E676] selection:text-black">
       
@@ -604,6 +634,25 @@ export default function TeamDashboard({
                 <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
                   {team.shortCode || 'CLUB'}
                 </span>
+                
+                {/* Verification Badge */}
+                {isApproved ? (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span>Approved Club</span>
+                  </span>
+                ) : isRejected ? (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                    <XCircle className="w-3 h-3 text-rose-400" />
+                    <span>Rejected</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 animate-pulse">
+                    <Clock className="w-3 h-3 text-amber-400" />
+                    <span>Under Review</span>
+                  </span>
+                )}
+
                 {team.group && (
                   <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
                     • {team.group}
@@ -613,7 +662,9 @@ export default function TeamDashboard({
               <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
                 <span className="text-slate-300 font-semibold">{user.name || 'Manager'}</span>
                 <span>•</span>
-                <span className="text-[11px] text-[#00E676] font-mono">Team Manager Clearance Active</span>
+                <span className="text-[11px] text-[#00E676] font-mono">
+                  {isApproved ? 'Accredited Team Manager Clearance' : 'Registration Pending Review'}
+                </span>
               </div>
             </div>
           </div>
@@ -699,6 +750,69 @@ export default function TeamDashboard({
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
+        {/* Verification Status Notification Banners */}
+        {isPending && (
+          <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-[#121622] border border-amber-500/40 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-amber-500/5 animate-in fade-in duration-300">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400 mt-0.5">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    ACCREDITATION UNDER REVIEW
+                  </span>
+                  <span className="text-xs font-bold text-white">Administrator Verification Required</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                  Your team registration is currently under review by league officials. You will be notified via email once approved so you can begin registering your squad.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-black/40 border border-amber-500/30 text-amber-300 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Squad Registration Locked</span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {isRejected && (
+          <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-rose-500/15 via-rose-500/10 to-[#121622] border border-rose-500/40 text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-rose-500/5 animate-in fade-in duration-300">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0 text-rose-400 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    REGISTRATION ACTION REQUIRED
+                  </span>
+                  <span className="text-xs font-bold text-white">Team Verification Not Approved</span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+                  {team.rejectionReason ? `Reason: ${team.rejectionReason}` : 'Your team registration details did not meet the official tournament accreditation guidelines.'}
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setActiveTab('settings')}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer"
+              >
+                Update Team Credentials
+              </button>
+              <a
+                href="mailto:tournaments@thevillagecoders.com?subject=Team%20Verification%20Review%20Inquiry"
+                className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold transition-all cursor-pointer"
+              >
+                Contact Support
+              </a>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="py-24 text-center space-y-3">
             <Loader2 className="w-10 h-10 animate-spin text-[#00E676] mx-auto opacity-70" />
@@ -865,13 +979,32 @@ export default function TeamDashboard({
 
                     <button
                       onClick={() => {
+                        if (!isApproved) {
+                          notify('Locked: Awaiting Admin Verification. Player registration unlocks once league officials approve your club.', 'error');
+                          return;
+                        }
                         setActiveTab('squad');
                         setShowAddPlayerModal(true);
                       }}
-                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={!isApproved}
+                      title={!isApproved ? 'Locked: Awaiting Admin Verification' : 'Register New Player'}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        !isApproved
+                          ? 'bg-amber-500/10 hover:bg-amber-500/15 text-amber-300 border border-amber-500/25 cursor-not-allowed'
+                          : 'bg-white/5 hover:bg-white/10 text-white border border-white/10 cursor-pointer'
+                      }`}
                     >
-                      <UserPlus className="w-3.5 h-3.5 text-[#00E676]" />
-                      <span>Register New Player</span>
+                      {!isApproved ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Locked: Awaiting Admin Verification</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5 text-[#00E676]" />
+                          <span>Register New Player</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -996,12 +1129,32 @@ export default function TeamDashboard({
 
                   {/* Register New Player Button */}
                   <button
-                    onClick={() => setShowAddPlayerModal(true)}
-                    disabled={squad.length >= 25}
-                    className="btn-primary px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
+                    onClick={() => {
+                      if (!isApproved) {
+                        notify('Locked: Awaiting Admin Verification. You will receive an email once approved.', 'error');
+                        return;
+                      }
+                      setShowAddPlayerModal(true);
+                    }}
+                    disabled={!isApproved || squad.length >= 25}
+                    title={!isApproved ? 'Locked: Awaiting Admin Verification' : `Register Player (${squad.length}/25)`}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
+                      !isApproved
+                        ? 'bg-amber-500/15 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-not-allowed shadow-amber-500/5'
+                        : 'btn-primary shadow-[#00E676]/20 disabled:opacity-50'
+                    }`}
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Register Player ({squad.length}/25)</span>
+                    {!isApproved ? (
+                      <>
+                        <Lock className="w-4 h-4 text-amber-400" />
+                        <span>Locked: Awaiting Admin Verification</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Register Player ({squad.length}/25)</span>
+                      </>
+                    )}
                   </button>
                 </div>
 

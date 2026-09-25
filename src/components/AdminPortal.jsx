@@ -70,8 +70,12 @@ export default function AdminPortal({ onExit }) {
   const [adminTeamsLoading, setAdminTeamsLoading] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamGroupFilter, setTeamGroupFilter] = useState('All');
+  const [teamStatusFilter, setTeamStatusFilter] = useState('All'); // 'All' | 'pending' | 'approved' | 'rejected'
   const [verifyingTeamId, setVerifyingTeamId] = useState('');
   const [teamVerificationToast, setTeamVerificationToast] = useState(null);
+  const [rejectingTeam, setRejectingTeam] = useState(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   // Roster Inspector State
   const [selectedTeamForRoster, setSelectedTeamForRoster] = useState(null);
@@ -205,10 +209,14 @@ export default function AdminPortal({ onExit }) {
   };
 
   // Re-fetch admin teams on search or filter change
-  const fetchFilteredTeams = async (search = teamSearch, group = teamGroupFilter) => {
+  const fetchFilteredTeams = async (search = teamSearch, group = teamGroupFilter, status = teamStatusFilter) => {
     setAdminTeamsLoading(true);
     try {
-      const res = await api.getAdminTeams({ search, group });
+      const res = await api.getAdminTeams({
+        search,
+        group,
+        verificationStatus: status !== 'All' ? status : undefined
+      });
       if (res.success) {
         setAdminTeams(res.data || []);
       }
@@ -348,67 +356,187 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
-  // Direct Admin Team & Manager Verification (Bypass OTP)
-  const handleVerifyTeam = async (teamId, status = 'Verified') => {
+  // Direct Admin Team Approval (Triggers Automated Resend Email & Unlocks Squad Gate)
+  const handleApproveTeam = async (teamId) => {
     setVerifyingTeamId(teamId);
     try {
-      const res = await api.verifyAdminTeam(teamId, status);
+      const res = await api.approveAdminTeam(teamId);
       if (res.success) {
-        if (status === 'Verified') {
-          try {
-            confetti({
-              particleCount: 50,
-              spread: 60,
-              origin: { y: 0.8 }
-            });
-          } catch (e) {}
-        }
+        try {
+          confetti({
+            particleCount: 65,
+            spread: 70,
+            origin: { y: 0.75 }
+          });
+        } catch (e) {}
 
-        // Update local adminTeams list immediately
         setAdminTeams(prev => prev.map(t => {
           if (t._id === teamId) {
             return {
               ...t,
-              status: status,
-              isVerified: status === 'Verified',
-              managerUser: t.managerUser ? { ...t.managerUser, isVerified: status === 'Verified' } : null
+              verificationStatus: 'approved',
+              status: 'Verified',
+              isVerified: true,
+              verifiedAt: new Date(),
+              rejectionReason: '',
+              managerUser: t.managerUser ? { ...t.managerUser, isVerified: true } : null
             };
           }
           return t;
         }));
 
-        // Also update selectedTeamForRoster if open
-        setSelectedTeamForRoster(prev => {
-          if (prev && prev._id === teamId) {
-            return {
-              ...prev,
-              status: status,
-              isVerified: status === 'Verified'
-            };
-          }
-          return prev;
-        });
+        if (selectedTeamForRoster?._id === teamId) {
+          setSelectedTeamForRoster(prev => ({
+            ...prev,
+            verificationStatus: 'approved',
+            status: 'Verified',
+            isVerified: true
+          }));
+        }
 
         setTeamVerificationToast({
           type: 'success',
-          msg: res.message || (status === 'Verified' ? 'Team and Manager account successfully verified (No OTP needed)!' : `Team status updated to ${status}`)
+          msg: res.message || 'Team registration officially approved! Confirmation email dispatched to manager.'
         });
         setTimeout(() => setTeamVerificationToast(null), 6000);
       } else {
         setTeamVerificationToast({
           type: 'error',
-          msg: res.error || 'Failed to update team verification'
+          msg: res.error || 'Failed to approve team'
         });
         setTimeout(() => setTeamVerificationToast(null), 6000);
       }
     } catch (err) {
       setTeamVerificationToast({
         type: 'error',
-        msg: 'Verification error: ' + err.message
+        msg: 'Approval error: ' + err.message
       });
       setTimeout(() => setTeamVerificationToast(null), 6000);
     } finally {
       setVerifyingTeamId('');
+    }
+  };
+
+  // Open Rejection Modal
+  const handleOpenRejectModal = (team) => {
+    setRejectingTeam(team);
+    setRejectionReasonInput('');
+  };
+
+  // Confirm Rejection & Dispatch Resend Notice
+  const handleConfirmRejectTeam = async () => {
+    if (!rejectingTeam) return;
+    setRejectLoading(true);
+    try {
+      const res = await api.rejectAdminTeam(rejectingTeam._id, rejectionReasonInput);
+      if (res.success) {
+        setAdminTeams(prev => prev.map(t => {
+          if (t._id === rejectingTeam._id) {
+            return {
+              ...t,
+              verificationStatus: 'rejected',
+              status: 'Pending Verification',
+              isVerified: false,
+              rejectionReason: rejectionReasonInput || 'Registration details did not meet the competition verification standards.',
+              verifiedAt: null
+            };
+          }
+          return t;
+        }));
+
+        if (selectedTeamForRoster?._id === rejectingTeam._id) {
+          setSelectedTeamForRoster(prev => ({
+            ...prev,
+            verificationStatus: 'rejected',
+            status: 'Pending Verification',
+            isVerified: false,
+            rejectionReason: rejectionReasonInput
+          }));
+        }
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: res.message || 'Team registration marked as rejected. Notice email dispatched to manager.'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        setRejectingTeam(null);
+        setRejectionReasonInput('');
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to reject team'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Rejection error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
+  // Revoke / Return Team to Pending Verification
+  const handleRevokeTeam = async (teamId) => {
+    setVerifyingTeamId(teamId);
+    try {
+      const res = await api.revokeAdminTeam(teamId);
+      if (res.success) {
+        setAdminTeams(prev => prev.map(t => {
+          if (t._id === teamId) {
+            return {
+              ...t,
+              verificationStatus: 'pending',
+              status: 'Pending Verification',
+              isVerified: false,
+              verifiedAt: null,
+              rejectionReason: ''
+            };
+          }
+          return t;
+        }));
+
+        if (selectedTeamForRoster?._id === teamId) {
+          setSelectedTeamForRoster(prev => ({
+            ...prev,
+            verificationStatus: 'pending',
+            status: 'Pending Verification',
+            isVerified: false
+          }));
+        }
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: res.message || 'Team status returned to pending review.'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to revoke team approval'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Revoke error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setVerifyingTeamId('');
+    }
+  };
+
+  // Direct Admin Team & Manager Verification (Bypass OTP)
+  const handleVerifyTeam = async (teamId, status = 'Verified') => {
+    if (status === 'Verified') {
+      return handleApproveTeam(teamId);
+    } else {
+      return handleRevokeTeam(teamId);
     }
   };
 
@@ -1297,7 +1425,7 @@ export default function AdminPortal({ onExit }) {
                     Automated Tournament Fixture Engine
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    Generate mathematically balanced round-robin match schedules, group stage fixtures, or knockout cups with automated venue allocation, time slot distribution, and real-time manager notifications in one click.
+                    Generate mathematically balanced round-robin match schedules for the 12-club youth league championship with automated venue allocation, time slot distribution, and real-time manager notifications in one click.
                   </p>
                   
                   {/* Status pills */}
@@ -1306,7 +1434,7 @@ export default function AdminPortal({ onExit }) {
                       <strong className="text-[#00E676]">{teams.length}</strong> Registered Clubs
                     </span>
                     <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-slate-300">
-                      <strong className="text-[#00E676]">{[...new Set(teams.map(t => t.group || 'Group A'))].length}</strong> Active Groups
+                      <strong className="text-[#00E676]">22</strong> Matchdays (Home & Away)
                     </span>
                     <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 text-slate-300">
                       <strong className="text-white">{fixtures.length}</strong> Scheduled Matches
@@ -1717,7 +1845,53 @@ export default function AdminPortal({ onExit }) {
                 </div>
               </div>
 
-              {/* Search & Filter Bar */}
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {[
+                  { id: 'All', label: 'All Clubs', count: adminTeams.length },
+                  { id: 'pending', label: 'Pending Verification', count: adminTeams.filter(t => (t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending')) === 'pending').length, isPending: true },
+                  { id: 'approved', label: 'Approved Clubs', count: adminTeams.filter(t => (t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending')) === 'approved').length, isApproved: true },
+                  { id: 'rejected', label: 'Rejected', count: adminTeams.filter(t => t.verificationStatus === 'rejected').length, isRejected: true }
+                ].map(filterTab => {
+                  const isActive = teamStatusFilter === filterTab.id;
+                  return (
+                    <button
+                      key={filterTab.id}
+                      onClick={() => {
+                        setTeamStatusFilter(filterTab.id);
+                        fetchFilteredTeams(teamSearch, teamGroupFilter, filterTab.id);
+                      }}
+                      className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
+                        isActive
+                          ? filterTab.isPending
+                            ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-md shadow-amber-500/10 font-black'
+                            : filterTab.isRejected
+                            ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-md shadow-rose-500/10 font-black'
+                            : 'bg-[#00E676]/20 border-[#00E676] text-[#00E676] shadow-md shadow-[#00E676]/15 font-black'
+                          : 'bg-[#141720] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600'
+                      }`}
+                    >
+                      {filterTab.isPending && filterTab.count > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      )}
+                      <span>{filterTab.label}</span>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                        isActive
+                          ? filterTab.isPending
+                            ? 'bg-amber-500/30 text-amber-200'
+                            : filterTab.isRejected
+                            ? 'bg-rose-500/30 text-rose-200'
+                            : 'bg-[#00E676]/30 text-white'
+                          : 'bg-white/5 text-slate-400'
+                      }`}>
+                        {filterTab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search & Group Filter Bar */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Search */}
                 <div className="sm:col-span-2 relative">
@@ -1727,7 +1901,7 @@ export default function AdminPortal({ onExit }) {
                     value={teamSearch}
                     onChange={(e) => {
                       setTeamSearch(e.target.value);
-                      fetchFilteredTeams(e.target.value, teamGroupFilter);
+                      fetchFilteredTeams(e.target.value, teamGroupFilter, teamStatusFilter);
                     }}
                     placeholder="Search by club name or short code (e.g. Telu FC, TLU)..."
                     className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
@@ -1736,9 +1910,9 @@ export default function AdminPortal({ onExit }) {
                     <button
                       onClick={() => {
                         setTeamSearch('');
-                        fetchFilteredTeams('', teamGroupFilter);
+                        fetchFilteredTeams('', teamGroupFilter, teamStatusFilter);
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -1752,7 +1926,7 @@ export default function AdminPortal({ onExit }) {
                     value={teamGroupFilter}
                     onChange={(e) => {
                       setTeamGroupFilter(e.target.value);
-                      fetchFilteredTeams(teamSearch, e.target.value);
+                      fetchFilteredTeams(teamSearch, e.target.value, teamStatusFilter);
                     }}
                     className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676] cursor-pointer"
                   >
@@ -1805,12 +1979,16 @@ export default function AdminPortal({ onExit }) {
               <div className="glass-card rounded-3xl p-12 text-center text-slate-400 space-y-3">
                 <Users className="w-10 h-10 mx-auto text-slate-600" />
                 <h4 className="font-bold text-white text-base">No Clubs Matching Criteria</h4>
-                <p className="text-xs">Adjust your search keyword or group filter to view clubs.</p>
+                <p className="text-xs">Adjust your search keyword, group filter, or verification status to view clubs.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {adminTeams.map(t => {
-                  const isVerified = t.status === 'Verified' || t.isVerified;
+                  const verificationStatus = t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending');
+                  const isApproved = verificationStatus === 'approved';
+                  const isPending = verificationStatus === 'pending';
+                  const isRejected = verificationStatus === 'rejected';
+
                   const isLineupLocked = t.lineupStatus === 'Lineup Locked';
                   const isPendingLineup = t.lineupStatus === 'Pending Lineup';
 
@@ -1844,27 +2022,24 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         </div>
 
-                        {/* Status Badges & Quick Action */}
+                        {/* Status Badges */}
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <button
-                            onClick={() => handleVerifyTeam(t._id, isVerified ? 'Pending Verification' : 'Verified')}
-                            disabled={verifyingTeamId === t._id}
-                            title={isVerified ? "Click to set back to Pending" : "Click to verify team immediately without OTP"}
-                            className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
-                              isVerified
-                                ? 'bg-[#00E676]/15 text-[#00E676] hover:bg-[#00E676]/25 border border-[#00E676]/30'
-                                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 shadow-sm shadow-amber-500/10 animate-pulse'
-                            }`}
-                          >
-                            {verifyingTeamId === t._id ? (
-                              <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
-                            ) : isVerified ? (
+                          {isApproved ? (
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
                               <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
-                            ) : (
-                              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                            )}
-                            <span>{isVerified ? 'Verified ✓' : 'Pending OTP'}</span>
-                          </button>
+                              <span>Approved ✓</span>
+                            </span>
+                          ) : isRejected ? (
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                              <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Rejected</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/10 animate-pulse">
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Pending Review</span>
+                            </span>
+                          )}
 
                           {/* Lineup Status Badge */}
                           <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 ${
@@ -1879,6 +2054,17 @@ export default function AdminPortal({ onExit }) {
                           </span>
                         </div>
                       </div>
+
+                      {/* Rejection Reason notice if rejected */}
+                      {isRejected && t.rejectionReason && (
+                        <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-300 leading-relaxed flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                          <div>
+                            <strong className="block text-white text-[11px] uppercase tracking-wider font-bold">Rejection Reason:</strong>
+                            <span className="text-[11px]">{t.rejectionReason}</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Squad Count & Manager Info Strip */}
                       <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#090B10] border border-[#1E2332] text-xs">
@@ -1901,67 +2087,113 @@ export default function AdminPortal({ onExit }) {
                         </div>
                       </div>
 
-                      {/* Instant Admin Verification Banner (Bypass OTP) */}
-                      {!isVerified && (
-                        <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-[#00E676]/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-500/30">
-                              <ShieldCheck className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 text-[11px] leading-tight">
-                              <div className="font-bold text-white flex items-center gap-1.5">
-                                <span>Pending Email OTP</span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">Unverified</span>
-                              </div>
-                              <span className="text-slate-400 text-[10px]">Verify to let manager login without needing email OTP</span>
-                            </div>
-                          </div>
+                      {/* Verification Quick Action Bar */}
+                      <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {isPending && (
+                            <>
+                              <button
+                                onClick={() => handleApproveTeam(t._id)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-3.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] active:scale-[0.98] text-black font-black text-xs flex items-center gap-1.5 transition-all shadow-md shadow-[#00E676]/20 cursor-pointer disabled:opacity-50"
+                              >
+                                {verifyingTeamId === t._id ? (
+                                  <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                )}
+                                <span>Approve Team</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleOpenRejectModal(t)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
+                          {isApproved && (
+                            <>
+                              <button
+                                onClick={() => handleRevokeTeam(t._id)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                                title="Return team to pending review"
+                              >
+                                {verifyingTeamId === t._id ? (
+                                  <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3 text-slate-400" />
+                                )}
+                                <span>Revoke / Set Pending</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleOpenRejectModal(t)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-medium text-xs flex items-center gap-1 transition-all cursor-pointer"
+                                title="Reject club accreditation"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
+                          {isRejected && (
+                            <>
+                              <button
+                                onClick={() => handleApproveTeam(t._id)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-3.5 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-[#00E676]/20 cursor-pointer"
+                              >
+                                {verifyingTeamId === t._id ? (
+                                  <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                )}
+                                <span>Approve Team</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleRevokeTeam(t._id)}
+                                disabled={verifyingTeamId === t._id}
+                                className="py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                <span>Reset to Pending</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleVerifyTeam(t._id, 'Verified')}
-                            disabled={verifyingTeamId === t._id}
-                            className="py-1.5 px-3.5 rounded-lg bg-[#00E676] hover:bg-[#00c968] active:scale-[0.98] text-black font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#00E676]/20 cursor-pointer shrink-0"
+                            onClick={() => handleOpenRoster(t)}
+                            className="py-1.5 px-3 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                           >
-                            {verifyingTeamId === t._id ? (
-                              <>
-                                <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
-                                <span>Verifying...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Verify (Bypass OTP)</span>
-                              </>
-                            )}
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Squad ({t.squadCount ?? 0})</span>
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              if (!selectedTeamRoster || selectedTeamForRoster?._id !== t._id) {
+                                const res = await api.getAdminTeamPlayers(t._id);
+                                if (res.success) setSelectedTeamRoster(res.data?.players || []);
+                              }
+                              setPrintableSheetTeam(t);
+                            }}
+                            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+                            title="Print official match sheet"
+                          >
+                            <Printer className="w-4 h-4 text-slate-400" />
                           </button>
                         </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="pt-1 flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenRoster(t)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                        >
-                          <Users className="w-3.5 h-3.5" />
-                          <span>Inspect Squad Roster ({t.squadCount ?? 0})</span>
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            if (!selectedTeamRoster || selectedTeamForRoster?._id !== t._id) {
-                              const res = await api.getAdminTeamPlayers(t._id);
-                              if (res.success) {
-                                setSelectedTeamRoster(res.data?.players || []);
-                              }
-                            }
-                            setPrintableSheetTeam(t);
-                          }}
-                          className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                          title="Print official match sheet for referees"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="hidden sm:inline">Print Sheet</span>
-                        </button>
                       </div>
 
                     </div>
@@ -2003,7 +2235,7 @@ export default function AdminPortal({ onExit }) {
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Run the Berger round-robin polygon scheduling engine to automatically generate balanced match schedules for Group Stages, full Championship leagues, or Cup knockout stages with automated pitch and time slot allocation.
+                  Run the Berger round-robin polygon scheduling engine to automatically generate balanced match schedules for the 12-Club Youth League Championship (22 matchdays, Home & Away) with automated pitch and time slot allocation.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <button
@@ -3326,6 +3558,8 @@ export default function AdminPortal({ onExit }) {
       {/* ========================================================= */}
       {/* MODAL 5: ATHLETE FULL DETAILS DOSSIER */}
       {/* ========================================================= */}
+      {/* MODAL 5: ATHLETE FULL DETAILS DOSSIER */}
+      {/* ========================================================= */}
       {selectedPlayerForDetails && (
         <PlayerDetailModal
           player={selectedPlayerForDetails}
@@ -3350,6 +3584,123 @@ export default function AdminPortal({ onExit }) {
             handleOpenQuickEdit(p);
           }}
         />
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 7: REJECT / SUSPEND CLUB ACCREDITATION MODAL */}
+      {/* ========================================================= */}
+      {rejectingTeam && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="bg-[#10131C] border border-rose-500/30 w-full max-w-lg rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                  <XCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Reject Team Registration</h3>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    Club: <span className="text-white font-bold">{rejectingTeam.name}</span> ({rejectingTeam.shortCode})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setRejectingTeam(null);
+                  setRejectionReasonInput('');
+                }}
+                disabled={rejectLoading}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-3 text-xs text-slate-300">
+              <p className="leading-relaxed">
+                Rejecting this team will lock their player registration access in the manager dashboard and notify the team manager via automated email.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                  Rejection Reason / Guidance for Manager (Optional)
+                </label>
+                <textarea
+                  rows={4}
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  placeholder="e.g. Club credentials or official academy affiliation proof could not be verified. Please update your registration documents or contact league officials."
+                  className="w-full bg-[#090B10] border border-[#232838] focus:border-rose-500/60 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500/30 resize-none"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>An official email with this reason will be dispatched to {rejectingTeam.managerEmail || 'the team manager'}.</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingTeam(null);
+                  setRejectionReasonInput('');
+                }}
+                disabled={rejectLoading}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmRejectTeam}
+                disabled={rejectLoading}
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-rose-500/20 cursor-pointer disabled:opacity-50"
+              >
+                {rejectLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Processing Rejection...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Confirm & Send Rejection Notice</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Team Verification Toast */}
+      {teamVerificationToast && (
+        <div className={`fixed bottom-6 right-6 z-50 max-w-md p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300 ${
+          teamVerificationToast.type === 'error'
+            ? 'bg-[#150D11] border-rose-500/40 text-rose-200'
+            : 'bg-[#0D1813] border-[#00E676]/40 text-emerald-200'
+        }`}>
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+            teamVerificationToast.type === 'error' ? 'bg-rose-500/20 text-rose-400' : 'bg-[#00E676]/20 text-[#00E676]'
+          }`}>
+            {teamVerificationToast.type === 'error' ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+          </div>
+          <div className="flex-1 text-xs leading-snug">
+            {teamVerificationToast.msg}
+          </div>
+          <button
+            onClick={() => setTeamVerificationToast(null)}
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
 
     </div>

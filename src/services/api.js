@@ -279,6 +279,31 @@ export const api = {
     return res.json();
   },
 
+  approveAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  rejectAdminTeam: async (teamId, rejectionReason = '') => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ rejectionReason })
+    });
+    return res.json();
+  },
+
+  revokeAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/revoke`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   // Authenticated Team Manager Dashboard Endpoints
   getTeamDashboard: async () => {
     const res = await fetch(`${API_BASE}/team/dashboard`, {
