@@ -541,5 +541,89 @@ export const api = {
       headers: getAuthHeaders()
     });
     return res.json();
+  },
+
+  // =========================================================================
+  // Gallery Endpoints
+  // =========================================================================
+  getGalleryItems: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE}/gallery${query ? `?${query}` : ''}`);
+    return res.json();
+  },
+
+  getGalleryItem: async (id) => {
+    const res = await fetch(`${API_BASE}/gallery/${id}`);
+    return res.json();
+  },
+
+  likeGalleryItem: async (id) => {
+    const res = await fetch(`${API_BASE}/gallery/${id}/like`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  // =========================================================================
+  // Admin Centralized Media & Overview Stats
+  // =========================================================================
+  getAdminStatsOverview: async () => {
+    const res = await fetch(`${API_BASE}/admin/stats/overview`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  getAdminMedia: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE}/admin/media${query ? `?${query}` : ''}`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  createAdminMedia: async (formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/admin/media`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  updateAdminMedia: async (id, payload) => {
+    const res = await fetch(`${API_BASE}/admin/media/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  togglePublishMedia: async (id) => {
+    const res = await fetch(`${API_BASE}/admin/media/${id}/toggle-publish`, {
+      method: 'PATCH',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  deleteAdminMedia: async (id) => {
+    const res = await fetch(`${API_BASE}/admin/media/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  bulkDeleteAdminMedia: async (ids) => {
+    const res = await fetch(`${API_BASE}/admin/media/bulk-delete`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ ids })
+    });
+    return res.json();
   }
 };
+

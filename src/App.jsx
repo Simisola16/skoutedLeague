@@ -18,6 +18,8 @@ import BottomNav from './components/BottomNav';
 import AdminPortal from './components/AdminPortal';
 import PlayerDetailModal from './components/PlayerDetailModal';
 import TournamentHero from './components/TournamentHero';
+import GalleryPage from './components/GalleryPage';
+import TeamRegisterPage from './components/TeamRegisterPage';
 
 // New Content & Media Components
 import AboutHeroShowcase from './components/AboutHeroShowcase';
@@ -208,10 +210,43 @@ export default function App() {
   }
 
   // -------------------------------------------------------------
-  // ISOLATED ROUTING: /team/dashboard, /team/login, /portal
+  // DEDICATED ROUTING: /team/register
+  // -------------------------------------------------------------
+  if (currentPath === '/team/register') {
+    return (
+      <TeamRegisterPage
+        onBackToHome={() => navigateTo('/')}
+        onNavigateLogin={() => navigateTo('/team/login')}
+        onRegistrationComplete={(newUser) => {
+          if (newUser) setUser(newUser);
+          fetchData();
+          navigateTo('/team/dashboard');
+        }}
+      />
+    );
+  }
+
+  // -------------------------------------------------------------
+  // DEDICATED ROUTING: /team/login
+  // -------------------------------------------------------------
+  if (currentPath === '/team/login') {
+    return (
+      <TeamLogin
+        onLoginSuccess={(loggedInUser) => {
+          setUser(loggedInUser);
+          fetchData();
+          navigateTo('/team/dashboard');
+        }}
+        onOpenRegister={() => navigateTo('/team/register')}
+        onBackToHome={() => navigateTo('/')}
+      />
+    );
+  }
+
+  // -------------------------------------------------------------
+  // ISOLATED ROUTING: /team/dashboard, /team, /portal
   // -------------------------------------------------------------
   const isTeamPath = currentPath === '/team/dashboard' || 
-                     currentPath === '/team/login' || 
                      currentPath === '/team' || 
                      currentPath.startsWith('/team/');
 
@@ -232,7 +267,7 @@ export default function App() {
             fetchData();
             navigateTo('/team/dashboard');
           }}
-          onOpenRegister={() => setShowRegisterTeam(true)}
+          onOpenRegister={() => navigateTo('/team/register')}
           onBackToHome={() => navigateTo('/')}
         />
       );
@@ -272,7 +307,7 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onOpenLogin={() => setShowLogin(true)}
-        onOpenRegisterTeam={() => setShowRegisterTeam(true)}
+        onOpenRegisterTeam={() => navigateTo('/team/register')}
         onOpenFanAlerts={() => setShowFanAlerts(true)}
         onOpenTeamDashboard={() => {
           const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
@@ -297,7 +332,7 @@ export default function App() {
         {currentPath === '/about' && (
           <AboutPage
             onBackToHome={() => navigateTo('/')}
-            onOpenRegisterTeam={() => setShowRegisterTeam(true)}
+            onOpenRegisterTeam={() => navigateTo('/team/register')}
           />
         )}
 
@@ -336,6 +371,16 @@ export default function App() {
               onTeamClick={(team) => setSelectedTeamProfile(team)}
             />
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* ROUTE: DEDICATED TOURNAMENT GALLERY (/gallery) */}
+        {/* ========================================================= */}
+        {currentPath === '/gallery' && (
+          <GalleryPage
+            onBackToHome={() => navigateTo('/')}
+            onOpenRegisterTeam={() => navigateTo('/team/register')}
+          />
         )}
 
         {/* ========================================================= */}
@@ -382,7 +427,7 @@ export default function App() {
                 const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
                 navigateTo(target);
               }}
-              onOpenRegisterTeam={() => setShowRegisterTeam(true)}
+              onOpenRegisterTeam={() => navigateTo('/team/register')}
               onScrollToScores={() => {
                 const el = document.getElementById('match-center');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });

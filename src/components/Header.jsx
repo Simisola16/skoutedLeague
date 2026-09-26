@@ -14,7 +14,9 @@ import {
   Handshake, 
   Compass, 
   Users,
-  ChevronRight
+  ChevronRight,
+  Camera,
+  UserPlus
 } from 'lucide-react';
 
 export default function Header({
@@ -30,15 +32,16 @@ export default function Header({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Exact 8-Item Official Navigation Architecture
+  // Official Navigation Architecture with Gallery
   const navItems = [
     { id: 'about', label: 'About', path: '/about', icon: Compass },
     { id: 'fixtures', label: 'Fixtures & Results', path: '/fixtures', icon: Calendar },
     { id: 'table', label: 'Table / Standings', path: '/table', icon: Trophy },
     { id: 'teams', label: 'Teams', path: '/teams', icon: Users, badge: '12' },
+    { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera },
     { id: 'news', label: 'News', path: '/news', icon: Newspaper },
     { id: 'podcasts', label: 'Podcasts', path: '/podcasts', icon: Headphones },
-    { id: 'sponsors', label: 'Sponsors / Partners', path: '/sponsors', icon: Handshake }
+    { id: 'sponsors', label: 'Sponsors', path: '/sponsors', icon: Handshake }
   ];
 
   const handleNavClick = (path) => {
@@ -131,7 +134,17 @@ export default function Header({
             <span className="hidden xl:inline text-[11px]">Goal Alerts</span>
           </button>
 
-          {/* 8. Official CTA: Team Portal / Login */}
+          {/* Secondary CTA: Register Club */}
+          <button
+            onClick={() => handleNavClick('/team/register')}
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all text-xs font-bold cursor-pointer"
+            title="Register a new academy"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-[#00E676]" />
+            <span>Register Club</span>
+          </button>
+
+          {/* Primary CTA: Team Portal / Login */}
           <button
             onClick={onOpenTeamDashboard || (() => handleNavClick('/team/login'))}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold transition-all text-xs shadow-md shadow-[#00E676]/25 hover:shadow-lg hover:shadow-[#00E676]/40 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
@@ -179,7 +192,7 @@ export default function Header({
 
       </div>
 
-      {/* Mobile Slide-down Navigation Menu (All 8 Items) */}
+      {/* Mobile Slide-down Navigation Menu (All Items) */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-[#0D0F14]/98 border-b border-[#1E2330] p-4 space-y-2 backdrop-blur-xl animate-in slide-in-from-top duration-200">
           <div className="text-[10px] font-mono text-slate-500 font-bold px-3 py-1">
@@ -215,7 +228,7 @@ export default function Header({
               );
             })}
 
-            {/* 8. Team Portal in Mobile Menu */}
+            {/* Team Portal in Mobile Menu */}
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
@@ -226,9 +239,24 @@ export default function Header({
             >
               <div className="flex items-center gap-2.5">
                 <Shield className="w-4 h-4 text-[#00E676]" />
-                <span>8. Team Portal / Login</span>
+                <span>Team Portal / Login</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-[#00E676]" />
+            </button>
+
+            {/* Register Club in Mobile Menu */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleNavClick('/team/register');
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/5 text-slate-300 border border-white/10 font-bold text-xs cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <UserPlus className="w-4 h-4 text-[#00E676]" />
+                <span>Register Club (New Academy)</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             </button>
           </div>
 

@@ -41,7 +41,16 @@ import {
   Send,
   FileText,
   ArrowRightLeft,
-  Newspaper
+  Newspaper,
+  LayoutDashboard,
+  BarChart3,
+  Menu,
+  ChevronLeft,
+  Camera,
+  Image,
+  FolderKanban,
+  Sliders,
+  ChevronDown
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
@@ -60,8 +69,21 @@ export default function AdminPortal({ onExit }) {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // Active Admin View Tab
-  const [adminTab, setAdminTab] = useState('operator'); // 'operator' | 'fixtures' | 'teams' | 'transfer' | 'system'
+  // Active Admin View Tab: 'overview' | 'teams' | 'squads' | 'fixtures' | 'operator' | 'media' | 'settings'
+  const [adminTab, setAdminTab] = useState('overview');
+
+  // Executive Responsive Layout & Overview Metric Stats
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [adminStats, setAdminStats] = useState({
+    teamsCount: 0,
+    pendingTeamsCount: 0,
+    approvedTeamsCount: 0,
+    playersCount: 0,
+    fixturesCount: 0,
+    liveFixturesCount: 0,
+    mediaCount: 0
+  });
 
   // League Settings & Transfer Window State
   const [leagueSettings, setLeagueSettings] = useState(null);
@@ -188,14 +210,15 @@ export default function AdminPortal({ onExit }) {
     }
   }, []);
 
-  // 2. Fetch fixtures, teams, and admin team directory when authenticated
+  // 2. Fetch fixtures, teams, admin team directory, and overview stats when authenticated
   const loadAdminData = async () => {
     try {
-      const [fixRes, teamRes, adminTeamRes, settingsRes] = await Promise.all([
+      const [fixRes, teamRes, adminTeamRes, settingsRes, statsRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
         api.getAdminTeams({ search: teamSearch, group: teamGroupFilter }),
-        api.getAdminSettings()
+        api.getAdminSettings(),
+        api.getAdminStatsOverview().catch(() => ({ success: false }))
       ]);
       if (fixRes.success) {
         setFixtures(fixRes.data || []);
@@ -218,6 +241,9 @@ export default function AdminPortal({ onExit }) {
         if (settingsRes.data.transferWindowClosesAt) {
           setTransferWindowClosingDate(new Date(settingsRes.data.transferWindowClosesAt).toISOString().split('T')[0]);
         }
+      }
+      if (statsRes?.success && statsRes.data) {
+        setAdminStats(statsRes.data);
       }
     } catch (err) {
       console.error('[Load Admin Data Error]:', err);
@@ -988,18 +1014,18 @@ export default function AdminPortal({ onExit }) {
   // -------------------------------------------------------------
   if (!adminUser) {
     return (
-      <div className="min-h-screen bg-[#07090D] flex flex-col justify-center items-center p-4 selection:bg-rose-500 selection:text-white">
-        <div className="w-full max-w-sm bg-[#10131A] border border-[#232838] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+      <div className="min-h-screen bg-[#0F172A] flex flex-col justify-center items-center p-4 selection:bg-[#00E676] selection:text-black">
+        <div className="w-full max-w-sm bg-[#1E293B] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
           
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500 shadow-lg shadow-rose-500/10">
-              <Lock className="w-6 h-6" />
+            <div className="w-14 h-14 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center mx-auto text-[#00E676] shadow-xl shadow-[#00E676]/10">
+              <Shield className="w-7 h-7" />
             </div>
-            <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
-              RESTRICTED WORKSPACE
+            <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
+              ADMINISTRATIVE CLEARANCE
             </span>
-            <h2 className="text-lg font-display font-extrabold text-white tracking-tight">Skouted League Ops</h2>
-            <p className="text-xs text-slate-400">Tournament Administration & Pitch-side Match Operator Console</p>
+            <h2 className="text-xl font-display font-black text-white tracking-tight">Skouted League Ops</h2>
+            <p className="text-xs text-slate-400">Championship Administration & Pitch-side Match Console</p>
           </div>
 
           {loginError && (
@@ -1020,7 +1046,7 @@ export default function AdminPortal({ onExit }) {
                 placeholder="admin@skoutedleague.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                className="w-full bg-[#0F172A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
               />
             </div>
 
@@ -1034,25 +1060,25 @@ export default function AdminPortal({ onExit }) {
                 placeholder="••••••••••••"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500"
+                className="w-full bg-[#0F172A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
               />
             </div>
 
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-400 hover:to-rose-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20 disabled:opacity-50 transition-all cursor-pointer"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50 transition-all cursor-pointer"
             >
               <span>{loginLoading ? 'Authenticating...' : 'Enter Operations Portal'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
-          <div className="pt-2 text-center border-t border-white/5">
+          <div className="pt-2 text-center border-t border-slate-800">
             <button
               type="button"
               onClick={onExit}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
               ← Return to Public Fan App
             </button>
@@ -1066,96 +1092,744 @@ export default function AdminPortal({ onExit }) {
   // -------------------------------------------------------------
   // VIEW C: Authenticated Admin Operations Dashboard
   // -------------------------------------------------------------
+  const pendingTeams = adminTeams.filter(t => (t.verificationStatus || t.status) !== 'approved' && t.verificationStatus !== 'rejected');
+  const pendingCount = adminStats?.pendingTeamsCount ?? pendingTeams.length;
+  const liveMatchesCount = fixtures.filter(f => f.status.includes('HALF') || f.status === 'HT').length;
+
+  const sidebarNavItems = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, badge: null },
+    { id: 'teams', label: 'Team Approvals', icon: ShieldCheck, badge: pendingCount > 0 ? `${pendingCount} Pending` : null, isPendingAlert: pendingCount > 0 },
+    { id: 'squads', label: 'Squad Directory', icon: Users, badge: null },
+    { id: 'fixtures', label: '2-Leg Fixture Engine', icon: CalendarDays, badge: `${fixtures.length}` },
+    { id: 'operator', label: 'Live Match Operator Pad', icon: Radio, badge: liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : null, isLive: liveMatchesCount > 0 },
+    { id: 'media', label: 'Media & Gallery', icon: Camera, badge: adminStats?.mediaCount ? `${adminStats.mediaCount}` : null },
+    { id: 'settings', label: 'Settings', icon: Settings2, badge: leagueSettings?.transferWindowStatus === 'open' ? 'WINDOW' : null }
+  ];
+
   return (
-    <div className="min-h-screen bg-[#090B10] text-slate-100 flex flex-col font-sans pb-16">
+    <div className="min-h-screen bg-[#0F172A] text-slate-100 flex flex-col font-sans selection:bg-[#00E676] selection:text-black">
       
-      {/* Top Admin Bar */}
-      <header className="sticky top-0 z-40 bg-[#0E1118]/95 backdrop-blur-md border-b border-[#1E2332] px-3 sm:px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
-            <Radio className="w-4 h-4 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-display font-black text-sm tracking-tight text-white">SKOUTED LEAGUE</span>
-              <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 uppercase">
-                OPS CONTROL
-              </span>
+      {/* 1. Mobile Fixed Top Brand Bar */}
+      <header className="lg:hidden sticky top-0 z-40 bg-[#0F172A]/95 backdrop-blur-md border-b border-slate-800 px-4 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileDrawerOpen(true)}
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 cursor-pointer transition-colors"
+            aria-label="Open Navigation Drawer"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] font-bold shadow-lg shadow-[#00E676]/10">
+              <Shield className="w-4 h-4" />
             </div>
-            <p className="text-[10px] text-slate-400 font-mono">Restricted Management Console</p>
+            <div>
+              <div className="font-display font-black text-xs tracking-tight text-white flex items-center gap-1.5">
+                <span>SKOUTED OPS</span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
+                  ADMIN
+                </span>
+              </div>
+              <p className="text-[9px] text-slate-400 font-mono">League Operations Control</p>
+            </div>
           </div>
         </div>
 
-        {/* Right Exit / Sign out */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden sm:block text-right pr-2 border-r border-white/10">
-            <div className="text-xs font-bold text-white">{adminUser.name}</div>
-            <div className="text-[10px] text-rose-400 font-mono uppercase">Administrator</div>
-          </div>
-
+        <div className="flex items-center gap-2">
           <button
             onClick={onExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-all"
-            title="View public live site"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-slate-800 cursor-pointer transition-colors"
+            title="View Public League Site"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Public League</span>
+            <ExternalLink className="w-4 h-4" />
           </button>
-
           <button
             onClick={handleAdminLogout}
-            className="w-9 h-9 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 flex items-center justify-center transition-all"
-            title="Sign out of Admin"
+            className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 cursor-pointer transition-colors"
+            title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* Nav Tabs for Admin Workspaces */}
-      <div className="max-w-6xl w-full mx-auto px-3 sm:px-6 pt-4 pb-2">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-[#1E2332]">
-          {[
-            { id: 'operator', label: '📱 Matchday Operator', icon: Radio, count: fixtures.filter(f => f.status.includes('HALF') || f.status === 'HT').length },
-            { id: 'fixtures', label: '📅 Fixtures & Schedule', icon: Calendar, count: fixtures.length },
-            { id: 'teams', label: '🛡️ Teams & Squad Explorer', icon: Users, count: adminTeams.length || teams.length },
-            { id: 'transfer', label: '🔄 Transfer Window & Roster Engine', icon: ArrowRightLeft, isLive: leagueSettings?.transferWindowStatus === 'open' },
-            { id: 'media', label: '📰 News, Podcasts & Sponsors', icon: Newspaper },
-            { id: 'system', label: '⚙️ Diagnostics & Sync', icon: RefreshCw }
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isActive = adminTab === tab.id || (tab.id === 'teams' && adminTab === 'clubs');
-            return (
+      {/* 2. Mobile Off-Canvas Drawer Menu */}
+      {mobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+          <div className="relative w-72 max-w-[80vw] bg-[#0F172A] border-r border-slate-800 p-5 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-lg shadow-[#00E676]/10">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-display font-black text-sm text-white">SKOUTED OPS</div>
+                    <div className="text-[10px] text-slate-400 font-mono">Executive Console</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Drawer Nav Items */}
+              <nav className="space-y-1.5">
+                {sidebarNavItems.map(item => {
+                  const Icon = item.icon;
+                  const active = adminTab === item.id || (item.id === 'teams' && adminTab === 'clubs');
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setAdminTab(item.id);
+                        setMobileDrawerOpen(false);
+                      }}
+                      className={`w-full px-3.5 py-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                        active
+                          ? 'bg-[#00E676] text-black shadow-lg shadow-[#00E676]/20 font-black'
+                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                          active ? 'bg-black/25 text-black' : item.isPendingAlert ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-slate-300'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900 border border-slate-800">
+                <div className="w-8 h-8 rounded-xl bg-[#00E676]/20 text-[#00E676] font-bold flex items-center justify-center text-xs">
+                  {adminUser?.name?.charAt(0) || 'A'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-white truncate">{adminUser?.name || 'Administrator'}</div>
+                  <div className="text-[10px] text-[#00E676] font-mono">Operations Lead</div>
+                </div>
+              </div>
               <button
-                key={tab.id}
-                onClick={() => setAdminTab(tab.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
-                  isActive
-                    ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
-                    : 'bg-[#121520] border-[#222738] text-slate-400 hover:text-white'
+                onClick={handleAdminLogout}
+                className="w-full py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Main Body Container (Sidebar + Content) */}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* Desktop Collapsible Sidebar */}
+        <aside className={`hidden lg:flex flex-col justify-between border-r border-slate-800 bg-[#0B1120] transition-all duration-300 relative shrink-0 ${
+          sidebarCollapsed ? 'w-20' : 'w-64'
+        }`}>
+          <div>
+            {/* Sidebar Brand Header */}
+            <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between">
+              <div className={`flex items-center gap-2.5 overflow-hidden transition-all ${sidebarCollapsed ? 'justify-center w-full' : ''}`}>
+                <div className="w-9 h-9 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shrink-0 shadow-lg shadow-[#00E676]/10">
+                  <Shield className="w-5 h-5" />
+                </div>
+                {!sidebarCollapsed && (
+                  <div className="min-w-0">
+                    <div className="font-display font-black text-xs tracking-tight text-white flex items-center gap-1.5">
+                      <span>SKOUTED OPS</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
+                        PRO
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-mono truncate">Control Console</p>
+                  </div>
+                )}
+              </div>
+
+              {!sidebarCollapsed && (
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {sidebarCollapsed && (
+              <div className="py-2 px-3 flex justify-center border-b border-slate-800/50">
+                <button
+                  onClick={() => setSidebarCollapsed(false)}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Expand Sidebar"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Sidebar Navigation Items */}
+            <nav className="p-3 space-y-1.5">
+              {sidebarNavItems.map(item => {
+                const Icon = item.icon;
+                const active = adminTab === item.id || (item.id === 'teams' && adminTab === 'clubs');
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setAdminTab(item.id)}
+                    className={`w-full px-3 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center cursor-pointer ${
+                      sidebarCollapsed ? 'justify-center' : 'justify-between'
+                    } ${
+                      active
+                        ? 'bg-[#00E676] text-black shadow-lg shadow-[#00E676]/20 font-black'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                    title={sidebarCollapsed ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+                    </div>
+
+                    {!sidebarCollapsed && item.badge && (
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        active
+                          ? 'bg-black/25 text-black'
+                          : item.isPendingAlert
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                          : 'bg-white/10 text-slate-300'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Sidebar Footer User Info */}
+          <div className="p-3 border-t border-slate-800 space-y-2">
+            {!sidebarCollapsed ? (
+              <>
+                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <div className="w-8 h-8 rounded-xl bg-[#00E676]/20 text-[#00E676] font-bold flex items-center justify-center text-xs shrink-0">
+                    {adminUser?.name?.charAt(0) || 'A'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-white truncate">{adminUser?.name}</div>
+                    <div className="text-[10px] text-[#00E676] font-mono uppercase">Administrator</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={onExit}
+                    className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-800 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="View public live site"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Public Site</span>
+                  </button>
+
+                  <button
+                    onClick={handleAdminLogout}
+                    className="py-1.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-[11px] font-semibold text-rose-400 hover:text-rose-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Sign out of Admin"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={onExit}
+                  className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer"
+                  title="View public live site"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleAdminLogout}
+                  className="w-10 h-10 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 flex items-center justify-center cursor-pointer"
+                  title="Sign out of Admin"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Right-Hand Scrollable Content Panel */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          
+          {/* Desktop Top Header Bar */}
+          <header className="hidden lg:flex items-center justify-between px-6 h-16 border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-30">
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-400">
+                Workspace / <strong className="text-white capitalize">{adminTab.replace('-', ' ')}</strong>
+              </div>
+              {liveMatchesCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span>{liveMatchesCount} MATCH IN PROGRESS</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => loadAdminData()}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Refresh Live Data"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-[#00E676]" />
+                <span>Sync Data</span>
+              </button>
+
+              <button
+                onClick={onExit}
+                className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-slate-800 text-xs font-bold text-slate-200 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-[#00E676]" />
+                <span>Public Site</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Real-time Metric Summary Cards (5 Key Stats - Visible across tabs for instant situational awareness) */}
+          <div className="px-4 sm:px-6 pt-5 pb-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+              
+              {/* Card 1: Total Registered Teams */}
+              <div 
+                onClick={() => setAdminTab('teams')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group ${
+                  adminTab === 'teams' ? 'border-[#00E676] shadow-lg shadow-[#00E676]/10' : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-                {tab.isLive && (
-                  <span className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-[#00E676] text-black">
-                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
-                    <span>OPEN</span>
-                  </span>
-                )}
-                {tab.count !== undefined && (
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${isActive ? 'bg-black/30' : 'bg-white/10'}`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Total Teams</span>
+                  <div className="w-8 h-8 rounded-xl bg-[#00E676]/10 text-[#00E676] flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2">
+                  {adminStats.teamsCount || teams.length}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                  <span className="text-[#00E676] font-bold">{adminStats.approvedTeamsCount || adminTeams.filter(t => t.verificationStatus === 'approved').length}</span>
+                  <span>accredited</span>
+                </div>
+              </div>
 
-      {/* Main Workspace Body */}
-      <main className="max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 flex-1">
+              {/* Card 2: Pending Approvals */}
+              <div 
+                onClick={() => setAdminTab('teams')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group ${
+                  pendingCount > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Pending Review</span>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+                    pendingCount > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    <Clock className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2 flex items-center gap-2">
+                  <span>{pendingCount}</span>
+                  {pendingCount > 0 && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
+                      Action Req.
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {pendingCount > 0 ? 'Awaiting accreditation' : 'All teams reviewed'}
+                </div>
+              </div>
+
+              {/* Card 3: Total Players */}
+              <div 
+                onClick={() => setAdminTab('squads')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group ${
+                  adminTab === 'squads' ? 'border-sky-500 shadow-lg shadow-sky-500/10' : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Total Players</span>
+                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2">
+                  {adminStats.playersCount || (adminTeams.reduce((sum, t) => sum + (t.squadCount || 0), 0) || '350+')}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Squad directory size
+                </div>
+              </div>
+
+              {/* Card 4: Active Fixtures */}
+              <div 
+                onClick={() => setAdminTab('fixtures')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group ${
+                  adminTab === 'fixtures' ? 'border-indigo-500 shadow-lg shadow-indigo-500/10' : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Fixtures</span>
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CalendarDays className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2 flex items-center gap-2">
+                  <span>{fixtures.length}</span>
+                  {liveMatchesCount > 0 && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                      {liveMatchesCount} LIVE
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {fixtures.filter(f => f.status === 'FT').length} matches concluded
+                </div>
+              </div>
+
+              {/* Card 5: Gallery & Media Photos */}
+              <div 
+                onClick={() => setAdminTab('media')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group col-span-2 sm:col-span-1 ${
+                  adminTab === 'media' ? 'border-[#00E676] shadow-lg shadow-[#00E676]/10' : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Media & Photos</span>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2">
+                  {adminStats.mediaCount || '15+'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Cloudinary assets
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Main Tab Content */}
+          <main className="px-4 sm:px-6 py-4 flex-1 space-y-6 pb-24 lg:pb-12">
+            
+            {/* ========================================================= */}
+            {/* OVERVIEW WORKSPACE */}
+            {/* ========================================================= */}
+            {adminTab === 'overview' && (
+              <div className="space-y-6">
+                
+                {/* Executive Welcome Hero */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#0B1120] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-[#00E676]/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+                  <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                    <div className="space-y-2 max-w-2xl">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-[#00E676] text-xs font-mono font-bold tracking-wide">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>EXECUTIVE TOURNAMENT CONTROL</span>
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-display font-black text-white tracking-tight">
+                        Skouted Youth Championship 2026/27
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Welcome, <strong className="text-white">{adminUser.name}</strong>. Real-time pitch-side operations, 2-leg algorithmic tournament scheduling, club accreditation, and centralized media command.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-2 text-xs font-mono">
+                        <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-slate-800 text-slate-300">
+                          Season: <strong className="text-[#00E676]">{leagueSettings?.seasonPhase?.replace('_', ' ').toUpperCase() || 'PRE SEASON'}</strong>
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-slate-800 text-slate-300">
+                          Transfer Window: <strong className={leagueSettings?.transferWindowStatus === 'open' ? 'text-[#00E676]' : 'text-slate-400'}>
+                            {leagueSettings?.transferWindowStatus === 'open' ? 'OPEN' : 'CLOSED'}
+                          </strong>
+                        </span>
+                        <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-slate-800 text-slate-300">
+                          Squad Ceiling: <strong className="text-white">35 Max</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quick Launchpad Buttons */}
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full sm:w-auto shrink-0">
+                      <button
+                        onClick={() => {
+                          setAutoScheduleErrMsg('');
+                          setAutoScheduleSuccessMsg('');
+                          setShowAutoScheduleModal(true);
+                        }}
+                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-[#00E676]/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                      >
+                        <Wand2 className="w-4 h-4 text-black" />
+                        <span>Generate 2-Leg Schedule</span>
+                      </button>
+
+                      <button
+                        onClick={() => setAdminTab('operator')}
+                        className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-slate-700 transition-all cursor-pointer"
+                      >
+                        <Radio className="w-4 h-4 text-[#00E676]" />
+                        <span>Launch Operator Pad</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Two Column Grid: Pending Review Queue & Live/Upcoming Match Spotlight */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* 1. Pending Approvals Queue */}
+                  <div className="bg-[#1E293B] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-sm text-white">Pending Team Approvals</h3>
+                          <p className="text-[11px] text-slate-400">Clubs awaiting official accreditation review</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setTeamStatusFilter('pending');
+                          setAdminTab('teams');
+                        }}
+                        className="text-xs font-bold text-[#00E676] hover:underline"
+                      >
+                        View All ({pendingCount}) →
+                      </button>
+                    </div>
+
+                    {pendingTeams.length === 0 ? (
+                      <div className="py-8 text-center space-y-2">
+                        <div className="w-10 h-10 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center mx-auto text-[#00E676]">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <div className="text-xs font-bold text-white">All Teams Accredited</div>
+                        <p className="text-[11px] text-slate-400">No registered clubs are currently awaiting administrative review.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pendingTeams.slice(0, 3).map(t => (
+                          <div key={t._id} className="p-3.5 rounded-2xl bg-[#0F172A] border border-slate-800 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 p-1 flex items-center justify-center shrink-0">
+                                {t.logo ? (
+                                  <img src={t.logo} alt="" className="w-full h-full object-contain" />
+                                ) : (
+                                  <span className="font-mono font-black text-xs text-[#00E676]">{t.shortCode || 'FC'}</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs text-white truncate">{t.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                  Mgr: {t.managerName || 'Manager'} • {t.homeGround || 'Ground'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleApproveTeam(t._id)}
+                                disabled={verifyingTeamId === t._id}
+                                className="p-2 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs transition-all shadow cursor-pointer disabled:opacity-50"
+                                title="Approve Team"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenRejectModal(t)}
+                                disabled={verifyingTeamId === t._id}
+                                className="p-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
+                                title="Reject Registration"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Match Operations Spotlight */}
+                  <div className="bg-[#1E293B] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676]">
+                          <Radio className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="font-extrabold text-sm text-white">Live Match Spotlight</h3>
+                          <p className="text-[11px] text-slate-400">Current active fixture or next scheduled match</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setAdminTab('fixtures')}
+                        className="text-xs font-bold text-[#00E676] hover:underline"
+                      >
+                        All Fixtures →
+                      </button>
+                    </div>
+
+                    {(() => {
+                      const live = fixtures.find(f => f.status.includes('HALF') || f.status === 'HT');
+                      const target = live || fixtures[0];
+
+                      if (!target) {
+                        return (
+                          <div className="py-8 text-center space-y-2">
+                            <Calendar className="w-8 h-8 text-slate-600 mx-auto" />
+                            <div className="text-xs font-bold text-white">No Fixtures Scheduled</div>
+                            <p className="text-[11px] text-slate-400">Use the 2-Leg Engine to generate tournament fixtures.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="p-4 rounded-2xl bg-[#0F172A] border border-slate-800 space-y-4">
+                          <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                            <span>{target.stage} • Leg {target.leg || 1} • {target.venue}</span>
+                            <span className={`px-2 py-0.5 rounded-full font-bold ${
+                              target.status.includes('HALF') || target.status === 'HT'
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse'
+                                : 'bg-white/10 text-slate-300'
+                            }`}>
+                              {target.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 items-center text-center py-2">
+                            <div className="space-y-1">
+                              <div className="font-bold text-xs text-white truncate">{target.homeTeam?.name || 'Home'}</div>
+                              <div className="text-[10px] font-mono text-slate-400">{target.homeTeam?.shortCode}</div>
+                            </div>
+
+                            <div className="text-2xl font-mono font-black text-white">
+                              {target.homeScore ?? 0} : {target.awayScore ?? 0}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="font-bold text-xs text-white truncate">{target.awayTeam?.name || 'Away'}</div>
+                              <div className="text-[10px] font-mono text-slate-400">{target.awayTeam?.shortCode}</div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedFixtureId(target._id);
+                              setAdminTab('operator');
+                            }}
+                            className="w-full py-2.5 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <Radio className="w-3.5 h-3.5" />
+                            <span>Open in Pitch-side Operator Pad</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* SQUAD DIRECTORY & ROSTER OVERVIEW */}
+            {/* ========================================================= */}
+            {adminTab === 'squads' && (
+              <div className="space-y-5">
+                <div className="bg-[#1E293B] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-base text-white tracking-tight">Squad Directory & Player Accreditation</h3>
+                        <p className="text-xs text-slate-400">Browse official squads, inspect athlete eligibility, and print match sheets.</p>
+                      </div>
+                    </div>
+
+                    <span className="text-xs font-mono px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+                      <strong className="text-[#00E676]">{adminTeams.length}</strong> Participating Clubs
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Select Club to Inspect Squad Roster:
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                      {adminTeams.map(t => {
+                        const isSelected = selectedTeamForRoster?._id === t._id;
+                        return (
+                          <button
+                            key={t._id}
+                            onClick={() => handleOpenRoster(t)}
+                            className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#00E676]/15 border-[#00E676] text-white shadow-lg shadow-[#00E676]/10'
+                                : 'bg-[#0F172A] border-slate-800 hover:border-slate-700 text-slate-300'
+                            }`}
+                          >
+                            <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 p-1 flex items-center justify-center shrink-0">
+                              {t.logo ? (
+                                <img src={t.logo} alt="" className="w-full h-full object-contain" />
+                              ) : (
+                                <span className="font-mono font-black text-[11px] text-[#00E676]">{t.shortCode || 'FC'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-xs truncate">{t.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                                <span>{t.shortCode}</span>
+                                <span className="text-[#00E676] font-bold">{t.squadCount ?? 0} players</span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
         
         {/* ========================================================= */}
         {/* 1. MATCHDAY OPERATOR PAD (Pitch-side console) */}
@@ -2324,7 +2998,7 @@ export default function AdminPortal({ onExit }) {
         {/* ========================================================= */}
         {/* 3B. TRANSFER WINDOW & SQUAD CAPACITY ENGINE */}
         {/* ========================================================= */}
-        {adminTab === 'transfer' && (
+        {(adminTab === 'settings' || adminTab === 'transfer') && (
           <div className="space-y-6">
             
             {/* Header Hero Banner */}
@@ -2634,7 +3308,7 @@ export default function AdminPortal({ onExit }) {
         {/* ========================================================= */}
         {/* 4. DIAGNOSTICS & SYSTEM SYNC */}
         {/* ========================================================= */}
-        {adminTab === 'system' && (
+        {(adminTab === 'settings' || adminTab === 'system') && (
           <div className="space-y-4">
             <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
               <h3 className="font-extrabold text-base text-white flex items-center gap-2">
@@ -2756,6 +3430,51 @@ export default function AdminPortal({ onExit }) {
         )}
 
       </main>
+
+        </div>
+      </div>
+
+      {/* 4. Mobile Sticky Quick-Action Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0F172A]/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around safe-bottom">
+        {[
+          { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+          { id: 'teams', label: 'Approvals', icon: ShieldCheck, badge: pendingCount > 0 ? pendingCount : null },
+          { id: 'operator', label: 'Operator', icon: Radio, isLive: liveMatchesCount > 0 },
+          { id: 'media', label: 'Media', icon: Camera },
+          { id: 'menu', label: 'Menu', icon: Menu, isMenu: true }
+        ].map(action => {
+          const Icon = action.icon;
+          const active = !action.isMenu && (adminTab === action.id || (action.id === 'teams' && adminTab === 'clubs'));
+          return (
+            <button
+              key={action.id}
+              onClick={() => {
+                if (action.isMenu) {
+                  setMobileDrawerOpen(true);
+                } else {
+                  setAdminTab(action.id);
+                }
+              }}
+              className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+                active ? 'text-[#00E676]' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <div className="relative">
+                <Icon className="w-5 h-5" />
+                {action.badge && (
+                  <span className="absolute -top-1 -right-2 px-1 py-0.2 rounded-full bg-amber-500 text-black text-[9px] font-mono font-black">
+                    {action.badge}
+                  </span>
+                )}
+                {action.isLive && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                )}
+              </div>
+              <span className="text-[10px] font-bold mt-0.5">{action.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL 1: ROSTER INSPECTOR MODAL */}

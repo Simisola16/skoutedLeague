@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, UserCheck, KeyRound } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2, UserCheck, KeyRound } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function TeamLogin({
@@ -65,7 +65,7 @@ export default function TeamLogin({
     } catch (err) {
       setErrorMsg(err.message || 'Verification error');
     } finally {
-      setOtpLoading(false);
+      setLoading(false);
     }
   };
 
@@ -89,6 +89,24 @@ export default function TeamLogin({
       
       {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#00E676]/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      {/* Top Navigation Back Link */}
+      <div className="w-full max-w-md mb-2 flex items-center justify-between z-10">
+        <button
+          onClick={onBackToHome}
+          className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>← Back to League Homepage</span>
+        </button>
+
+        <button
+          onClick={onOpenRegister}
+          className="text-xs font-bold text-[#00E676] hover:underline cursor-pointer"
+        >
+          Register Club →
+        </button>
+      </div>
 
       <div className="w-full max-w-md relative z-10 space-y-6">
         

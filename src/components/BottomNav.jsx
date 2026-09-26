@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Calendar, Trophy, Users, Shield, Newspaper, Headphones } from 'lucide-react';
+import { Compass, Calendar, Trophy, Users, Shield, Newspaper, Camera } from 'lucide-react';
 
 export default function BottomNav({
   currentPath = '/',
@@ -8,10 +8,10 @@ export default function BottomNav({
   user
 }) {
   const navItems = [
-    { id: 'about', label: 'About', path: '/about', icon: Compass },
     { id: 'fixtures', label: 'Fixtures', path: '/fixtures', icon: Calendar, badge: liveCount },
     { id: 'table', label: 'Table', path: '/table', icon: Trophy },
     { id: 'teams', label: 'Teams', path: '/teams', icon: Users },
+    { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera },
     { id: 'news', label: 'News', path: '/news', icon: Newspaper },
     { id: 'portal', label: 'Portal', path: user && user.isVerified ? '/team/dashboard' : '/team/login', icon: Shield }
   ];
