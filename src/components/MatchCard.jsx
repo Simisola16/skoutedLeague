@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Star, Share2, Check, Clock, ChevronRight, MapPin } from 'lucide-react';
+import { Star, Share2, Check, Clock, MapPin, ChevronRight } from 'lucide-react';
 
 export default function MatchCard({
   fixture,
@@ -10,18 +10,18 @@ export default function MatchCard({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const isLive = fixture.status === '1ST HALF' || fixture.status === '2ND HALF' || fixture.status === 'HT' || fixture.status === 'PENS';
-  const isFT = fixture.status === 'FT';
-  const isUpcoming = fixture.status === 'UPCOMING';
+  const isLive = ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(fixture?.status);
+  const isFT = fixture?.status === 'FT';
+  const isUpcoming = fixture?.status === 'UPCOMING';
 
   const handleShare = (e) => {
     e.stopPropagation();
-    const shareText = `🏆 Skouted League: ${fixture.homeTeam?.name} ${fixture.homeScore ?? 0} - ${fixture.awayScore ?? 0} ${fixture.awayTeam?.name} (${isLive ? `${fixture.minute}' LIVE` : fixture.status})!`;
-    const shareUrl = window.location.href;
+    const shareText = `🏆 Skouted League: ${fixture.homeTeam?.name || 'Home'} ${fixture.homeScore ?? 0} - ${fixture.awayScore ?? 0} ${fixture.awayTeam?.name || 'Away'} (${isLive ? `${fixture.minute}' LIVE` : fixture.status})!`;
+    const shareUrl = window.location.origin + '/fixtures';
 
     if (navigator.share) {
       navigator.share({
-        title: 'Skouted League Match',
+        title: 'Skouted Youth League Match',
         text: shareText,
         url: shareUrl
       }).catch(() => {});
@@ -32,133 +32,170 @@ export default function MatchCard({
     }
   };
 
+  // Clean venue name for concise chip display
+  const venueDisplay = fixture.venue
+    ? fixture.venue.split(',')[0].replace(/Stadium/i, '').trim() || 'Lekan Salami'
+    : 'Lekan Salami';
+
   return (
     <div
       onClick={() => onSelect(fixture)}
-      className={`glass-card rounded-2xl p-4 sm:p-5 transition-all cursor-pointer border hover:translate-y-[-1px] ${
+      role="button"
+      tabIndex={0}
+      className={`group relative w-full bg-slate-900/90 border transition-all duration-200 rounded-xl py-2.5 px-3 sm:py-3.5 sm:px-4 cursor-pointer select-none min-h-[48px] active:scale-[0.99] ${
         isLive
-          ? 'border-[#FF4B4B]/40 hover:border-[#FF4B4B] bg-[#161922] shadow-lg shadow-[#FF4B4B]/5'
-          : 'border-[#222735] hover:border-slate-600 bg-[#141720]'
+          ? 'border-red-500/50 bg-slate-900/95 shadow-md shadow-red-500/10 hover:border-red-400'
+          : 'border-slate-800/90 hover:border-slate-700 hover:bg-slate-900 shadow-sm shadow-black/20'
       }`}
     >
-      {/* Top Meta Bar: Stage, Status / Clock, Share & Follow */}
-      <div className="flex items-center justify-between text-xs pb-3 border-b border-white/5">
-        
-        {/* Stage & Status */}
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-400">{fixture.stage}</span>
+      {/* Top Meta Bar: Stage, Status Pill & Quick Action */}
+      <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1.5 mb-2 border-b border-slate-800/60">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-semibold text-slate-300 truncate text-[11px]">
+            {fixture.stage || 'Championship'}
+          </span>
           {fixture.leg && (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-400 font-bold border border-blue-500/30 shrink-0">
               Leg {fixture.leg}
             </span>
           )}
-          <span className="text-slate-600">•</span>
-          
-          {isLive ? (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] font-mono font-black text-[11px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping"></span>
-              <span>{fixture.status === 'HT' ? 'HALF TIME' : `${fixture.minute}' LIVE`}</span>
-            </span>
-          ) : isFT ? (
-            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-bold text-[11px]">
-              FULL TIME
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[#00E676] font-mono font-bold text-[11px]">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{fixture.date} • {fixture.time}</span>
-            </span>
+          {fixture.matchday && (
+            <span className="text-slate-500 hidden sm:inline">• MD {fixture.matchday}</span>
           )}
         </div>
 
-        {/* Action icons: Share & Venue */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Venue Chip for Scheduled/FT */}
+          <div className="hidden xs:flex items-center gap-1 text-[10px] text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded-md border border-slate-700/40">
+            <MapPin className="w-2.5 h-2.5 text-[#00E676] shrink-0" />
+            <span className="truncate max-w-[100px] sm:max-w-[140px]">{venueDisplay}</span>
+          </div>
+
           <button
             onClick={handleShare}
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            title="Share match via WhatsApp or X"
+            className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Share match update"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-[#00E676]" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-3 h-3 text-[#00E676]" /> : <Share2 className="w-3 h-3" />}
           </button>
         </div>
-
       </div>
 
-      {/* Main Score & Teams Grid */}
-      <div className="py-3.5 grid grid-cols-12 items-center gap-2">
+      {/* Main Row: Home Team (Left) | Score / Kickoff (Center) | Away Team (Right) */}
+      <div className="grid grid-cols-12 items-center gap-1 sm:gap-2">
         
-        {/* Home Team */}
-        <div className="col-span-5 flex items-center gap-2.5 min-w-0">
+        {/* Left: Home Team */}
+        <div className="col-span-5 flex items-center gap-2 min-w-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite && onToggleFavorite(fixture.homeTeam?._id);
             }}
-            className="text-slate-500 hover:text-[#FFB800] transition-colors shrink-0"
-            title="Follow team"
+            className="text-slate-600 hover:text-[#FFB800] transition-colors shrink-0 p-0.5"
+            title="Follow club"
           >
             <Star className={`w-3.5 h-3.5 ${isFavoriteHome ? 'fill-[#FFB800] text-[#FFB800]' : ''}`} />
           </button>
+
           {fixture.homeTeam?.logo ? (
             <img
               src={fixture.homeTeam.logo}
-              alt={fixture.homeTeam?.name}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shrink-0 border border-white/10 bg-slate-800 shadow"
+              alt={fixture.homeTeam?.name || 'Home'}
+              className="w-8 h-8 rounded-lg object-contain bg-slate-800/90 border border-slate-700/60 p-0.5 shrink-0 shadow-sm"
+              loading="lazy"
             />
           ) : (
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1C2030] border border-white/10 flex items-center justify-center text-xs font-black text-[#00E676] shrink-0 shadow">
+            <div className="w-8 h-8 rounded-lg bg-[#1C2030] border border-slate-700/60 flex items-center justify-center text-xs font-black text-[#00E676] shrink-0 shadow-sm">
               {fixture.homeTeam?.shortCode || 'H'}
             </div>
           )}
-          <div className="min-w-0">
-            <h4 className="font-bold text-sm text-white truncate">{fixture.homeTeam?.name}</h4>
-            <span className="text-[10px] font-mono text-slate-400 font-semibold">{fixture.homeTeam?.shortCode}</span>
+
+          <div className="min-w-0 leading-tight">
+            <h4 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-[#00E676] transition-colors">
+              {fixture.homeTeam?.name || 'Home Club'}
+            </h4>
+            <span className="text-[10px] font-mono text-slate-400 font-medium">
+              {fixture.homeTeam?.shortCode || 'HOM'}
+            </span>
           </div>
         </div>
 
-        {/* Center Scores / VS */}
-        <div className="col-span-2 flex flex-col items-center justify-center text-center">
-          {isUpcoming ? (
-            <div className="px-2.5 py-1 rounded-lg bg-white/5 text-[11px] font-mono font-bold text-slate-400 border border-white/5">
-              VS
+        {/* Center: Live Minute & Scores or Kickoff Time */}
+        <div className="col-span-2 flex flex-col items-center justify-center text-center px-1">
+          {isLive ? (
+            <div className="flex flex-col items-center justify-center">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] font-mono font-black text-[10px] leading-none mb-1 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping" />
+                <span>{fixture.status === 'HT' ? 'HT' : `${fixture.minute || 0}'`}</span>
+              </span>
+              <div className="font-mono text-lg sm:text-2xl font-black text-white tracking-wider flex items-center justify-center gap-1">
+                <span className={fixture.homeScore > fixture.awayScore ? 'text-[#00E676]' : 'text-white'}>
+                  {fixture.homeScore ?? 0}
+                </span>
+                <span className="text-slate-600 font-light text-sm sm:text-base">-</span>
+                <span className={fixture.awayScore > fixture.homeScore ? 'text-[#00E676]' : 'text-white'}>
+                  {fixture.awayScore ?? 0}
+                </span>
+              </div>
+            </div>
+          ) : isUpcoming ? (
+            <div className="flex flex-col items-center justify-center">
+              <div className="px-2 py-0.5 rounded-md bg-[#00E676]/10 border border-[#00E676]/25 text-[#00E676] font-mono font-extrabold text-xs sm:text-sm whitespace-nowrap shadow-sm">
+                {fixture.time || '15:00'}
+              </div>
+              <span className="text-[9px] font-mono text-slate-400 font-semibold mt-0.5">
+                {fixture.date ? fixture.date.slice(5) : 'WAT'}
+              </span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 font-mono text-xl sm:text-2xl font-black">
-              <span className={fixture.homeScore > fixture.awayScore ? 'text-[#00E676]' : 'text-white'}>
-                {fixture.homeScore}
+            <div className="flex flex-col items-center justify-center">
+              <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 mb-0.5">
+                FT
               </span>
-              <span className="text-slate-500 text-base font-normal">-</span>
-              <span className={fixture.awayScore > fixture.homeScore ? 'text-[#00E676]' : 'text-white'}>
-                {fixture.awayScore}
-              </span>
+              <div className="font-mono text-base sm:text-xl font-black text-white tracking-wider flex items-center justify-center gap-1">
+                <span className={fixture.homeScore > fixture.awayScore ? 'text-[#00E676]' : 'text-slate-200'}>
+                  {fixture.homeScore ?? 0}
+                </span>
+                <span className="text-slate-600 font-light text-xs sm:text-sm">-</span>
+                <span className={fixture.awayScore > fixture.homeScore ? 'text-[#00E676]' : 'text-slate-200'}>
+                  {fixture.awayScore ?? 0}
+                </span>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Away Team */}
-        <div className="col-span-5 flex items-center justify-end gap-2.5 min-w-0 text-right">
-          <div className="min-w-0">
-            <h4 className="font-bold text-sm text-white truncate">{fixture.awayTeam?.name}</h4>
-            <span className="text-[10px] font-mono text-slate-400 font-semibold">{fixture.awayTeam?.shortCode}</span>
+        {/* Right: Away Team */}
+        <div className="col-span-5 flex items-center justify-end gap-2 min-w-0 text-right">
+          <div className="min-w-0 leading-tight">
+            <h4 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-[#00E676] transition-colors">
+              {fixture.awayTeam?.name || 'Away Club'}
+            </h4>
+            <span className="text-[10px] font-mono text-slate-400 font-medium">
+              {fixture.awayTeam?.shortCode || 'AWY'}
+            </span>
           </div>
+
           {fixture.awayTeam?.logo ? (
             <img
               src={fixture.awayTeam.logo}
-              alt={fixture.awayTeam?.name}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover shrink-0 border border-white/10 bg-slate-800 shadow"
+              alt={fixture.awayTeam?.name || 'Away'}
+              className="w-8 h-8 rounded-lg object-contain bg-slate-800/90 border border-slate-700/60 p-0.5 shrink-0 shadow-sm"
+              loading="lazy"
             />
           ) : (
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1C2030] border border-white/10 flex items-center justify-center text-xs font-black text-[#00E676] shrink-0 shadow">
+            <div className="w-8 h-8 rounded-lg bg-[#1C2030] border border-slate-700/60 flex items-center justify-center text-xs font-black text-[#00E676] shrink-0 shadow-sm">
               {fixture.awayTeam?.shortCode || 'A'}
             </div>
           )}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite && onToggleFavorite(fixture.awayTeam?._id);
             }}
-            className="text-slate-500 hover:text-[#FFB800] transition-colors shrink-0"
-            title="Follow team"
+            className="text-slate-600 hover:text-[#FFB800] transition-colors shrink-0 p-0.5"
+            title="Follow club"
           >
             <Star className={`w-3.5 h-3.5 ${isFavoriteAway ? 'fill-[#FFB800] text-[#FFB800]' : ''}`} />
           </button>
@@ -166,17 +203,15 @@ export default function MatchCard({
 
       </div>
 
-      {/* Bottom Footer Bar: Venue and quick lineup status */}
-      <div className="pt-2.5 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
-        <div className="flex items-center gap-1 text-[11px] truncate max-w-[200px] sm:max-w-none">
-          <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-          <span className="truncate">{fixture.venue}</span>
-        </div>
-
-        <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400 group-hover:text-[#00E676]">
-          <span>Match Details</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </div>
+      {/* Tap indicator footer bar (Subtle) */}
+      <div className="mt-2 pt-1.5 border-t border-slate-800/40 flex items-center justify-between text-[10px] text-slate-400">
+        <span className="truncate max-w-[180px] xs:max-w-none text-slate-400">
+          {fixture.date ? `${fixture.date} • ` : ''}{venueDisplay}
+        </span>
+        <span className="flex items-center gap-0.5 font-medium text-slate-400 group-hover:text-[#00E676] transition-colors shrink-0">
+          <span>Match Center</span>
+          <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+        </span>
       </div>
 
     </div>

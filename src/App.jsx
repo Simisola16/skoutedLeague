@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { api } from './services/api';
 import socket from './services/socket';
@@ -20,6 +20,7 @@ import PlayerDetailModal from './components/PlayerDetailModal';
 import TournamentHero from './components/TournamentHero';
 import GalleryPage from './components/GalleryPage';
 import TeamRegisterPage from './components/TeamRegisterPage';
+import FixturesPage from './components/FixturesPage';
 
 // New Content & Media Components
 import AboutHeroShowcase from './components/AboutHeroShowcase';
@@ -34,7 +35,7 @@ import PodcastWidget from './components/PodcastWidget';
 import SponsorsPage from './components/SponsorsPage';
 import SponsorsMarquee from './components/SponsorsMarquee';
 
-import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown } from 'lucide-react';
+import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight } from 'lucide-react';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -124,12 +125,15 @@ export default function App() {
       });
     }
 
-    // First visit prompt for fan goal alerts
+    // First visit prompt for fan goal alerts (non-intrusive, dismissible)
     const hasSubscribed = localStorage.getItem('skouted_fan_subscribed');
-    if (!hasSubscribed) {
+    const wasDismissed = sessionStorage.getItem('skouted_fan_dismissed');
+    if (!hasSubscribed && !wasDismissed) {
       const timer = setTimeout(() => {
-        setShowFanAlerts(true);
-      }, 4000);
+        if (!sessionStorage.getItem('skouted_fan_dismissed')) {
+          setShowFanAlerts(true);
+        }
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -286,16 +290,28 @@ export default function App() {
     ? [...upcomingFixtures].sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`))[0]
     : null;
 
-  const filteredFixtures = fixtures.filter(f => {
-    const isLive = f.status === '1ST HALF' || f.status === '2ND HALF' || f.status === 'HT' || f.status === 'PENS';
-    const isFT = f.status === 'FT';
-    const isUpcoming = f.status === 'UPCOMING';
+  // Strict Top 3 Prioritized Matches for Homepage Showcase
+  // Priority 1: Live in-play matches ('1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE')
+  // Priority 2: Next immediate upcoming fixtures (sorted by kickoffTime: 1)
+  // Priority 3: Most recent completed results if no live or upcoming games exist (sorted by kickoffTime: -1)
+  const prioritizedHomepageMatches = useMemo(() => {
+    const isLiveStatus = (s) => ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(s);
 
-    if (matchFilter === 'live') return isLive;
-    if (matchFilter === 'upcoming') return isUpcoming;
-    if (matchFilter === 'finished') return isFT;
-    return true;
-  });
+    const live = fixtures
+      .filter(f => isLiveStatus(f.status))
+      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
+
+    const upcoming = fixtures
+      .filter(f => f.status === 'UPCOMING')
+      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
+
+    const finished = fixtures
+      .filter(f => f.status === 'FT')
+      .sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
+
+    const combined = [...live, ...upcoming, ...finished];
+    return combined.slice(0, 3);
+  }, [fixtures]);
 
   return (
     <div className="min-h-screen bg-[#0D0F14] text-slate-100 flex flex-col font-sans pb-16 lg:pb-8 selection:bg-[#00E676] selection:text-black">
@@ -414,9 +430,23 @@ export default function App() {
         )}
 
         {/* ========================================================= */}
-        {/* ROUTE 2 & HOMEPAGE: (/ or /fixtures) */}
+        {/* ROUTE 2: DEDICATED FIXTURES & RESULTS PAGE (/fixtures) */}
         {/* ========================================================= */}
-        {(currentPath === '/' || currentPath === '/fixtures') && (
+        {currentPath === '/fixtures' && (
+          <FixturesPage
+            fixtures={fixtures}
+            onSelectFixture={handleSelectFixture}
+            onBackToHome={() => navigateTo('/')}
+            favoriteTeamIds={favoriteTeamIds}
+            onToggleFavorite={handleToggleFavorite}
+            onOpenFanAlerts={() => setShowFanAlerts(true)}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* HOMEPAGE: (/) */}
+        {/* ========================================================= */}
+        {currentPath === '/' && (
           <div className="space-y-8">
             
             {/* Top Hero Banner */}
@@ -439,11 +469,11 @@ export default function App() {
               onNavigateAbout={() => navigateTo('/about')}
             />
 
-            {/* Integrated Matchday Live Scores & Center */}
-            <section id="match-center" className="scroll-mt-20 space-y-4">
+            {/* Integrated Matchday Live Scores & Center (Strict Top 3 Priority Matches Only) */}
+            <section id="match-center" className="scroll-mt-20 space-y-3.5">
               
               {/* Section Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#1E2330]">
+              <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#1E2330]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[#00E676]/10 border border-[#00E676]/20 flex items-center justify-center text-[#00E676] shadow-sm shadow-[#00E676]/10">
                     <Activity className="w-4 h-4" />
@@ -452,84 +482,40 @@ export default function App() {
                     <h2 className="text-base sm:text-lg font-black font-display text-white tracking-tight uppercase flex items-center gap-2">
                       <span>Matchday Live Center</span>
                       {liveMatches.length > 0 && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] text-[10px] font-mono font-bold">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] text-[10px] font-mono font-bold animate-pulse">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping" />
                           <span>LIVE</span>
                         </span>
                       )}
                     </h2>
                     <p className="text-[11px] text-slate-400">
-                      Real-time pitch scores, verified lineups, and official match reports
+                      Top 3 featured fixtures • Real-time pitch scores & verified lineups
                     </p>
                   </div>
                 </div>
 
-                {/* Fan Alert CTA */}
+                {/* View Full Schedule CTA (Desktop Header) */}
                 <button
-                  onClick={() => setShowFanAlerts(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFB800]/10 hover:bg-[#FFB800]/20 border border-[#FFB800]/25 text-[#FFB800] transition-all text-xs font-semibold self-start sm:self-auto cursor-pointer"
+                  onClick={() => navigateTo('/fixtures')}
+                  className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-[#00E676] hover:underline cursor-pointer group"
                 >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>Get Instant Goal Alerts</span>
+                  <span>All Fixtures ({fixtures.length})</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
 
-              {/* Quick Status Tabs: LIVE NOW, UPCOMING, RESULTS, ALL FIXTURES */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                {[
-                  { id: 'live', label: 'LIVE NOW', count: liveMatches.length, isLive: true },
-                  { id: 'upcoming', label: 'UPCOMING', count: upcomingFixtures.length },
-                  { id: 'finished', label: 'RESULTS', count: fixtures.filter(f => f.status === 'FT').length },
-                  { id: 'all', label: 'ALL FIXTURES', count: fixtures.length }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setMatchFilter(tab.id)}
-                    className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
-                      matchFilter === tab.id
-                        ? tab.isLive
-                          ? 'bg-[#FF4B4B]/20 border-[#FF4B4B] text-white shadow-md shadow-[#FF4B4B]/20 font-black'
-                          : 'bg-[#00E676]/15 border-[#00E676] text-[#00E676] shadow-md shadow-[#00E676]/15 font-black'
-                        : 'bg-[#141720] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600'
-                    }`}
-                  >
-                    {tab.isLive && tab.count > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-[#FF4B4B] animate-ping" />
-                    )}
-                    <span>{tab.label}</span>
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                      matchFilter === tab.id
-                        ? tab.isLive ? 'bg-[#FF4B4B]/30 text-white' : 'bg-[#00E676]/20 text-[#00E676]'
-                        : 'bg-white/5 text-slate-400'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Matches Grid */}
-              {filteredFixtures.length === 0 ? (
-                <div className="glass-card rounded-3xl p-8 sm:p-12 text-center text-slate-400 space-y-4 border border-[#23293A] bg-[#141722]/80">
-                  <Clock className="w-10 h-10 mx-auto text-slate-500" />
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-white text-base font-display">
-                      {matchFilter === 'live' ? 'No Matches Live Right Now' : 'No Fixtures Scheduled'}
-                    </h4>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto">
-                      {nextUpcomingFixture ? (
-                        <span>
-                          Next kickoff: <strong className="text-[#00E676]">{nextUpcomingFixture.date} • {nextUpcomingFixture.time}</strong>
-                        </span>
-                      ) : (
-                        'Official match schedules will be broadcast as confirmed.'
-                      )}
-                    </p>
-                  </div>
+              {/* Matches List: Top 3 only (Compact Native Sports App Layout) */}
+              {prioritizedHomepageMatches.length === 0 ? (
+                <div className="rounded-2xl p-6 sm:p-8 text-center text-slate-400 space-y-2 border border-slate-800 bg-slate-900/60">
+                  <Clock className="w-8 h-8 mx-auto text-slate-500" />
+                  <h4 className="font-bold text-white text-sm">No Matches Scheduled Yet</h4>
+                  <p className="text-xs text-slate-400">
+                    Official tournament fixture schedule will be announced soon.
+                  </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {filteredFixtures.map(fixture => (
+                <div className="space-y-2.5">
+                  {prioritizedHomepageMatches.map(fixture => (
                     <MatchCard
                       key={fixture._id}
                       fixture={fixture}
@@ -541,6 +527,17 @@ export default function App() {
                   ))}
                 </div>
               )}
+
+              {/* Prominent Full-Width Mobile & Desktop Action Button directly beneath the 3 cards */}
+              <div className="pt-1">
+                <button
+                  onClick={() => navigateTo('/fixtures')}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 border border-slate-700/80 hover:border-[#00E676]/60 text-white font-bold text-xs sm:text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-black/40 group cursor-pointer transition-all duration-200 min-h-[48px]"
+                >
+                  <span>View All Fixtures & Results ({fixtures.length})</span>
+                  <ArrowRight className="w-4 h-4 text-[#00E676] group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
 
             </section>
 
