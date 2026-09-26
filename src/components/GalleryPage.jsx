@@ -20,6 +20,7 @@ import {
   Check
 } from 'lucide-react';
 import { api } from '../services/api';
+import { getMediaUrl } from '../utils/mediaUtils';
 
 const CATEGORIES = [
   'All',
@@ -325,7 +326,7 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
                 {/* Image Container with Aspect Ratio */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-slate-900">
                   <img
-                    src={item.url}
+                    src={getMediaUrl(item.url)}
                     alt={item.title}
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -492,7 +493,7 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
               isFullscreen ? 'h-full w-full' : 'max-h-[75vh]'
             }`}>
               <img
-                src={activeItem.url}
+                src={getMediaUrl(activeItem.url)}
                 alt={activeItem.title}
                 className="max-h-[75vh] max-w-[90vw] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-200"
               />

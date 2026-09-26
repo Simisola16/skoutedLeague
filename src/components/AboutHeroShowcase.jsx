@@ -1,7 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, Compass, Sparkles, ShieldCheck } from 'lucide-react';
+import { api } from '../services/api';
+import socket from '../services/socket';
 
-export default function AboutHeroShowcase({ onNavigateAbout }) {
+const DEFAULT_ABOUT_IMAGE = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200';
+const DEFAULT_ABOUT_CAPTION = 'Skouted Youth League Players in Action';
+
+export default function AboutHeroShowcase({ 
+  onNavigateAbout, 
+  aboutImageUrl: initialImageUrl, 
+  aboutImageCaption: initialImageCaption 
+}) {
+  const [currentImage, setCurrentImage] = useState(initialImageUrl || DEFAULT_ABOUT_IMAGE);
+  const [currentCaption, setCurrentCaption] = useState(initialImageCaption || DEFAULT_ABOUT_CAPTION);
+
+  // Sync with prop updates
+  useEffect(() => {
+    if (initialImageUrl) setCurrentImage(initialImageUrl);
+    if (initialImageCaption) setCurrentCaption(initialImageCaption);
+  }, [initialImageUrl, initialImageCaption]);
+
+  // Fetch from API if initial prop was not supplied or to ensure fresh data
+  useEffect(() => {
+    if (!initialImageUrl) {
+      api.getLeagueSettings()
+        .then((res) => {
+          if (res?.data?.aboutImageUrl) {
+            setCurrentImage(res.data.aboutImageUrl);
+          }
+          if (res?.data?.aboutImageCaption) {
+            setCurrentCaption(res.data.aboutImageCaption);
+          }
+        })
+        .catch(() => {
+          // Fallback gracefully to default
+        });
+    }
+
+    // Realtime update listener: update instantly when admin updates image
+    const handleSettingsUpdate = (updatedSettings) => {
+      if (updatedSettings?.aboutImageUrl) {
+        setCurrentImage(updatedSettings.aboutImageUrl);
+      }
+      if (updatedSettings?.aboutImageCaption) {
+        setCurrentCaption(updatedSettings.aboutImageCaption);
+      }
+    };
+
+    socket.on('league_settings_updated', handleSettingsUpdate);
+    return () => {
+      socket.off('league_settings_updated', handleSettingsUpdate);
+    };
+  }, [initialImageUrl]);
+
+  const handleImageError = () => {
+    if (currentImage !== DEFAULT_ABOUT_IMAGE) {
+      setCurrentImage(DEFAULT_ABOUT_IMAGE);
+    }
+  };
+
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#121622] via-[#0E121A] to-[#0A0D14] border border-[#1E2536] shadow-2xl p-6 sm:p-10 lg:p-12">
       {/* Decorative background glow */}
@@ -29,15 +86,18 @@ export default function AboutHeroShowcase({ onNavigateAbout }) {
             <div className="relative rounded-2xl overflow-hidden p-0.5 bg-gradient-to-tr from-[#00E676]/40 via-emerald-500/20 to-transparent shadow-lg shadow-[#00E676]/10">
               <div className="relative aspect-[16/9] rounded-[15px] overflow-hidden bg-[#161B26]">
                 <img
-                  src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200"
-                  alt="Skouted Youth League Players in Action"
+                  src={currentImage}
+                  alt={currentCaption}
+                  onError={handleImageError}
                   className="w-full h-full object-cover object-center transform hover:scale-105 transition-transform duration-700"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0D0F14]/90 via-[#0D0F14]/30 to-transparent" />
                 <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-slate-300">
                   <span className="font-mono text-[11px] text-[#00E676] font-bold">U-19 CHAMPIONSHIP</span>
-                  <span className="text-[10px] bg-black/60 px-2 py-0.5 rounded backdrop-blur-sm">Action Spotlight</span>
+                  <span className="text-[10px] bg-black/60 px-2 py-0.5 rounded backdrop-blur-sm truncate max-w-[180px]">
+                    {currentCaption || 'Action Spotlight'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -93,8 +153,9 @@ export default function AboutHeroShowcase({ onNavigateAbout }) {
             
             <div className="relative aspect-[4/3] rounded-[22px] overflow-hidden bg-[#161B26]">
               <img
-                src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200"
-                alt="Skouted Youth League Action"
+                src={currentImage}
+                alt={currentCaption}
+                onError={handleImageError}
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
               />
               

@@ -398,6 +398,11 @@ export const api = {
     return res.json();
   },
 
+  getPublicSettings: async () => {
+    const res = await fetch(`${API_BASE}/settings`);
+    return res.json();
+  },
+
   getAdminSettings: async () => {
     const res = await fetch(`${API_BASE}/admin/settings`, {
       headers: getAuthHeaders()
@@ -410,6 +415,19 @@ export const api = {
       method: 'PATCH',
       headers: getAuthHeaders(),
       body: JSON.stringify(settingsData)
+    });
+    return res.json();
+  },
+
+  updateAboutImage: async (formDataOrPayload) => {
+    const token = localStorage.getItem('skouted_token');
+    const isFormData = typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData;
+    const res = await fetch(`${API_BASE}/admin/about-image`, {
+      method: 'POST',
+      headers: isFormData
+        ? (token ? { Authorization: `Bearer ${token}` } : {})
+        : getAuthHeaders(),
+      body: isFormData ? formDataOrPayload : JSON.stringify(formDataOrPayload)
     });
     return res.json();
   },

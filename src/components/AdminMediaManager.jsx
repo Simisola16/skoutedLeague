@@ -27,6 +27,7 @@ import {
   FileText
 } from 'lucide-react';
 import { api } from '../services/api';
+import { getMediaUrl } from '../utils/mediaUtils';
 
 const MEDIA_CATEGORIES = [
   'All',
@@ -137,6 +138,20 @@ export default function AdminMediaManager() {
   });
   const [sponsorLogoFile, setSponsorLogoFile] = useState(null);
 
+  // =========================================================================
+  // 5. ABOUT SHOWCASE IMAGE STATE
+  // =========================================================================
+  const DEFAULT_ABOUT_IMG = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200';
+  const DEFAULT_ABOUT_CAP = 'Youth talent competing in the Skouted Youth League Championship';
+
+  const [aboutImageUrl, setAboutImageUrl] = useState(DEFAULT_ABOUT_IMG);
+  const [aboutImageCaption, setAboutImageCaption] = useState(DEFAULT_ABOUT_CAP);
+  const [aboutImageFile, setAboutImageFile] = useState(null);
+  const [aboutImagePreview, setAboutImagePreview] = useState(null);
+  const [aboutImageLoading, setAboutImageLoading] = useState(false);
+  const [aboutDirectUrlInput, setAboutDirectUrlInput] = useState('');
+  const [aboutIsDragOver, setAboutIsDragOver] = useState(false);
+
   const showToastMsg = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
@@ -159,19 +174,113 @@ export default function AdminMediaManager() {
     }
   };
 
-  // Fetch Other Content (News, Podcasts, Sponsors)
+  // Fetch Other Content (News, Podcasts, Sponsors, and About Image Settings)
   const loadContentMedia = async () => {
     try {
-      const [nRes, pRes, sRes] = await Promise.all([
+      const [nRes, pRes, sRes, settRes] = await Promise.all([
         api.getNews(),
         api.getPodcasts(),
-        api.getAllSponsors ? api.getAllSponsors() : api.getSponsors()
+        api.getAllSponsors ? api.getAllSponsors() : api.getSponsors(),
+        api.getLeagueSettings()
       ]);
       if (nRes.success) setArticles(nRes.data || []);
       if (pRes.success) setPodcasts(pRes.data || []);
       if (sRes.success) setSponsors(sRes.data || []);
+      if (settRes?.data) {
+        if (settRes.data.aboutImageUrl) setAboutImageUrl(settRes.data.aboutImageUrl);
+        if (settRes.data.aboutImageCaption) setAboutImageCaption(settRes.data.aboutImageCaption);
+      }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAboutFileSelect = (files) => {
+    const file = files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToastMsg('Please select a valid image file (PNG, JPG, WEBP).', 'error');
+      return;
+    }
+
+    setAboutImageFile(file);
+    const localUrl = URL.createObjectURL(file);
+    setAboutImagePreview(localUrl);
+    setAboutDirectUrlInput('');
+  };
+
+  const handleClearAboutSelectedFile = () => {
+    setAboutImageFile(null);
+    setAboutImagePreview(null);
+  };
+
+  const handleSaveAboutImage = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const targetUrl = aboutDirectUrlInput.trim() || (!aboutImageFile ? aboutImageUrl : '');
+    if (!aboutImageFile && !targetUrl) {
+      showToastMsg('Please select an image file or enter an image URL.', 'error');
+      return;
+    }
+
+    setAboutImageLoading(true);
+    try {
+      let res;
+      if (aboutImageFile) {
+        const formData = new FormData();
+        formData.append('image', aboutImageFile);
+        formData.append('caption', aboutImageCaption.trim());
+        res = await api.updateAboutImage(formData);
+      } else {
+        res = await api.updateAboutImage({
+          imageUrl: targetUrl,
+          caption: aboutImageCaption.trim()
+        });
+      }
+
+      if (res.success) {
+        const updatedUrl = res.data?.aboutImageUrl || targetUrl;
+        setAboutImageUrl(updatedUrl);
+        if (res.data?.aboutImageCaption !== undefined) {
+          setAboutImageCaption(res.data.aboutImageCaption);
+        }
+        setAboutImageFile(null);
+        setAboutImagePreview(null);
+        setAboutDirectUrlInput('');
+        showToastMsg('About section image updated successfully.');
+      } else {
+        showToastMsg(res.error || 'Failed to update about image', 'error');
+      }
+    } catch (err) {
+      showToastMsg(err.message || 'Error updating about image', 'error');
+    } finally {
+      setAboutImageLoading(false);
+    }
+  };
+
+  const handleResetToDefaultAboutImage = async () => {
+    if (!window.confirm('Reset the About Section showcase image back to the default photo?')) return;
+    setAboutImageLoading(true);
+    try {
+      const res = await api.updateAboutImage({
+        imageUrl: DEFAULT_ABOUT_IMG,
+        caption: DEFAULT_ABOUT_CAP
+      });
+      if (res.success) {
+        setAboutImageUrl(DEFAULT_ABOUT_IMG);
+        setAboutImageCaption(DEFAULT_ABOUT_CAP);
+        setAboutImageFile(null);
+        setAboutImagePreview(null);
+        setAboutDirectUrlInput('');
+        showToastMsg('About section image updated successfully.');
+      } else {
+        showToastMsg(res.error || 'Failed to reset image', 'error');
+      }
+    } catch (err) {
+      showToastMsg(err.message, 'error');
+    } finally {
+      setAboutImageLoading(false);
     }
   };
 
@@ -553,7 +662,8 @@ export default function AdminMediaManager() {
             { id: 'gallery', label: 'Gallery & Media Hub', icon: Camera, count: mediaSummary.total || mediaItems.length },
             { id: 'news', label: 'News Articles', icon: Newspaper, count: articles.length },
             { id: 'podcasts', label: 'Podcast Episodes', icon: Headphones, count: podcasts.length },
-            { id: 'sponsors', label: 'Sponsors & Partners', icon: Handshake, count: sponsors.length }
+            { id: 'sponsors', label: 'Sponsors & Partners', icon: Handshake, count: sponsors.length },
+            { id: 'about', label: 'About Showcase Image', icon: Image, count: null }
           ].map(tab => {
             const Icon = tab.icon;
             const active = subTab === tab.id;
@@ -572,7 +682,7 @@ export default function AdminMediaManager() {
                 <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
                   active ? 'bg-black/20 text-black font-extrabold' : 'bg-white/5 text-slate-400'
                 }`}>
-                  {tab.count}
+                  {tab.count !== null ? tab.count : ''}
                 </span>
               </button>
             );
@@ -764,7 +874,7 @@ export default function AdminMediaManager() {
                     {/* Thumbnail Image */}
                     <div className="relative aspect-[4/3] bg-black overflow-hidden">
                       <img
-                        src={item.url}
+                        src={getMediaUrl(item.url)}
                         alt={item.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -827,10 +937,10 @@ export default function AdminMediaManager() {
                         <button
                           onClick={() => handleCopyUrl(item.url, item._id)}
                           className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white flex items-center gap-1 text-[11px] cursor-pointer"
-                          title="Copy Cloudinary CDN URL"
+                          title="Copy Image URL"
                         >
                           {isCopied ? <Check className="w-3.5 h-3.5 text-[#00E676]" /> : <Copy className="w-3.5 h-3.5" />}
-                          <span>{isCopied ? 'Copied' : 'CDN'}</span>
+                          <span>{isCopied ? 'Copied' : 'URL'}</span>
                         </button>
 
                         <div className="flex items-center gap-1">
@@ -1686,6 +1796,186 @@ export default function AdminMediaManager() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* TAB 5: ABOUT SECTION SHOWCASE IMAGE */}
+      {/* =================================================================== */}
+      {subTab === 'about' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+
+          {/* Header */}
+          <div className="flex items-center gap-3 pb-2 border-b border-[#1E2536]">
+            <div className="w-9 h-9 rounded-xl bg-[#00E676]/10 border border-[#00E676]/20 flex items-center justify-center text-[#00E676]">
+              <Image className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h3 className="text-white font-black font-display text-sm sm:text-base tracking-tight">About Section Showcase Image</h3>
+              <p className="text-xs text-slate-400 mt-0.5">This image appears on the Homepage "About Skouted Youth League" section and the dedicated /about page. Changes propagate in real-time via WebSocket.</p>
+            </div>
+          </div>
+
+          {/* Live Preview Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Left: Current Image Preview */}
+            <div className="space-y-3">
+              <div className="text-xs font-mono text-[#00E676] font-bold uppercase tracking-wider">Current Showcase Image</div>
+              <div className="relative rounded-2xl overflow-hidden border border-[#1E2536] bg-[#0D1017] shadow-xl group">
+                <div className="aspect-[16/9] overflow-hidden">
+                  <img
+                    src={aboutImagePreview || aboutImageUrl}
+                    alt={aboutImageCaption}
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200'; }}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="text-[10px] font-mono text-[#00E676] font-bold mb-1 uppercase">LIVE ON HOMEPAGE & /ABOUT</div>
+                  <div className="text-xs text-white font-semibold truncate">{aboutImageCaption}</div>
+                </div>
+                {aboutImagePreview && (
+                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-amber-500/90 text-black text-[10px] font-bold flex items-center gap-1.5 backdrop-blur-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+                    PREVIEW — Not Saved Yet
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {aboutImagePreview ? '⚠️ You have an unsaved image selected. Click "Save" to apply it live.' : '✅ This image is currently live on your website.'}
+              </p>
+            </div>
+
+            {/* Right: Upload Controls */}
+            <form onSubmit={handleSaveAboutImage} className="space-y-4">
+              <div className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider">Upload New Image</div>
+
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setAboutIsDragOver(true); }}
+                onDragLeave={() => setAboutIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setAboutIsDragOver(false);
+                  if (e.dataTransfer.files?.length) handleAboutFileSelect(e.dataTransfer.files);
+                }}
+                onClick={() => document.getElementById('about-image-file-input').click()}
+                className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                  aboutIsDragOver
+                    ? 'border-[#00E676] bg-[#00E676]/10'
+                    : aboutImageFile
+                      ? 'border-[#00E676]/60 bg-[#00E676]/5'
+                      : 'border-[#2A3045] bg-[#0E1220] hover:border-[#00E676]/40 hover:bg-[#00E676]/5'
+                }`}
+              >
+                <input
+                  id="about-image-file-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleAboutFileSelect(e.target.files)}
+                />
+                {aboutImageFile ? (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-[#00E676]/20 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-[#00E676]" />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-white text-xs font-bold truncate max-w-[200px]">{aboutImageFile.name}</div>
+                      <div className="text-slate-400 text-[11px] mt-0.5">{(aboutImageFile.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleClearAboutSelectedFile(); }}
+                      className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 text-[10px] font-bold cursor-pointer hover:bg-rose-500/25 transition-all"
+                    >
+                      Remove File
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-white text-xs font-semibold">Drag & drop or click to select</div>
+                      <div className="text-slate-500 text-[11px] mt-0.5">PNG, JPG, WEBP — Recommended: 1200×800px or wider</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* OR Direct URL */}
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-[#1E2536]" />
+                <span className="text-[11px] text-slate-500 font-mono">OR USE URL</span>
+                <div className="h-px flex-1 bg-[#1E2536]" />
+              </div>
+
+              <div className="relative">
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="url"
+                  value={aboutDirectUrlInput}
+                  onChange={(e) => {
+                    setAboutDirectUrlInput(e.target.value);
+                    if (e.target.value) handleClearAboutSelectedFile();
+                  }}
+                  placeholder="https://res.cloudinary.com/... or external image URL"
+                  className="w-full bg-[#0E1220] border border-[#2A3045] rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
+                />
+              </div>
+
+              {/* Caption input */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Image Caption / Alt Text</label>
+                <input
+                  type="text"
+                  value={aboutImageCaption}
+                  onChange={(e) => setAboutImageCaption(e.target.value)}
+                  placeholder="Youth talent competing in the Skouted Youth League..."
+                  className="w-full bg-[#0E1220] border border-[#2A3045] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={aboutImageLoading}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#00E676]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {aboutImageLoading ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>{aboutImageLoading ? 'Saving...' : 'Save & Push Live'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToDefaultAboutImage}
+                  disabled={aboutImageLoading}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-[#2A3045] text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-60"
+                  title="Reset to default Unsplash photo"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reset
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Info Banner */}
+          <div className="p-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex items-start gap-3 text-xs">
+            <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+            <div className="text-slate-400 leading-relaxed">
+              <strong className="text-blue-300">Real-time sync:</strong> When you save a new image, the Homepage and <code className="bg-white/10 px-1 rounded">/about</code> page update instantly via WebSocket without requiring a full page reload. The Cloudinary CDN ensures the image is globally fast.
+            </div>
+          </div>
+
         </div>
       )}
 

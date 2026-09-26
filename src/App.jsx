@@ -47,6 +47,7 @@ export default function App() {
   const [newsArticles, setNewsArticles] = useState([]);
   const [podcastEpisodes, setPodcastEpisodes] = useState([]);
   const [sponsors, setSponsors] = useState([]);
+  const [leagueSettings, setLeagueSettings] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Match center status filter
@@ -88,14 +89,15 @@ export default function App() {
   // Fetch all public tournament & media data
   const fetchData = async () => {
     try {
-      const [fixRes, teamRes, standRes, leadRes, newsRes, podRes, sponRes] = await Promise.all([
+      const [fixRes, teamRes, standRes, leadRes, newsRes, podRes, sponRes, settRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
         api.getStandings(),
         api.getLeaders(),
         api.getNews({ limit: 12 }),
         api.getPodcasts({ limit: 10 }),
-        api.getSponsors()
+        api.getSponsors(),
+        api.getLeagueSettings()
       ]);
 
       if (fixRes.success) setFixtures(fixRes.data || []);
@@ -105,6 +107,7 @@ export default function App() {
       if (newsRes.success) setNewsArticles(newsRes.data || []);
       if (podRes.success) setPodcastEpisodes(podRes.data || []);
       if (sponRes.success) setSponsors(sponRes.data || []);
+      if (settRes?.success && settRes.data) setLeagueSettings(settRes.data);
     } catch (err) {
       console.error('[Fetch Data Error]:', err);
     } finally {
@@ -156,10 +159,17 @@ export default function App() {
       setStandings(newStandings);
     });
 
+    socket.on('league_settings_updated', (updatedSettings) => {
+      if (updatedSettings) {
+        setLeagueSettings(prev => ({ ...(prev || {}), ...updatedSettings }));
+      }
+    });
+
     return () => {
       socket.off('fixture_updated');
       socket.off('new_match_event');
       socket.off('standings_updated');
+      socket.off('league_settings_updated');
     };
   }, []);
 
@@ -349,6 +359,8 @@ export default function App() {
           <AboutPage
             onBackToHome={() => navigateTo('/')}
             onOpenRegisterTeam={() => navigateTo('/team/register')}
+            aboutImageUrl={leagueSettings?.aboutImageUrl}
+            aboutImageCaption={leagueSettings?.aboutImageCaption}
           />
         )}
 
@@ -467,6 +479,8 @@ export default function App() {
             {/* "About the League" Section (COMES FIRST DIRECTLY BELOW HERO) */}
             <AboutHeroShowcase
               onNavigateAbout={() => navigateTo('/about')}
+              aboutImageUrl={leagueSettings?.aboutImageUrl}
+              aboutImageCaption={leagueSettings?.aboutImageCaption}
             />
 
             {/* Integrated Matchday Live Scores & Center (Strict Top 3 Priority Matches Only) */}

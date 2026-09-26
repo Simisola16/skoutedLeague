@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Target, 
@@ -13,8 +13,56 @@ import {
   TrendingUp,
   Award
 } from 'lucide-react';
+import { api } from '../services/api';
+import socket from '../services/socket';
 
-export default function AboutPage({ onBackToHome, onOpenRegisterTeam }) {
+const DEFAULT_ABOUT_IMAGE = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200';
+const DEFAULT_ABOUT_CAPTION = 'Youth talent competing in the Skouted Youth League Championship';
+
+export default function AboutPage({ 
+  onBackToHome, 
+  onOpenRegisterTeam,
+  aboutImageUrl: initialImageUrl,
+  aboutImageCaption: initialImageCaption
+}) {
+  const [currentImage, setCurrentImage] = useState(initialImageUrl || DEFAULT_ABOUT_IMAGE);
+  const [currentCaption, setCurrentCaption] = useState(initialImageCaption || DEFAULT_ABOUT_CAPTION);
+
+  useEffect(() => {
+    if (initialImageUrl) setCurrentImage(initialImageUrl);
+    if (initialImageCaption) setCurrentCaption(initialImageCaption);
+  }, [initialImageUrl, initialImageCaption]);
+
+  useEffect(() => {
+    if (!initialImageUrl) {
+      api.getLeagueSettings()
+        .then((res) => {
+          if (res?.data?.aboutImageUrl) setCurrentImage(res.data.aboutImageUrl);
+          if (res?.data?.aboutImageCaption) setCurrentCaption(res.data.aboutImageCaption);
+        })
+        .catch(() => {});
+    }
+
+    const handleSettingsUpdate = (updatedSettings) => {
+      if (updatedSettings?.aboutImageUrl) {
+        setCurrentImage(updatedSettings.aboutImageUrl);
+      }
+      if (updatedSettings?.aboutImageCaption) {
+        setCurrentCaption(updatedSettings.aboutImageCaption);
+      }
+    };
+
+    socket.on('league_settings_updated', handleSettingsUpdate);
+    return () => {
+      socket.off('league_settings_updated', handleSettingsUpdate);
+    };
+  }, [initialImageUrl]);
+
+  const handleImageError = () => {
+    if (currentImage !== DEFAULT_ABOUT_IMAGE) {
+      setCurrentImage(DEFAULT_ABOUT_IMAGE);
+    }
+  };
   const missionItems = [
     {
       title: 'Consistent Competition',
@@ -141,14 +189,15 @@ export default function AboutPage({ onBackToHome, onOpenRegisterTeam }) {
           <div className="rounded-3xl overflow-hidden border border-[#1E2536] p-1 bg-gradient-to-b from-[#00E676]/30 via-[#1E2536] to-transparent">
             <div className="relative aspect-[4/3] rounded-[22px] overflow-hidden bg-[#161B26]">
               <img
-                src="https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&q=80&w=800"
-                alt="Youth Player Celebration"
+                src={currentImage}
+                alt={currentCaption}
+                onError={handleImageError}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0D0F14] via-transparent to-transparent" />
               <div className="absolute bottom-4 left-4 right-4 p-3 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-xs">
                 <span className="font-mono text-[#00E676] font-bold">LEG 1 • 2025/2026</span>
-                <p className="text-white font-semibold">12 Registered Clubs • U-19 Stage</p>
+                <p className="text-white font-semibold truncate">{currentCaption || '12 Registered Clubs • U-19 Stage'}</p>
               </div>
             </div>
           </div>
