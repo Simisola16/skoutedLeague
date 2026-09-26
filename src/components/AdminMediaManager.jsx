@@ -160,11 +160,18 @@ export default function AdminMediaManager() {
   // Fetch Centralized Media Assets
   const loadMediaAssets = async () => {
     try {
-      const res = await api.getAdminMedia({
-        category: mediaCategoryFilter !== 'All' ? mediaCategoryFilter : undefined,
-        search: mediaSearchQuery.trim() || undefined,
-        status: mediaStatusFilter !== 'all' ? mediaStatusFilter : undefined
-      });
+      const params = {};
+      if (mediaCategoryFilter && mediaCategoryFilter !== 'All') {
+        params.category = mediaCategoryFilter;
+      }
+      if (mediaSearchQuery && mediaSearchQuery.trim()) {
+        params.search = mediaSearchQuery.trim();
+      }
+      if (mediaStatusFilter && mediaStatusFilter !== 'all') {
+        params.status = mediaStatusFilter;
+      }
+
+      const res = await api.getAdminMedia(params);
       if (res.success) {
         setMediaItems(res.data || []);
         if (res.summary) setMediaSummary(res.summary);
@@ -847,7 +854,7 @@ export default function AdminMediaManager() {
               <Camera className="w-10 h-10 mx-auto text-slate-500" />
               <h4 className="font-bold text-white text-sm">No Media Assets Found</h4>
               <p className="text-xs max-w-sm mx-auto text-slate-400">
-                Upload matchday photography, tournament banners, and scouting photos directly to Cloudinary.
+                Upload matchday photography, tournament banners, and scouting photos directly to MongoDB League Storage.
               </p>
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -876,6 +883,11 @@ export default function AdminMediaManager() {
                       <img
                         src={getMediaUrl(item.url)}
                         alt={item.title}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800';
+                        }}
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
 

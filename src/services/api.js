@@ -13,6 +13,18 @@ function getAuthHeaders() {
   };
 }
 
+function buildQuery(params = {}) {
+  if (!params || typeof params !== 'object') return '';
+  const cleanParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '' && value !== 'undefined' && value !== 'null') {
+      cleanParams[key] = value;
+    }
+  }
+  const qs = new URLSearchParams(cleanParams).toString();
+  return qs ? `?${qs}` : '';
+}
+
 export const api = {
   // Auth
   register: async (payload) => {
@@ -114,8 +126,7 @@ export const api = {
 
   // Fixtures
   getFixtures: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/fixtures?${query}`);
+    const res = await fetch(`${API_BASE}/fixtures${buildQuery(params)}`);
     return res.json();
   },
 
@@ -217,8 +228,7 @@ export const api = {
 
   // Admin Protected Endpoints
   getAdminTeams: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/admin/teams?${query}`, {
+    const res = await fetch(`${API_BASE}/admin/teams${buildQuery(params)}`, {
       headers: getAuthHeaders()
     });
     return res.json();
@@ -442,8 +452,7 @@ export const api = {
 
   // News Endpoints
   getNews: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/news${query ? `?${query}` : ''}`);
+    const res = await fetch(`${API_BASE}/news${buildQuery(params)}`);
     return res.json();
   },
 
@@ -482,8 +491,7 @@ export const api = {
 
   // Podcasts Endpoints
   getPodcasts: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/podcasts${query ? `?${query}` : ''}`);
+    const res = await fetch(`${API_BASE}/podcasts${buildQuery(params)}`);
     return res.json();
   },
 
@@ -565,8 +573,7 @@ export const api = {
   // Gallery Endpoints
   // =========================================================================
   getGalleryItems: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/gallery${query ? `?${query}` : ''}`);
+    const res = await fetch(`${API_BASE}/gallery${buildQuery(params)}`);
     return res.json();
   },
 
@@ -593,8 +600,7 @@ export const api = {
   },
 
   getAdminMedia: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/admin/media${query ? `?${query}` : ''}`, {
+    const res = await fetch(`${API_BASE}/admin/media${buildQuery(params)}`, {
       headers: getAuthHeaders()
     });
     return res.json();

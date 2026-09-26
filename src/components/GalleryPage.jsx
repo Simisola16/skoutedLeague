@@ -58,10 +58,14 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
   const fetchGallery = async () => {
     setLoading(true);
     try {
-      const res = await api.getGalleryItems({
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        search: searchQuery.trim() || undefined
-      });
+      const params = {};
+      if (selectedCategory && selectedCategory !== 'All') {
+        params.category = selectedCategory;
+      }
+      if (searchQuery && searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      const res = await api.getGalleryItems(params);
       if (res.success) {
         setItems(res.data || []);
         if (res.counts) setCounts(res.counts);
@@ -329,6 +333,10 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
                     src={getMediaUrl(item.url)}
                     alt={item.title}
                     loading="lazy"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800';
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
 
@@ -495,6 +503,10 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
               <img
                 src={getMediaUrl(activeItem.url)}
                 alt={activeItem.title}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200';
+                }}
                 className="max-h-[75vh] max-w-[90vw] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-200"
               />
             </div>
