@@ -3407,16 +3407,7 @@ export default function AdminPortal({ onExit }) {
                 </button>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2 text-xs">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Live System Information</h4>
-                <div className="grid grid-cols-2 gap-2 text-slate-400 font-mono text-[11px]">
-                  <div>Server Port: <span className="text-[#00E676]">5055</span></div>
-                  <div>Database: <span className="text-[#00E676]">MongoDB Atlas (skoutedLeague)</span></div>
-                  <div>Live Feeds: <span className="text-[#00E676]">Socket.io Active</span></div>
-                  <div>Cron Scheduler: <span className="text-[#00E676]">Active (Every 5 mins)</span></div>
-                  <div>Sender Email: <span className="text-[#00E676]">tournaments@thevillagecoders.com</span></div>
-                </div>
-              </div>
+
 
             </div>
           </div>
