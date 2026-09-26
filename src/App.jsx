@@ -19,6 +19,19 @@ import AdminPortal from './components/AdminPortal';
 import PlayerDetailModal from './components/PlayerDetailModal';
 import TournamentHero from './components/TournamentHero';
 
+// New Content & Media Components
+import AboutHeroShowcase from './components/AboutHeroShowcase';
+import AboutPage from './components/AboutPage';
+import TeamsPage from './components/TeamsPage';
+import TeamDetailModal from './components/TeamDetailModal';
+import NewsPage from './components/NewsPage';
+import NewsWidget from './components/NewsWidget';
+import NewsArticleModal from './components/NewsArticleModal';
+import PodcastsPage from './components/PodcastsPage';
+import PodcastWidget from './components/PodcastWidget';
+import SponsorsPage from './components/SponsorsPage';
+import SponsorsMarquee from './components/SponsorsMarquee';
+
 import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown } from 'lucide-react';
 
 export default function App() {
@@ -28,10 +41,12 @@ export default function App() {
   const [teams, setTeams] = useState([]);
   const [standings, setStandings] = useState([]);
   const [leaders, setLeaders] = useState({});
+  const [newsArticles, setNewsArticles] = useState([]);
+  const [podcastEpisodes, setPodcastEpisodes] = useState([]);
+  const [sponsors, setSponsors] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Public navigation tabs
-  const [activeTab, setActiveTab] = useState('matches'); // 'matches' | 'standings' | 'stats' | 'portal'
+  // Match center status filter
   const [matchFilter, setMatchFilter] = useState('all'); // 'all' | 'live' | 'upcoming' | 'finished'
 
   // Modals & Drawers
@@ -41,6 +56,8 @@ export default function App() {
   const [showRegisterTeam, setShowRegisterTeam] = useState(false);
   const [showFanAlerts, setShowFanAlerts] = useState(false);
   const [selectedPlayerForDetails, setSelectedPlayerForDetails] = useState(null);
+  const [selectedNewsArticle, setSelectedNewsArticle] = useState(null);
+  const [selectedTeamProfile, setSelectedTeamProfile] = useState(null);
 
   // Favorite clubs in localStorage
   const [favoriteTeamIds, setFavoriteTeamIds] = useState(() => {
@@ -59,20 +76,32 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Fetch public tournament data
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Fetch all public tournament & media data
   const fetchData = async () => {
     try {
-      const [fixRes, teamRes, standRes, leadRes] = await Promise.all([
+      const [fixRes, teamRes, standRes, leadRes, newsRes, podRes, sponRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
         api.getStandings(),
-        api.getLeaders()
+        api.getLeaders(),
+        api.getNews({ limit: 12 }),
+        api.getPodcasts({ limit: 10 }),
+        api.getSponsors()
       ]);
 
       if (fixRes.success) setFixtures(fixRes.data || []);
       if (teamRes.success) setTeams(teamRes.data || []);
       if (standRes.success) setStandings(standRes.data || []);
       if (leadRes.success) setLeaders(leadRes.data || {});
+      if (newsRes.success) setNewsArticles(newsRes.data || []);
+      if (podRes.success) setPodcastEpisodes(podRes.data || []);
+      if (sponRes.success) setSponsors(sponRes.data || []);
     } catch (err) {
       console.error('[Fetch Data Error]:', err);
     } finally {
@@ -173,10 +202,7 @@ export default function App() {
   if (currentPath === '/sk-control' || currentPath.startsWith('/sk-control') || currentPath === '/league-ops') {
     return (
       <AdminPortal
-        onExit={() => {
-          window.history.pushState({}, '', '/');
-          setCurrentPath('/');
-        }}
+        onExit={() => navigateTo('/')}
       />
     );
   }
@@ -195,10 +221,7 @@ export default function App() {
         <TeamDashboard
           currentUser={user}
           onLogout={handleLogout}
-          onOpenPublicMatches={() => {
-            window.history.pushState({}, '', '/');
-            setCurrentPath('/');
-          }}
+          onOpenPublicMatches={() => navigateTo('/')}
         />
       );
     } else {
@@ -207,14 +230,10 @@ export default function App() {
           onLoginSuccess={(loggedInUser) => {
             setUser(loggedInUser);
             fetchData();
-            window.history.pushState({}, '', '/team/dashboard');
-            setCurrentPath('/team/dashboard');
+            navigateTo('/team/dashboard');
           }}
           onOpenRegister={() => setShowRegisterTeam(true)}
-          onBackToHome={() => {
-            window.history.pushState({}, '', '/');
-            setCurrentPath('/');
-          }}
+          onBackToHome={() => navigateTo('/')}
         />
       );
     }
@@ -246,8 +265,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0D0F14] text-slate-100 flex flex-col font-sans pb-16 lg:pb-8 selection:bg-[#00E676] selection:text-black">
       
-      {/* 1. Flashscore Top Header (Decoupled from Admin) */}
+      {/* 1. Official Header with 8-Item Global Navigation */}
       <Header
+        currentPath={currentPath}
+        onNavigate={navigateTo}
         user={user}
         onLogout={handleLogout}
         onOpenLogin={() => setShowLogin(true)}
@@ -255,8 +276,7 @@ export default function App() {
         onOpenFanAlerts={() => setShowFanAlerts(true)}
         onOpenTeamDashboard={() => {
           const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
-          window.history.pushState({}, '', target);
-          setCurrentPath(target);
+          navigateTo(target);
         }}
         liveMatchesCount={liveMatches.length}
       />
@@ -268,64 +288,99 @@ export default function App() {
         onSelectFixture={handleSelectFixture}
       />
 
-      {/* 3. Main Body Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-5 pb-8 space-y-6">
+      {/* 3. Main Content Router Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 pt-5 pb-8 space-y-8">
         
-        {/* Desktop View Navigation Pill Tabs (Strictly Public) */}
-        <div className="hidden lg:flex items-center justify-between border-b border-[#1E2330] pb-4">
-          <div className="flex items-center gap-2">
-            {[
-              { id: 'matches', label: 'Live Matches & Fixtures', icon: Activity, badge: liveMatches.length },
-              { id: 'standings', label: 'League Standings Table', icon: Trophy },
-              { id: 'stats', label: 'Tournament Leaders & Awards', icon: Award },
-              { id: 'portal', label: 'Club Manager Portal', icon: Shield }
-            ].map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+        {/* ========================================================= */}
+        {/* ROUTE 1: DEDICATED ABOUT PAGE (/about) */}
+        {/* ========================================================= */}
+        {currentPath === '/about' && (
+          <AboutPage
+            onBackToHome={() => navigateTo('/')}
+            onOpenRegisterTeam={() => setShowRegisterTeam(true)}
+          />
+        )}
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-                    isActive
-                      ? 'bg-[#00E676] text-black border-[#00E676] shadow-md shadow-[#00E676]/20'
-                      : 'bg-[#141720] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
-                  {tab.badge > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-[#FF4B4B] animate-ping"></span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        {/* ========================================================= */}
+        {/* ROUTE 4: DEDICATED TEAMS SHOWCASE (/teams) */}
+        {/* ========================================================= */}
+        {currentPath === '/teams' && (
+          <TeamsPage
+            teams={teams}
+            onBackToHome={() => navigateTo('/')}
+            onSelectTeam={(team) => setSelectedTeamProfile(team)}
+          />
+        )}
 
-          {/* Manager CTA Button */}
-          {!user && (
-            <button
-              onClick={() => setShowRegisterTeam(true)}
-              className="btn-primary text-xs px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-[#00E676]/20"
-            >
-              <span>+ Register Your Club</span>
-            </button>
-          )}
-        </div>
-
-        {/* TAB 1: MATCHES & FIXTURES */}
-        {activeTab === 'matches' && (
+        {/* ========================================================= */}
+        {/* ROUTE 3: TABLE / STANDINGS (/table or /standings) */}
+        {/* ========================================================= */}
+        {(currentPath === '/table' || currentPath === '/standings') && (
           <div className="space-y-6">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1E2330]">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-[#00E676]" />
+                <h1 className="text-xl sm:text-2xl font-black font-display text-white tracking-tight">
+                  Official League Standings
+                </h1>
+              </div>
+              <button
+                onClick={() => navigateTo('/')}
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                ← Back to Matches
+              </button>
+            </div>
+            <StandingsTable
+              standings={standings}
+              onTeamClick={(team) => setSelectedTeamProfile(team)}
+            />
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* ROUTE 5: DEDICATED NEWS PAGE (/news) */}
+        {/* ========================================================= */}
+        {currentPath === '/news' && (
+          <NewsPage
+            articles={newsArticles}
+            onBackToHome={() => navigateTo('/')}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* ROUTE 6: DEDICATED PODCASTS / MEDIA HUB (/podcasts) */}
+        {/* ========================================================= */}
+        {currentPath === '/podcasts' && (
+          <PodcastsPage
+            episodes={podcastEpisodes}
+            onBackToHome={() => navigateTo('/')}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* ROUTE 7: DEDICATED SPONSORS / PARTNERS (/sponsors) */}
+        {/* ========================================================= */}
+        {currentPath === '/sponsors' && (
+          <SponsorsPage
+            sponsors={sponsors}
+            onBackToHome={() => navigateTo('/')}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* ROUTE 2 & HOMEPAGE: (/ or /fixtures) */}
+        {/* ========================================================= */}
+        {(currentPath === '/' || currentPath === '/fixtures') && (
+          <div className="space-y-8">
             
-            {/* 1. Hero & Tournament Overview Section (Top of Page) */}
+            {/* Top Hero Banner */}
             <TournamentHero
               liveMatchesCount={liveMatches.length}
               teamsCount={teams.length}
               onOpenTeamLogin={() => {
                 const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
-                window.history.pushState({}, '', target);
-                setCurrentPath(target);
+                navigateTo(target);
               }}
               onOpenRegisterTeam={() => setShowRegisterTeam(true)}
               onScrollToScores={() => {
@@ -334,10 +389,15 @@ export default function App() {
               }}
             />
 
-            {/* 2. Integrated Live Scores & Matchday Center (Directly Below Hero) */}
+            {/* "About the League" Section (COMES FIRST DIRECTLY BELOW HERO) */}
+            <AboutHeroShowcase
+              onNavigateAbout={() => navigateTo('/about')}
+            />
+
+            {/* Integrated Matchday Live Scores & Center */}
             <section id="match-center" className="scroll-mt-20 space-y-4">
               
-              {/* Section Title & Fan Alert Bar */}
+              {/* Section Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#1E2330]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[#00E676]/10 border border-[#00E676]/20 flex items-center justify-center text-[#00E676] shadow-sm shadow-[#00E676]/10">
@@ -403,71 +463,25 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Matches Grid or Clean Production Empty State */}
+              {/* Matches Grid */}
               {filteredFixtures.length === 0 ? (
-                matchFilter === 'live' ? (
-                  <div className="glass-card rounded-3xl p-8 sm:p-12 text-center text-slate-400 space-y-4 border border-[#23293A] bg-[#141722]/80">
-                    <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-500">
-                      <Clock className="w-7 h-7 text-slate-400" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-white text-base sm:text-lg font-display">
-                        No Matches Live Right Now
-                      </h4>
-                      <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
-                        {nextUpcomingFixture ? (
-                          <span>
-                            Next kickoff scheduled for{' '}
-                            <strong className="text-[#00E676]">
-                              {nextUpcomingFixture.date} • {nextUpcomingFixture.time}
-                            </strong>
-                            {nextUpcomingFixture.homeTeam && nextUpcomingFixture.awayTeam && (
-                              <span className="block mt-1 text-slate-300 font-medium">
-                                {nextUpcomingFixture.homeTeam.name} vs {nextUpcomingFixture.awayTeam.name}
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          'Matchday kickoffs will be published here once scheduled by tournament officials.'
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                      <button
-                        onClick={() => setMatchFilter('upcoming')}
-                        className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        <span>Browse Upcoming Fixtures</span>
-                      </button>
-                      <button
-                        onClick={() => setShowFanAlerts(true)}
-                        className="min-h-[44px] px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Bell className="w-3.5 h-3.5 text-[#FFB800]" />
-                        <span>Get Goal Alerts</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="glass-card rounded-3xl p-8 sm:p-12 text-center text-slate-400 space-y-3 border border-[#23293A] bg-[#141722]/80">
-                    <Activity className="w-10 h-10 mx-auto text-slate-600 mb-1" />
+                <div className="glass-card rounded-3xl p-8 sm:p-12 text-center text-slate-400 space-y-4 border border-[#23293A] bg-[#141722]/80">
+                  <Clock className="w-10 h-10 mx-auto text-slate-500" />
+                  <div className="space-y-1">
                     <h4 className="font-bold text-white text-base font-display">
-                      {matchFilter === 'upcoming'
-                        ? 'No Upcoming Fixtures Scheduled'
-                        : matchFilter === 'finished'
-                        ? 'No Completed Results Yet'
-                        : 'No Fixtures Found'}
+                      {matchFilter === 'live' ? 'No Matches Live Right Now' : 'No Fixtures Scheduled'}
                     </h4>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      {matchFilter === 'upcoming'
-                        ? 'Matchday kickoffs will be scheduled shortly by league coordinators.'
-                        : matchFilter === 'finished'
-                        ? 'Full-time scores and statistics will appear here as soon as matches conclude.'
-                        : 'Matchday schedules will display here once scheduled by tournament officials.'}
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      {nextUpcomingFixture ? (
+                        <span>
+                          Next kickoff: <strong className="text-[#00E676]">{nextUpcomingFixture.date} • {nextUpcomingFixture.time}</strong>
+                        </span>
+                      ) : (
+                        'Official match schedules will be broadcast as confirmed.'
+                      )}
                     </p>
                   </div>
-                )
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {filteredFixtures.map(fixture => (
@@ -485,43 +499,26 @@ export default function App() {
 
             </section>
 
+            {/* League News Widget (3-Card Grid) */}
+            <NewsWidget
+              articles={newsArticles}
+              onSelectArticle={(art) => setSelectedNewsArticle(art)}
+              onNavigateNews={() => navigateTo('/news')}
+            />
+
+            {/* Podcast Preview Widget */}
+            <PodcastWidget
+              episodes={podcastEpisodes}
+              onNavigatePodcasts={() => navigateTo('/podcasts')}
+            />
+
+            {/* Official Sponsors & Partners Logo Reel */}
+            <SponsorsMarquee
+              sponsors={sponsors}
+              onNavigateSponsors={() => navigateTo('/sponsors')}
+            />
+
           </div>
-        )}
-
-        {/* TAB 2: STANDINGS TABLE */}
-        {activeTab === 'standings' && (
-          <StandingsTable
-            standings={standings}
-            onTeamClick={(team) => {}}
-          />
-        )}
-
-        {/* TAB 3: TOURNAMENT STATS & SCOUTING LEADERS */}
-        {activeTab === 'stats' && (
-          <TournamentStats
-            leaders={leaders}
-            onPlayerClick={(player) => setSelectedPlayerForDetails(player)}
-          />
-        )}
-
-        {/* TAB 4: CLUB MANAGER PORTAL */}
-        {activeTab === 'portal' && (
-          user && user.isVerified ? (
-            <TeamDashboard
-              currentUser={user}
-              onLogout={handleLogout}
-              onOpenPublicMatches={() => setActiveTab('matches')}
-            />
-          ) : (
-            <TeamLogin
-              onLoginSuccess={(loggedInUser) => {
-                setUser(loggedInUser);
-                fetchData();
-              }}
-              onOpenRegister={() => setShowRegisterTeam(true)}
-              onBackToHome={() => setActiveTab('matches')}
-            />
-          )
         )}
 
       </main>
@@ -573,28 +570,29 @@ export default function App() {
         />
       )}
 
-      {/* Ultra-Mobile Bottom Navigation Bar (4 public tabs) */}
+      {/* Article Reader Modal */}
+      {selectedNewsArticle && (
+        <NewsArticleModal
+          article={selectedNewsArticle}
+          onClose={() => setSelectedNewsArticle(null)}
+        />
+      )}
+
+      {/* Club Squad & Profile Modal */}
+      {selectedTeamProfile && (
+        <TeamDetailModal
+          team={selectedTeamProfile}
+          onClose={() => setSelectedTeamProfile(null)}
+          onPlayerClick={(player) => setSelectedPlayerForDetails({ ...player, team: selectedTeamProfile })}
+        />
+      )}
+
+      {/* Ultra-Mobile Bottom Navigation Bar */}
       <BottomNav
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        currentPath={currentPath}
+        onNavigate={navigateTo}
         user={user}
         liveCount={liveMatches.length}
-        onGoHome={() => {
-          setActiveTab('matches');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onGoScores={() => {
-          setActiveTab('matches');
-          setTimeout(() => {
-            const el = document.getElementById('match-center');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }, 50);
-        }}
-        onGoPortal={() => {
-          const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
-          window.history.pushState({}, '', target);
-          setCurrentPath(target);
-        }}
       />
 
     </div>

@@ -420,5 +420,126 @@ export const api = {
       headers: getAuthHeaders()
     });
     return res.json();
+  },
+
+  // News Endpoints
+  getNews: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE}/news${query ? `?${query}` : ''}`);
+    return res.json();
+  },
+
+  getNewsArticle: async (slug) => {
+    const res = await fetch(`${API_BASE}/news/${slug}`);
+    return res.json();
+  },
+
+  createNewsArticle: async (formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/news`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  updateNewsArticle: async (id, formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/news/${id}`, {
+      method: 'PUT',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  deleteNewsArticle: async (id) => {
+    const res = await fetch(`${API_BASE}/news/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  // Podcasts Endpoints
+  getPodcasts: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_BASE}/podcasts${query ? `?${query}` : ''}`);
+    return res.json();
+  },
+
+  getPodcast: async (id) => {
+    const res = await fetch(`${API_BASE}/podcasts/${id}`);
+    return res.json();
+  },
+
+  createPodcast: async (formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/podcasts`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  updatePodcast: async (id, formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/podcasts/${id}`, {
+      method: 'PUT',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  deletePodcast: async (id) => {
+    const res = await fetch(`${API_BASE}/podcasts/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  // Sponsors Endpoints
+  getSponsors: async () => {
+    const res = await fetch(`${API_BASE}/sponsors`);
+    return res.json();
+  },
+
+  getAllSponsors: async () => {
+    const res = await fetch(`${API_BASE}/sponsors/all`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  createSponsor: async (formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/sponsors`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  updateSponsor: async (id, formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/sponsors/${id}`, {
+      method: 'PUT',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    });
+    return res.json();
+  },
+
+  deleteSponsor: async (id) => {
+    const res = await fetch(`${API_BASE}/sponsors/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
   }
 };

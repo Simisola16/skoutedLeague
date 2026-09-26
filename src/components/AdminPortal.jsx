@@ -40,13 +40,15 @@ import {
   XCircle,
   Send,
   FileText,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Newspaper
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import socket from '../services/socket';
 import PlayerDetailModal from './PlayerDetailModal';
 import PlayerFormModal from './PlayerFormModal';
+import AdminMediaManager from './AdminMediaManager';
 
 export default function AdminPortal({ onExit }) {
   const [adminUser, setAdminUser] = useState(null);
@@ -1118,6 +1120,7 @@ export default function AdminPortal({ onExit }) {
             { id: 'fixtures', label: '📅 Fixtures & Schedule', icon: Calendar, count: fixtures.length },
             { id: 'teams', label: '🛡️ Teams & Squad Explorer', icon: Users, count: adminTeams.length || teams.length },
             { id: 'transfer', label: '🔄 Transfer Window & Roster Engine', icon: ArrowRightLeft, isLive: leagueSettings?.transferWindowStatus === 'open' },
+            { id: 'media', label: '📰 News, Podcasts & Sponsors', icon: Newspaper },
             { id: 'system', label: '⚙️ Diagnostics & Sync', icon: RefreshCw }
           ].map(tab => {
             const Icon = tab.icon;
@@ -2743,6 +2746,13 @@ export default function AdminPortal({ onExit }) {
 
             </div>
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 6. MEDIA, PODCASTS & SPONSORS MANAGER */}
+        {/* ========================================================= */}
+        {adminTab === 'media' && (
+          <AdminMediaManager />
         )}
 
       </main>
