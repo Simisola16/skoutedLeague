@@ -35,8 +35,6 @@ export default function PlayerDetailModal({
   onToggleEligibility = null,
   onEdit = null
 }) {
-  if (!player) return null;
-
   const [data, setData] = useState(player);
   const [loadingFresh, setLoadingFresh] = useState(false);
 
@@ -57,6 +55,9 @@ export default function PlayerDetailModal({
         .finally(() => setLoadingFresh(false));
     }
   }, [player]);
+
+  // Guard placed AFTER hooks to satisfy React's Rules of Hooks
+  if (!player) return null;
 
   const activePlayer = data || player;
   const playerTeam = team || activePlayer.team || {};

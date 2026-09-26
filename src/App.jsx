@@ -213,6 +213,42 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
+  // DERIVED DATA — must stay above all early routing returns
+  // so that hook call order (useMemo) is always consistent.
+  // -------------------------------------------------------------
+  const liveMatches = fixtures.filter(f =>
+    f.status === '1ST HALF' || f.status === '2ND HALF' || f.status === 'HT' || f.status === 'PENS'
+  );
+
+  const upcomingFixtures = fixtures.filter(f => f.status === 'UPCOMING');
+  const nextUpcomingFixture = upcomingFixtures.length > 0
+    ? [...upcomingFixtures].sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`))[0]
+    : null;
+
+  // Strict Top 3 Prioritized Matches for Homepage Showcase
+  // Priority 1: Live in-play matches ('1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE')
+  // Priority 2: Next immediate upcoming fixtures (sorted by kickoffTime: 1)
+  // Priority 3: Most recent completed results if no live or upcoming games exist (sorted by kickoffTime: -1)
+  const prioritizedHomepageMatches = useMemo(() => {
+    const isLiveStatus = (s) => ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(s);
+
+    const live = fixtures
+      .filter(f => isLiveStatus(f.status))
+      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
+
+    const upcoming = fixtures
+      .filter(f => f.status === 'UPCOMING')
+      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
+
+    const finished = fixtures
+      .filter(f => f.status === 'FT')
+      .sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
+
+    const combined = [...live, ...upcoming, ...finished];
+    return combined.slice(0, 3);
+  }, [fixtures]);
+
+  // -------------------------------------------------------------
   // ISOLATED ROUTING: /sk-control or /league-ops
   // -------------------------------------------------------------
   if (currentPath === '/sk-control' || currentPath.startsWith('/sk-control') || currentPath === '/league-ops') {
@@ -260,8 +296,8 @@ export default function App() {
   // -------------------------------------------------------------
   // ISOLATED ROUTING: /team/dashboard, /team, /portal
   // -------------------------------------------------------------
-  const isTeamPath = currentPath === '/team/dashboard' || 
-                     currentPath === '/team' || 
+  const isTeamPath = currentPath === '/team/dashboard' ||
+                     currentPath === '/team' ||
                      currentPath.startsWith('/team/');
 
   if (isTeamPath) {
@@ -291,37 +327,6 @@ export default function App() {
   // -------------------------------------------------------------
   // PUBLIC FAN & CLUB APPLICATION
   // -------------------------------------------------------------
-  const liveMatches = fixtures.filter(f =>
-    f.status === '1ST HALF' || f.status === '2ND HALF' || f.status === 'HT' || f.status === 'PENS'
-  );
-
-  const upcomingFixtures = fixtures.filter(f => f.status === 'UPCOMING');
-  const nextUpcomingFixture = upcomingFixtures.length > 0
-    ? [...upcomingFixtures].sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`))[0]
-    : null;
-
-  // Strict Top 3 Prioritized Matches for Homepage Showcase
-  // Priority 1: Live in-play matches ('1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE')
-  // Priority 2: Next immediate upcoming fixtures (sorted by kickoffTime: 1)
-  // Priority 3: Most recent completed results if no live or upcoming games exist (sorted by kickoffTime: -1)
-  const prioritizedHomepageMatches = useMemo(() => {
-    const isLiveStatus = (s) => ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(s);
-
-    const live = fixtures
-      .filter(f => isLiveStatus(f.status))
-      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
-
-    const upcoming = fixtures
-      .filter(f => f.status === 'UPCOMING')
-      .sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
-
-    const finished = fixtures
-      .filter(f => f.status === 'FT')
-      .sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
-
-    const combined = [...live, ...upcoming, ...finished];
-    return combined.slice(0, 3);
-  }, [fixtures]);
 
   return (
     <div className="min-h-screen bg-[#0D0F14] text-slate-100 flex flex-col font-sans pb-16 lg:pb-8 selection:bg-[#00E676] selection:text-black">
@@ -465,6 +470,7 @@ export default function App() {
             <TournamentHero
               liveMatchesCount={liveMatches.length}
               teamsCount={teams.length}
+              leagueSettings={leagueSettings}
               onOpenTeamLogin={() => {
                 const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
                 navigateTo(target);

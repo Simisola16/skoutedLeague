@@ -1,12 +1,14 @@
 import React from 'react';
-import { Trophy, Shield, MapPin, Users, Award, ChevronDown, ArrowRight, Radio, Flame, Sparkles, Star } from 'lucide-react';
+import { Trophy, Shield, MapPin, Users, Award, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
+import { getMediaUrl } from '../utils/mediaUtils';
 
 export default function TournamentHero({
   liveMatchesCount = 0,
   teamsCount = 0,
   onOpenTeamLogin,
   onOpenRegisterTeam,
-  onScrollToScores
+  onScrollToScores,
+  leagueSettings = null
 }) {
   const isMatchdayLive = liveMatchesCount > 0;
 
@@ -117,34 +119,39 @@ export default function TournamentHero({
         </div>
 
         {/* Dedicated Tournament Honors & Awards Showcase Bar */}
-        <div className="w-full max-w-4xl mt-5 p-3.5 rounded-2xl bg-[#11141F]/90 border border-[#222838] flex flex-wrap items-center justify-between gap-3 text-left">
-          <div className="flex items-center gap-2">
+        <div className="w-full max-w-4xl mt-5 rounded-2xl bg-[#11141F]/90 border border-[#222838] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1E2330]">
             <Award className="w-4 h-4 text-[#FFB800] shrink-0" />
-            <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-white">
-              Official Honors & Awards:
-            </span>
+            <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-white">Official Honors &amp; Awards</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
-              <span>🏆</span>
-              <span className="font-semibold">League Cup & Champion's Trophy</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
-              <span>👟</span>
-              <span className="font-semibold">Golden Boot (Top Scorer)</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
-              <span>🧤</span>
-              <span className="font-semibold">Golden Glove (Best GK)</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-200">
-              <span>⭐</span>
-              <span className="font-semibold">Tournament MVP</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676]">
-              <span>🌟</span>
-              <span className="font-semibold">Scouting & Pro Showcase</span>
-            </span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-0 divide-x divide-[#1E2330]">
+            {[
+              { key: 'leagueCupImageUrl',    emoji: '🏆', label: 'League Cup',    accent: '#FFB800' },
+              { key: 'goldenBootImageUrl',   emoji: '👟', label: 'Golden Boot',   accent: '#FFB800' },
+              { key: 'goldenGloveImageUrl',  emoji: '🧤', label: 'Golden Glove',  accent: '#38BDF8' },
+              { key: 'mvpImageUrl',          emoji: '⭐', label: 'MVP Award',     accent: '#A855F7' },
+              { key: 'scoutShowcaseImageUrl',emoji: '🌟', label: 'Scout Showcase',accent: '#00E676' },
+            ].map(award => {
+              const rawUrl = leagueSettings?.[award.key];
+              const imgUrl = rawUrl ? getMediaUrl(rawUrl) : null;
+              return (
+                <div key={award.key} className="flex flex-col items-center gap-2 p-3 hover:bg-white/[0.02] transition-colors">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#1C2030] border border-white/10 flex items-center justify-center shrink-0">
+                    {imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt={award.label}
+                        crossOrigin="anonymous"
+                        className="w-full h-full object-cover"
+                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                      />
+                    ) : null}
+                    <span className={`text-lg ${imgUrl ? 'hidden' : 'flex'} items-center justify-center w-full h-full`}>{award.emoji}</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400 text-center leading-tight">{award.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

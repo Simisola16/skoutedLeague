@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink, Handshake, ArrowRight } from 'lucide-react';
+import { getMediaUrl } from '../utils/mediaUtils';
 
 export default function SponsorsMarquee({ sponsors = [], onNavigateSponsors }) {
   // If no sponsors passed or loading, provide high-quality defaults
@@ -87,13 +88,14 @@ export default function SponsorsMarquee({ sponsors = [], onNavigateSponsors }) {
             rel="noopener noreferrer"
             className="group glass-card rounded-2xl p-4 border border-[#1E2536] hover:border-[#00E676]/40 bg-[#141824] hover:bg-[#181E2E] transition-all flex flex-col items-center justify-between gap-3 text-center"
           >
-            <div className="w-full h-14 rounded-xl bg-black/40 p-2 flex items-center justify-center overflow-hidden border border-white/5">
+            <div className="w-full h-16 rounded-xl bg-black/40 p-2 flex items-center justify-center overflow-hidden border border-white/5">
               <img
-                src={sponsor.logoUrl}
+                src={getMediaUrl(sponsor.logoUrl)}
                 alt={sponsor.name}
+                crossOrigin="anonymous"
                 className="max-h-full max-w-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-300"
                 onError={(e) => {
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&q=80&w=400';
+                  e.currentTarget.style.display = 'none';
                 }}
               />
             </div>

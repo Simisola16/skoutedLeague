@@ -41,7 +41,6 @@ export default function PlayerFormModal({
   onSubmit, // async function(formData, rawState)
   isSubmitting = false
 }) {
-  if (!isOpen) return null;
 
   const fileInputRef = useRef(null);
 
@@ -164,6 +163,9 @@ export default function PlayerFormModal({
       }
     };
   }, [photoPreview]);
+
+  // Guard placed AFTER all hooks to satisfy React's Rules of Hooks
+  if (!isOpen) return null;
 
   // Calculated Age
   const currentAge = calculateAge(dateOfBirth);
