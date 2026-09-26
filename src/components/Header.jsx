@@ -65,17 +65,21 @@ export default function Header({
         {/* Brand Logo & Live Badge */}
         <div className="flex items-center gap-3 shrink-0">
           <div 
-            className="flex items-center gap-2 cursor-pointer" 
+            className="flex items-center gap-2.5 cursor-pointer group" 
             onClick={() => handleNavClick('/')}
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#00E676] to-[#00B359] p-0.5 flex items-center justify-center shadow-lg shadow-[#00E676]/20">
-              <div className="w-full h-full bg-[#0D0F14] rounded-[10px] flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-[#00E676]" />
+            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-[#00E676]/25 via-[#00B359]/15 to-transparent p-0.5 flex items-center justify-center shadow-lg shadow-[#00E676]/15 group-hover:shadow-[#00E676]/35 transition-all duration-300">
+              <div className="w-full h-full bg-[#0D0F14] rounded-[10px] p-1 flex items-center justify-center overflow-hidden">
+                <img 
+                  src="/logo.png" 
+                  alt="Skouted Youth League" 
+                  className="w-full h-full object-contain filter drop-shadow-[0_2px_6px_rgba(0,230,118,0.25)] group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-display font-black text-lg tracking-tight text-white">SKOUTED</span>
+                <span className="font-display font-black text-lg tracking-tight text-white group-hover:text-[#00E676] transition-colors">SKOUTED</span>
                 <span className="text-[11px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
                   LEAGUE
                 </span>

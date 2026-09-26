@@ -145,9 +145,13 @@ export default function TeamRegisterModal({
         
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[#1E2330] flex items-center justify-between bg-[#10131B]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676]">
-              <Shield className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#00E676]/15 border border-[#00E676]/30 p-1 flex items-center justify-center shrink-0">
+              <img 
+                src="/logo.png" 
+                alt="Skouted Youth League" 
+                className="w-full h-full object-contain filter drop-shadow-[0_2px_6px_rgba(0,230,118,0.25)]"
+              />
             </div>
             <div>
               <h3 className="font-display font-black text-white text-base">Club Onboarding & Registration</h3>

@@ -111,9 +111,13 @@ export default function TeamLogin({
       <div className="w-full max-w-md relative z-10 space-y-6">
         
         {/* Header Logo */}
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center mx-auto text-[#00E676] shadow-xl shadow-[#00E676]/10">
-            <Shield className="w-7 h-7" />
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-[#00E676]/20 via-[#00B359]/10 to-transparent p-1.5 flex items-center justify-center mx-auto shadow-2xl shadow-[#00E676]/15 border border-[#00E676]/25">
+            <img 
+              src="/logo.png" 
+              alt="Skouted Youth League" 
+              className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,230,118,0.3)]"
+            />
           </div>
           <h1 className="text-2xl font-black font-display text-white tracking-tight">
             Team Manager Command Center

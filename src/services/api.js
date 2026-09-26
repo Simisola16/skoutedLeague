@@ -91,6 +91,16 @@ export const api = {
     return res.json();
   },
 
+  registerTeam: async (formData) => {
+    const token = localStorage.getItem('skouted_token');
+    const res = await fetch(`${API_BASE}/teams`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData // multipart/form-data
+    });
+    return res.json();
+  },
+
   addPlayer: async (teamId, formData) => {
     const token = localStorage.getItem('skouted_token');
     const res = await fetch(`${API_BASE}/teams/${teamId}/players`, {

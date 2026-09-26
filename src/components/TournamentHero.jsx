@@ -64,6 +64,18 @@ export default function TournamentHero({
           </span>
         </div>
 
+        {/* Official Competition Shield Crest */}
+        <div className="relative mb-3 sm:mb-4 group cursor-default">
+          <div className="absolute -inset-2 bg-gradient-to-r from-[#00E676]/30 via-[#00B0FF]/20 to-[#00E676]/30 rounded-2xl blur-lg opacity-40 group-hover:opacity-70 transition duration-500 pointer-events-none"></div>
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 p-2 bg-[#0E121C]/90 border border-[#2B3346] rounded-2xl flex items-center justify-center shadow-2xl backdrop-blur-xl">
+            <img 
+              src="/logo.png" 
+              alt="Skouted Youth League" 
+              className="w-full h-full object-contain filter drop-shadow-[0_4px_16px_rgba(0,230,118,0.35)] group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+        </div>
+
         {/* Hero Title & Branding */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-display tracking-tight text-white uppercase leading-[1.1] max-w-4xl">
           Skouted Youth League <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00E676] via-[#10B981] to-[#38BDF8]">Championship</span>
