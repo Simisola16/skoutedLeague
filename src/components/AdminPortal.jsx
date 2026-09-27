@@ -1051,7 +1051,7 @@ export default function AdminPortal({ onExit }) {
             <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
               ADMINISTRATIVE CLEARANCE
             </span>
-            <h2 className="text-xl font-display font-black text-white tracking-tight">Skouted League Ops</h2>
+            <h2 className="text-xl font-display font-black text-white tracking-tight">Skouted Youth League Ops</h2>
             <p className="text-xs text-slate-400">Championship Administration & Pitch-side Match Console</p>
           </div>
 
@@ -3925,7 +3925,7 @@ export default function AdminPortal({ onExit }) {
 
             {/* Modal Footer */}
             <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-500 shrink-0">
-              <span className="font-mono">Skouted League Roster Verification Protocol Active</span>
+              <span className="font-mono">Skouted Youth League Roster Verification Protocol Active</span>
               <button
                 onClick={() => setSelectedTeamForRoster(null)}
                 className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer"

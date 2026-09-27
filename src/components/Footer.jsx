@@ -64,7 +64,7 @@ export default function Footer({
                 <span>Official Social Media Hub</span>
               </div>
               <h3 className="text-xl sm:text-2xl lg:text-3xl font-black font-display text-white tracking-tight">
-                Follow The Journey. Connect With Skouted League.
+                Follow The Journey. Connect With Skouted Youth League.
               </h3>
               <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
                 Stay updated on live matchdays, watch curated scouting reels, view player dossiers, and experience African youth football at its highest level.

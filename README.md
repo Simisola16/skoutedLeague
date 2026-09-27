@@ -1,4 +1,4 @@
-# Skouted League — Client Frontend
+# Skouted Youth League — Client Frontend
 
 Production-ready, mobile-first Football Tournament Web Application built with React, Vite, and Tailwind CSS.
 

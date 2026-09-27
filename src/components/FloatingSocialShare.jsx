@@ -82,7 +82,7 @@ export default function FloatingSocialShare({ onOpenLiveStream }) {
               ) : (
                 <>
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Skouted League</span>
+                  <span>Share Skouted Youth League</span>
                 </>
               )}
             </button>

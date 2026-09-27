@@ -16,7 +16,7 @@ export default function MatchCard({
 
   const handleShare = (e) => {
     e.stopPropagation();
-    const shareText = `🏆 Skouted League: ${fixture.homeTeam?.name || 'Home'} ${fixture.homeScore ?? 0} - ${fixture.awayScore ?? 0} ${fixture.awayTeam?.name || 'Away'} (${isLive ? `${fixture.minute}' LIVE` : fixture.status})!`;
+    const shareText = `🏆 Skouted Youth League: ${fixture.homeTeam?.name || 'Home'} ${fixture.homeScore ?? 0} - ${fixture.awayScore ?? 0} ${fixture.awayTeam?.name || 'Away'} (${isLive ? `${fixture.minute}' LIVE` : fixture.status})!`;
     const shareUrl = window.location.origin + '/fixtures';
 
     if (navigator.share) {

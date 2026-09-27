@@ -46,7 +46,7 @@ export default function LoginModal({
         <div className="flex items-center justify-between pb-3 border-b border-white/5">
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#00E676]" />
-            <h3 className="font-bold text-base text-white">Sign In to Skouted League</h3>
+            <h3 className="font-bold text-base text-white">Sign In to Skouted Youth League</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="w-4 h-4" />

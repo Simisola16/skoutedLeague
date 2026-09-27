@@ -106,7 +106,7 @@ export default function TeamRegisterModal({
         if (res.data?.token) {
           localStorage.setItem('skouted_token', res.data.token);
         }
-        setSuccessMsg('Account verified! Welcome to Skouted League.');
+        setSuccessMsg('Account verified! Welcome to Skouted Youth League.');
         if (onRegistered) onRegistered(res.data?.user);
         setTimeout(() => {
           onClose();
