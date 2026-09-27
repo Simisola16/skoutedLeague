@@ -593,11 +593,14 @@ export default function App() {
               onNavigatePodcasts={() => navigateTo('/podcasts')}
             />
 
-            {/* Official Social Media Reel & Multi-Platform Aggregation Hub */}
+            {/* Official League Social Reel (Last 4 Official YouTube Match Videos) */}
             <SocialFeedWidget
               title="Official League Social Reel"
-              subtitle="Latest YouTube matchday uploads, Instagram reels, and Facebook updates"
-              limit={8}
+              subtitle="Latest official matchday uploads & tournament video highlights"
+              badge="OFFICIAL MATCH VIDEO REEL"
+              platform="youtube"
+              showTabs={false}
+              limit={4}
             />
 
             {/* Official Sponsors & Partners Logo Reel */}

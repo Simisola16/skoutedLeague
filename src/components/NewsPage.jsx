@@ -215,8 +215,10 @@ export default function NewsPage({ articles = [], onBackToHome }) {
       {/* Automated Social Media Feed & Match Reels */}
       <div className="pt-6 border-t border-[#1E2330]">
         <SocialFeedWidget 
-          title="Official League Social Media Feed"
-          subtitle="Real-time match highlights from YouTube, reels from Instagram, and updates from Facebook"
+          title="Official League Match Videos"
+          subtitle="Real-time matchday recordings and official tournament highlights from YouTube"
+          platform="youtube"
+          limit={4}
         />
       </div>
 
