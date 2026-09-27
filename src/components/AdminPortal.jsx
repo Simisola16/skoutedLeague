@@ -3273,13 +3273,13 @@ export default function AdminPortal({ onExit }) {
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Dispatch official email notifications to all 12 accredited club managers from <strong className="text-white">Skouted League &lt;tournaments@thevillagecoders.com&gt;</strong> with live squad counts, the 35-player ceiling, and direct dashboard access links.
+                    Dispatch official email notifications to all 12 accredited club managers from <strong className="text-white">Skouted Youth League &lt;tournaments@skoutedyouthleague.com&gt;</strong> with live squad counts, the 35-player ceiling, and direct dashboard access links.
                   </p>
 
                   <div className="p-4 rounded-2xl bg-[#090B10] border border-white/5 space-y-2.5 text-xs text-slate-300 font-mono">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Sender Address:</span>
-                      <span className="text-white font-bold">tournaments@thevillagecoders.com</span>
+                      <span className="text-white font-bold">tournaments@skoutedyouthleague.com</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Email Subject:</span>

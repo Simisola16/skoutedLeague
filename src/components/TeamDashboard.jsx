@@ -842,7 +842,7 @@ export default function TeamDashboard({
                 Update Team Credentials
               </button>
               <a
-                href="mailto:tournaments@thevillagecoders.com?subject=Team%20Verification%20Review%20Inquiry"
+                href="mailto:tournaments@skoutedyouthleague.com?subject=Team%20Verification%20Review%20Inquiry"
                 className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold transition-all cursor-pointer"
               >
                 Contact Support
