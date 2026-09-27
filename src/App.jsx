@@ -85,6 +85,96 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // Dynamic SEO title & canonical link management
+  useEffect(() => {
+    const routeSeoMap = {
+      '/': {
+        title: 'Skouted Youth League Championship | Live Scores, Standings & Grassroots Scouting',
+        description: 'Official Skouted Youth League Championship Season 2026/2027 at Lekan Salami Stadium, Adamasingba, Ibadan. Live scores, standings, fixtures, and youth scouting.'
+      },
+      '/fixtures': {
+        title: 'Fixtures & Matchday Results | Skouted Youth League Championship',
+        description: 'Check official match fixtures, kickoff times, venues, and live final results for the Skouted Youth League Championship Season 2026/2027.'
+      },
+      '/table': {
+        title: 'League Table & Championship Standings | Skouted Youth League',
+        description: 'View the official 12-club league table standings, points, goal difference, and recent form guides for the Skouted Youth League Championship.'
+      },
+      '/standings': {
+        title: 'League Table & Championship Standings | Skouted Youth League',
+        description: 'View the official 12-club league table standings, points, goal difference, and recent form guides for the Skouted Youth League Championship.'
+      },
+      '/teams': {
+        title: 'Accredited League Clubs | Skouted Youth League Championship',
+        description: 'Explore all registered youth football academies and accredited clubs competing in the Skouted Youth League Championship Season 2026/2027.'
+      },
+      '/about': {
+        title: 'About the Championship & Mission | Skouted Youth League',
+        description: 'Discover the vision, structure, and grassroots football talent discovery mission behind the Skouted Youth League in Ibadan, Nigeria.'
+      },
+      '/media': {
+        title: 'Media Hub, Social Feeds & Highlights | Skouted Youth League',
+        description: 'Watch tournament live streams, social updates, video highlights, and podcast episodes from the Skouted Youth League.'
+      },
+      '/news': {
+        title: 'Championship News & Match Reports | Skouted Youth League',
+        description: 'Latest news, tactical breakdowns, match reports, and scouting updates from the Skouted Youth League Championship.'
+      },
+      '/podcasts': {
+        title: 'Official Podcasts & Audio Coverage | Skouted Youth League',
+        description: 'Listen to in-depth tactical discussions, player interviews, and manager commentary covering the Skouted Youth League.'
+      },
+      '/gallery': {
+        title: 'Matchday Action Photo Gallery | Skouted Youth League',
+        description: 'High-definition pitch-side photography capturing matchday action, goal celebrations, and standout moments from Lekan Salami Stadium.'
+      },
+      '/sponsors': {
+        title: 'Official Partners & Sponsors | Skouted Youth League',
+        description: 'Proud partners, sponsors, and community organizations powering the Skouted Youth League grassroots football championship.'
+      },
+      '/team/register': {
+        title: 'Club Accreditation & Registration Portal | Skouted Youth League',
+        description: 'Register your football club or youth academy for official tournament accreditation in the Skouted Youth League Championship.'
+      },
+      '/team/login': {
+        title: 'Team Manager Portal Login | Skouted Youth League',
+        description: 'Access the official Skouted Youth League Team Manager Portal to manage matchday squad rosters, lineups, and club credentials.'
+      },
+      '/team/dashboard': {
+        title: 'Team Manager Dashboard | Skouted Youth League',
+        description: 'Team Manager Portal: squad builder, starting XI submissions, player verification, and fixture schedule.'
+      },
+      '/admin': {
+        title: 'League Administration Console | Skouted Youth League',
+        description: 'Official competition management, fixture scheduling, accreditation review, and live match control.'
+      }
+    };
+
+    const seo = routeSeoMap[currentPath] || {
+      title: 'Skouted Youth League Championship | Season 2026/2027',
+      description: 'Official Skouted Youth League Championship Season 2026/2027 at Lekan Salami Stadium, Adamasingba, Ibadan.'
+    };
+
+    document.title = seo.title;
+
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', seo.description);
+    }
+
+    let canonical = document.querySelector('link[rel="canonical"]');
+    const fullUrl = `https://skoutedyouthleague.com${currentPath === '/' ? '' : currentPath}`;
+    if (canonical) {
+      canonical.setAttribute('href', fullUrl);
+    }
+
+    let ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', seo.title);
+
+    let ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', fullUrl);
+  }, [currentPath]);
+
   const navigateTo = (path) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);

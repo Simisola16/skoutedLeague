@@ -26,9 +26,6 @@ export default function TeamDetailModal({ team, onClose, onPlayerClick }) {
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300">
                   {team.shortCode}
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
-                  {team.group || 'Group A'}
-                </span>
               </div>
               <p className="text-xs text-slate-400">
                 Manager: <strong className="text-slate-200">{team.managerName || 'Staff'}</strong>

@@ -115,7 +115,6 @@ export default function AdminPortal({ onExit }) {
   const [adminTeams, setAdminTeams] = useState([]);
   const [adminTeamsLoading, setAdminTeamsLoading] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
-  const [teamGroupFilter, setTeamGroupFilter] = useState('All');
   const [teamStatusFilter, setTeamStatusFilter] = useState('All'); // 'All' | 'pending' | 'approved' | 'rejected'
   const [verifyingTeamId, setVerifyingTeamId] = useState('');
   const [teamVerificationToast, setTeamVerificationToast] = useState(null);
@@ -231,7 +230,7 @@ export default function AdminPortal({ onExit }) {
       const [fixRes, teamRes, adminTeamRes, settingsRes, statsRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
-        api.getAdminTeams({ search: teamSearch, group: teamGroupFilter }),
+        api.getAdminTeams({ search: teamSearch }),
         api.getAdminSettings(),
         api.getAdminStatsOverview().catch(() => ({ success: false }))
       ]);
@@ -372,12 +371,11 @@ export default function AdminPortal({ onExit }) {
   };
 
   // Re-fetch admin teams on search or filter change
-  const fetchFilteredTeams = async (search = teamSearch, group = teamGroupFilter, status = teamStatusFilter) => {
+  const fetchFilteredTeams = async (search = teamSearch, status = teamStatusFilter) => {
     setAdminTeamsLoading(true);
     try {
       const res = await api.getAdminTeams({
         search,
-        group,
         verificationStatus: status !== 'All' ? status : undefined
       });
       if (res.success) {
@@ -2676,7 +2674,7 @@ export default function AdminPortal({ onExit }) {
                     <strong className="text-white">{adminTeams.length}</strong> Clubs Registered
                   </span>
                   <button
-                    onClick={() => fetchFilteredTeams(teamSearch, teamGroupFilter)}
+                    onClick={() => fetchFilteredTeams(teamSearch)}
                     disabled={adminTeamsLoading}
                     className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer transition-all"
                     title="Refresh Team Directory"
@@ -2700,7 +2698,7 @@ export default function AdminPortal({ onExit }) {
                       key={filterTab.id}
                       onClick={() => {
                         setTeamStatusFilter(filterTab.id);
-                        fetchFilteredTeams(teamSearch, teamGroupFilter, filterTab.id);
+                        fetchFilteredTeams(teamSearch, filterTab.id);
                       }}
                       className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
                         isActive
@@ -2732,52 +2730,30 @@ export default function AdminPortal({ onExit }) {
                 })}
               </div>
 
-              {/* Search & Group Filter Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Search */}
-                <div className="sm:col-span-2 relative">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    value={teamSearch}
-                    onChange={(e) => {
-                      setTeamSearch(e.target.value);
-                      fetchFilteredTeams(e.target.value, teamGroupFilter, teamStatusFilter);
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  value={teamSearch}
+                  onChange={(e) => {
+                    setTeamSearch(e.target.value);
+                    fetchFilteredTeams(e.target.value, teamStatusFilter);
+                  }}
+                  placeholder="Search by club name or short code (e.g. Telu FC, TLU)..."
+                  className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
+                />
+                {teamSearch && (
+                  <button
+                    onClick={() => {
+                      setTeamSearch('');
+                      fetchFilteredTeams('', teamStatusFilter);
                     }}
-                    placeholder="Search by club name or short code (e.g. Telu FC, TLU)..."
-                    className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676] transition-colors"
-                  />
-                  {teamSearch && (
-                    <button
-                      onClick={() => {
-                        setTeamSearch('');
-                        fetchFilteredTeams('', teamGroupFilter, teamStatusFilter);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Group Filter */}
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-slate-500 shrink-0" />
-                  <select
-                    value={teamGroupFilter}
-                    onChange={(e) => {
-                      setTeamGroupFilter(e.target.value);
-                      fetchFilteredTeams(teamSearch, e.target.value, teamStatusFilter);
-                    }}
-                    className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676] cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                   >
-                    <option value="All">All Groups / Divisions</option>
-                    <option value="Group A">Group A</option>
-                    <option value="Group B">Group B</option>
-                    <option value="Group C">Group C</option>
-                    <option value="Group D">Group D</option>
-                  </select>
-                </div>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2820,7 +2796,7 @@ export default function AdminPortal({ onExit }) {
               <div className="glass-card rounded-3xl p-12 text-center text-slate-400 space-y-3">
                 <Users className="w-10 h-10 mx-auto text-slate-600" />
                 <h4 className="font-bold text-white text-base">No Clubs Matching Criteria</h4>
-                <p className="text-xs">Adjust your search keyword, group filter, or verification status to view clubs.</p>
+                <p className="text-xs">Adjust your search keyword or verification status to view clubs.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2855,9 +2831,7 @@ export default function AdminPortal({ onExit }) {
                                 {t.shortCode}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2">
-                              <span className="text-slate-300 font-semibold">{t.group || 'Group A'}</span>
-                              <span>•</span>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
                               <span className="truncate">{t.homeGround || 'Home Ground'}</span>
                             </div>
                           </div>
@@ -3650,9 +3624,6 @@ export default function AdminPortal({ onExit }) {
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
                       {selectedTeamForRoster.shortCode}
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
-                      {selectedTeamForRoster.group || 'Group A'}
-                    </span>
                     <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                       (selectedTeamForRoster.status === 'Verified' || selectedTeamForRoster.isVerified)
                         ? 'bg-[#00E676]/15 text-[#00E676] border-[#00E676]/30'
@@ -4302,9 +4273,9 @@ export default function AdminPortal({ onExit }) {
                 <div className="font-extrabold text-sm text-slate-900">{printableSheetTeam.name}</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase font-bold text-slate-500">Short Code / Group</div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Short Code</div>
                 <div className="font-mono font-bold text-sm text-slate-900">
-                  {printableSheetTeam.shortCode} • {printableSheetTeam.group || 'Group A'}
+                  {printableSheetTeam.shortCode}
                 </div>
               </div>
               <div>

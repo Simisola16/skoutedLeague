@@ -217,7 +217,9 @@ export default function NewsPage({ articles = [], onBackToHome }) {
         <SocialFeedWidget 
           title="Official League Match Videos"
           subtitle="Real-time matchday recordings and official tournament highlights from YouTube"
+          badge="OFFICIAL MATCH VIDEO REEL"
           platform="youtube"
+          showTabs={false}
           limit={4}
         />
       </div>

@@ -2,15 +2,6 @@ import React, { useState } from 'react';
 import { Shield, Users, MapPin, UserCheck, ArrowLeft, CheckCircle2, ChevronRight, Trophy } from 'lucide-react';
 
 export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
-  const [selectedGroup, setSelectedGroup] = useState('All');
-
-  const groups = ['All', 'Group A', 'Group B'];
-
-  const filteredTeams = teams.filter(t => {
-    if (selectedGroup === 'All') return true;
-    return (t.group || 'Group A') === selectedGroup;
-  });
-
   return (
     <div className="space-y-8 pb-12">
       
@@ -40,26 +31,9 @@ export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
         </div>
       </section>
 
-      {/* 2. Group Filter Pills */}
-      <div className="flex items-center gap-2 pb-1">
-        {groups.map(grp => (
-          <button
-            key={grp}
-            onClick={() => setSelectedGroup(grp)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
-              selectedGroup === grp
-                ? 'bg-[#00E676] text-black border-[#00E676] shadow-md shadow-[#00E676]/20'
-                : 'bg-[#141722] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600'
-            }`}
-          >
-            {grp}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. Teams Grid */}
+      {/* 2. Teams Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredTeams.map((team) => {
+        {teams.map((team) => {
           const squadCount = team.players?.length || 0;
           return (
             <div
@@ -68,7 +42,7 @@ export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
             >
               <div className="space-y-4">
                 
-                {/* Crest & Group Badge */}
+                {/* Crest & Verified Badge */}
                 <div className="flex items-start justify-between">
                   <div className="w-16 h-16 rounded-2xl bg-black/50 p-2 border border-white/10 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-105 transition-transform">
                     {team.logoUrl ? (
@@ -86,9 +60,6 @@ export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
                   </div>
 
                   <div className="text-right space-y-1">
-                    <span className="inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300">
-                      {team.group || 'Group A'}
-                    </span>
                     <div className="flex items-center gap-1 text-[10px] text-[#00E676] font-semibold justify-end">
                       <CheckCircle2 className="w-3 h-3" />
                       <span>Verified Club</span>

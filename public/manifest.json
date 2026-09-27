@@ -1,0 +1,17 @@
+{
+  "short_name": "SYL",
+  "name": "Skouted Youth League Championship",
+  "description": "Official Skouted Youth League Championship Season 2026/2027. Real-time scores, standings, fixtures, and grassroots football scouting.",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0D0F14",
+  "theme_color": "#00E676",
+  "display": "standalone",
+  "orientation": "portrait"
+}

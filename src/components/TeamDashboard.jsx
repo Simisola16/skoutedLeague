@@ -696,12 +696,6 @@ export default function TeamDashboard({
                     <span>Under Review</span>
                   </span>
                 )}
-
-                {team.group && (
-                  <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
-                    • {team.group}
-                  </span>
-                )}
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
                 <span className="text-slate-300 font-semibold">{user.name || 'Manager'}</span>

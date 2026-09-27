@@ -64,9 +64,12 @@ export default function MediaPage({ onBackToHome, onNavigateNews, onNavigatePodc
       {/* 3. Automated Social Feed Reel & Grid */}
       <section className="pt-4 border-t border-[#1E2330]">
         <SocialFeedWidget
-          title="Multi-Platform Social Hub"
-          subtitle="Real-time match highlights, reels, and official league stories"
-          limit={24}
+          title="Official League Social Reel"
+          subtitle="Latest official matchday uploads & tournament video highlights"
+          badge="OFFICIAL MATCH VIDEO REEL"
+          platform="youtube"
+          showTabs={false}
+          limit={4}
         />
       </section>
 
