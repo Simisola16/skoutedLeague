@@ -37,6 +37,8 @@ import SponsorsMarquee from './components/SponsorsMarquee';
 import Footer from './components/Footer';
 import YouTubeLiveEmbed from './components/YouTubeLiveEmbed';
 import FloatingSocialShare from './components/FloatingSocialShare';
+import MediaPage from './components/MediaPage';
+import SocialFeedWidget from './components/SocialFeedWidget';
 
 import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight } from 'lucide-react';
 
@@ -430,6 +432,17 @@ export default function App() {
         )}
 
         {/* ========================================================= */}
+        {/* ROUTE: DEDICATED MEDIA & SOCIAL HUB (/media) */}
+        {/* ========================================================= */}
+        {currentPath === '/media' && (
+          <MediaPage
+            onBackToHome={() => navigateTo('/')}
+            onNavigateNews={() => navigateTo('/news')}
+            onNavigatePodcasts={() => navigateTo('/podcasts')}
+          />
+        )}
+
+        {/* ========================================================= */}
         {/* ROUTE 6: DEDICATED PODCASTS / MEDIA HUB (/podcasts) */}
         {/* ========================================================= */}
         {currentPath === '/podcasts' && (
@@ -578,6 +591,13 @@ export default function App() {
             <PodcastWidget
               episodes={podcastEpisodes}
               onNavigatePodcasts={() => navigateTo('/podcasts')}
+            />
+
+            {/* Official Social Media Reel & Multi-Platform Aggregation Hub */}
+            <SocialFeedWidget
+              title="Official League Social Reel"
+              subtitle="Latest YouTube matchday uploads, Instagram reels, and Facebook updates"
+              limit={8}
             />
 
             {/* Official Sponsors & Partners Logo Reel */}

@@ -14,7 +14,8 @@ import {
   Handshake, 
   Users,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Radio
 } from 'lucide-react';
 import { SOCIAL_LINKS_ARRAY } from '../constants/socialLinks';
 import { SocialIcon } from './SocialIcons';
@@ -34,6 +35,7 @@ export default function Footer({
     { label: 'Fixtures & Results', path: '/fixtures', icon: Calendar },
     { label: 'Table / Standings', path: '/table', icon: Trophy },
     { label: 'Teams Directory', path: '/teams', icon: Users },
+    { label: 'Media & Social Hub', path: '/media', icon: Radio },
     { label: 'Tournament Gallery', path: '/gallery', icon: Camera },
     { label: 'League News', path: '/news', icon: Newspaper },
     { label: 'Podcasts & Media', path: '/podcasts', icon: Headphones },

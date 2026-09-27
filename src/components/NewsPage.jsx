@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Newspaper, Search, ArrowLeft, Clock, Calendar, Sparkles, Filter } from 'lucide-react';
 import NewsArticleModal from './NewsArticleModal';
+import SocialFeedWidget from './SocialFeedWidget';
 
 export default function NewsPage({ articles = [], onBackToHome }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -210,6 +211,14 @@ export default function NewsPage({ articles = [], onBackToHome }) {
           ))}
         </div>
       )}
+
+      {/* Automated Social Media Feed & Match Reels */}
+      <div className="pt-6 border-t border-[#1E2330]">
+        <SocialFeedWidget 
+          title="Official League Social Media Feed"
+          subtitle="Real-time match highlights from YouTube, reels from Instagram, and updates from Facebook"
+        />
+      </div>
 
       {/* Article Detail Reader Modal */}
       {activeArticle && (

@@ -658,6 +658,48 @@ export const api = {
       body: JSON.stringify({ ids })
     });
     return res.json();
+  },
+
+  // -------------------------------------------------------------
+  // Automated Social Media Feed Engine (YouTube, IG, FB)
+  // -------------------------------------------------------------
+  getSocialPosts: async (params = {}) => {
+    const res = await fetch(`${API_BASE}/social/posts${buildQuery(params)}`);
+    return res.json();
+  },
+
+  syncYouTubeSocial: async () => {
+    const res = await fetch(`${API_BASE}/social/sync-youtube`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  curateSocialPost: async (payload) => {
+    const res = await fetch(`${API_BASE}/social/curate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  deleteSocialPost: async (id) => {
+    const res = await fetch(`${API_BASE}/social/posts/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  togglePinSocialPost: async (id) => {
+    const res = await fetch(`${API_BASE}/social/posts/${id}/pin`, {
+      method: 'PATCH',
+      headers: getAuthHeaders()
+    });
+    return res.json();
   }
 };
+
 

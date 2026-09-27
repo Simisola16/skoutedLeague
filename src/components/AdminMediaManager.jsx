@@ -24,10 +24,12 @@ import {
   Layers,
   CheckSquare,
   Square,
-  FileText
+  FileText,
+  Radio
 } from 'lucide-react';
 import { api } from '../services/api';
 import { getMediaUrl } from '../utils/mediaUtils';
+import AdminSocialManager from './AdminSocialManager';
 
 const MEDIA_CATEGORIES = [
   'All',
@@ -667,6 +669,7 @@ export default function AdminMediaManager() {
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {[
             { id: 'gallery', label: 'Gallery & Media Hub', icon: Camera, count: mediaSummary.total || mediaItems.length },
+            { id: 'social', label: 'Social Reels & Auto-Sync', icon: Radio, count: 'AUTO' },
             { id: 'news', label: 'News Articles', icon: Newspaper, count: articles.length },
             { id: 'podcasts', label: 'Podcast Episodes', icon: Headphones, count: podcasts.length },
             { id: 'sponsors', label: 'Sponsors & Partners', icon: Handshake, count: sponsors.length },
@@ -980,6 +983,13 @@ export default function AdminMediaManager() {
           )}
 
         </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* TAB: AUTOMATED SOCIAL REELS & AUTO-SYNC ENGINE */}
+      {/* =================================================================== */}
+      {subTab === 'social' && (
+        <AdminSocialManager />
       )}
 
       {/* =================================================================== */}

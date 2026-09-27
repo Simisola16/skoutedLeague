@@ -58,6 +58,7 @@ import socket from '../services/socket';
 import PlayerDetailModal from './PlayerDetailModal';
 import PlayerFormModal from './PlayerFormModal';
 import AdminMediaManager from './AdminMediaManager';
+import AdminSocialManager from './AdminSocialManager';
 import { SocialIcon } from './SocialIcons';
 import { SOCIAL_LINKS } from '../constants/socialLinks';
 
@@ -78,8 +79,13 @@ export default function AdminPortal({ onExit }) {
     youtube: SOCIAL_LINKS.youtube.url
   });
 
-  // Active Admin View Tab: 'overview' | 'teams' | 'squads' | 'fixtures' | 'operator' | 'media' | 'settings'
-  const [adminTab, setAdminTab] = useState('overview');
+  // Active Admin View Tab: 'overview' | 'teams' | 'squads' | 'fixtures' | 'operator' | 'social' | 'media' | 'settings'
+  const [adminTab, setAdminTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/social')) {
+      return 'social';
+    }
+    return 'overview';
+  });
 
   // Executive Responsive Layout & Overview Metric Stats
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1125,6 +1131,7 @@ export default function AdminPortal({ onExit }) {
     { id: 'squads', label: 'Squad Directory', icon: Users, badge: null },
     { id: 'fixtures', label: '2-Leg Fixture Engine', icon: CalendarDays, badge: `${fixtures.length}` },
     { id: 'operator', label: 'Live Match Operator Pad', icon: Radio, badge: liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : null, isLive: liveMatchesCount > 0 },
+    { id: 'social', label: 'Social Hub & Auto-Sync', icon: Radio, badge: 'AUTO' },
     { id: 'media', label: 'Media & Gallery', icon: Camera, badge: adminStats?.mediaCount ? `${adminStats.mediaCount}` : null },
     { id: 'settings', label: 'Settings', icon: Settings2, badge: leagueSettings?.transferWindowStatus === 'open' ? 'WINDOW' : null }
   ];
@@ -1442,9 +1449,9 @@ export default function AdminPortal({ onExit }) {
             </div>
           </header>
 
-          {/* Real-time Metric Summary Cards (5 Key Stats - Visible across tabs for instant situational awareness) */}
+          {/* Real-time Metric Summary Cards (6 Key Stats - Visible across tabs for instant situational awareness) */}
           <div className="px-4 sm:px-6 pt-5 pb-1">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
               
               {/* Card 1: Total Registered Teams */}
               <div 
@@ -1561,6 +1568,27 @@ export default function AdminPortal({ onExit }) {
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
                   Cloudinary assets
+                </div>
+              </div>
+
+              {/* Card 6: Social Media Reels & Feeds */}
+              <div 
+                onClick={() => setAdminTab('social')}
+                className={`p-4 rounded-2xl bg-[#1E293B]/80 hover:bg-[#1E293B] border transition-all cursor-pointer group col-span-2 sm:col-span-1 ${
+                  adminTab === 'social' ? 'border-[#00E676] shadow-lg shadow-[#00E676]/10' : 'border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">Social Feeds</span>
+                  <div className="w-8 h-8 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-2">
+                  AUTO
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  YouTube & IG Sync
                 </div>
               </div>
 
@@ -3536,6 +3564,13 @@ export default function AdminPortal({ onExit }) {
 
             </div>
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* AUTOMATED SOCIAL FEED & CHANNELS MANAGER */}
+        {/* ========================================================= */}
+        {adminTab === 'social' && (
+          <AdminSocialManager />
         )}
 
         {/* ========================================================= */}
