@@ -58,6 +58,8 @@ import socket from '../services/socket';
 import PlayerDetailModal from './PlayerDetailModal';
 import PlayerFormModal from './PlayerFormModal';
 import AdminMediaManager from './AdminMediaManager';
+import { SocialIcon } from './SocialIcons';
+import { SOCIAL_LINKS } from '../constants/socialLinks';
 
 export default function AdminPortal({ onExit }) {
   const [adminUser, setAdminUser] = useState(null);
@@ -68,6 +70,13 @@ export default function AdminPortal({ onExit }) {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  // Social media links state in settings
+  const [socialInputs, setSocialInputs] = useState({
+    facebook: SOCIAL_LINKS.facebook.url,
+    instagram: SOCIAL_LINKS.instagram.url,
+    youtube: SOCIAL_LINKS.youtube.url
+  });
 
   // Active Admin View Tab: 'overview' | 'teams' | 'squads' | 'fixtures' | 'operator' | 'media' | 'settings'
   const [adminTab, setAdminTab] = useState('overview');
@@ -241,6 +250,13 @@ export default function AdminPortal({ onExit }) {
         if (settingsRes.data.transferWindowClosesAt) {
           setTransferWindowClosingDate(new Date(settingsRes.data.transferWindowClosesAt).toISOString().split('T')[0]);
         }
+        if (settingsRes.data.socialLinks) {
+          setSocialInputs({
+            facebook: settingsRes.data.socialLinks.facebook || SOCIAL_LINKS.facebook.url,
+            instagram: settingsRes.data.socialLinks.instagram || SOCIAL_LINKS.instagram.url,
+            youtube: settingsRes.data.socialLinks.youtube || SOCIAL_LINKS.youtube.url
+          });
+        }
       }
       if (statsRes?.success && statsRes.data) {
         setAdminStats(statsRes.data);
@@ -256,6 +272,13 @@ export default function AdminPortal({ onExit }) {
       setLeagueSettings(updated);
       if (updated.transferWindowClosesAt) {
         setTransferWindowClosingDate(new Date(updated.transferWindowClosesAt).toISOString().split('T')[0]);
+      }
+      if (updated.socialLinks) {
+        setSocialInputs({
+          facebook: updated.socialLinks.facebook || SOCIAL_LINKS.facebook.url,
+          instagram: updated.socialLinks.instagram || SOCIAL_LINKS.instagram.url,
+          youtube: updated.socialLinks.youtube || SOCIAL_LINKS.youtube.url
+        });
       }
     };
 
@@ -3300,6 +3323,108 @@ export default function AdminPortal({ onExit }) {
 
               </div>
 
+            </div>
+
+            {/* Official Social Media Channels Configuration Card */}
+            <div className="bg-[#131622] border border-[#232838] rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-white/5 gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#00E676]" />
+                  <h3 className="font-extrabold text-base text-white">Official Social Media Links Configuration</h3>
+                </div>
+                <span className="text-[11px] font-mono text-slate-400">Broadcasts live across website header, footer & community pages</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Facebook URL */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-xs text-white flex items-center gap-2">
+                      <SocialIcon platform="facebook" className="w-4 h-4 text-[#1877F2]" />
+                      <span>Facebook URL</span>
+                    </label>
+                    <a
+                      href={socialInputs.facebook}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Test</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    value={socialInputs.facebook}
+                    onChange={(e) => setSocialInputs(prev => ({ ...prev, facebook: e.target.value }))}
+                    placeholder="https://facebook.com/..."
+                    className="w-full bg-[#121622] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                  />
+                </div>
+
+                {/* Instagram URL */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-xs text-white flex items-center gap-2">
+                      <SocialIcon platform="instagram" className="w-4 h-4 text-[#E1306C]" />
+                      <span>Instagram URL</span>
+                    </label>
+                    <a
+                      href={socialInputs.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Test</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    value={socialInputs.instagram}
+                    onChange={(e) => setSocialInputs(prev => ({ ...prev, instagram: e.target.value }))}
+                    placeholder="https://instagram.com/..."
+                    className="w-full bg-[#121622] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                  />
+                </div>
+
+                {/* YouTube URL */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#232838] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-xs text-white flex items-center gap-2">
+                      <SocialIcon platform="youtube" className="w-4 h-4 text-[#FF0000]" />
+                      <span>YouTube Channel URL</span>
+                    </label>
+                    <a
+                      href={socialInputs.youtube}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Test</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    value={socialInputs.youtube}
+                    onChange={(e) => setSocialInputs(prev => ({ ...prev, youtube: e.target.value }))}
+                    placeholder="https://youtube.com/@..."
+                    className="w-full bg-[#121622] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={() => handleUpdateLeagueSettings({ socialLinks: socialInputs })}
+                  disabled={settingsUpdating}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] hover:from-[#34f195] hover:to-[#00E676] text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Save Social Media Links</span>
+                </button>
+              </div>
             </div>
 
           </div>

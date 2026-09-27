@@ -11,10 +11,14 @@ import {
   ArrowLeft,
   ChevronRight,
   TrendingUp,
-  Award
+  Award,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../services/api';
 import socket from '../services/socket';
+import { SOCIAL_LINKS_ARRAY } from '../constants/socialLinks';
+import { SocialIcon } from './SocialIcons';
+import YouTubeLiveEmbed from './YouTubeLiveEmbed';
 
 const DEFAULT_ABOUT_IMAGE = 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=1200';
 const DEFAULT_ABOUT_CAPTION = 'Youth talent competing in the Skouted Youth League Championship';
@@ -275,7 +279,76 @@ export default function AboutPage({
         </div>
       </section>
 
-      {/* 5. Closing Official Badge */}
+      {/* 5. Official Social Media Community Hub */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#00E676]/10 border border-[#00E676]/20 flex items-center justify-center text-[#00E676]">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black font-display text-white tracking-tight">
+              Connect With Skouted Youth League
+            </h2>
+            <p className="text-xs text-slate-400">Follow our official channels for live match action, scout reports, and community spotlights</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {SOCIAL_LINKS_ARRAY.map((social) => (
+            <a
+              key={social.id}
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`group glass-card rounded-3xl p-6 border border-[#1E2536] ${social.borderHover} ${social.glowClass} transition-all duration-300 flex flex-col justify-between space-y-4 cursor-pointer`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg"
+                    style={{
+                      backgroundColor: `${social.accentColor}18`,
+                      color: social.accentColor,
+                      boxShadow: `0 4px 14px ${social.accentColor}25`
+                    }}
+                  >
+                    <SocialIcon platform={social.id} className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base group-hover:text-white flex items-center gap-1.5">
+                      <span>{social.name}</span>
+                    </h3>
+                    <div className="text-xs font-mono font-medium text-slate-400">
+                      {social.handle}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:border-white/20 transition-all">
+                  <ExternalLink className="w-4 h-4" />
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {social.description}
+              </p>
+
+              <div 
+                className="text-xs font-bold flex items-center gap-1 pt-2 border-t border-white/5"
+                style={{ color: social.accentColor }}
+              >
+                <span>Visit {social.name} Page</span>
+                <span className="group-hover:translate-x-1.5 transition-transform">→</span>
+              </div>
+            </a>
+          ))}
+        </div>
+
+        {/* Live Broadcast Player Embed */}
+        <YouTubeLiveEmbed className="mt-6" />
+      </section>
+
+      {/* 6. Closing Official Badge */}
       <section className="text-center pt-6">
         <div className="inline-block p-1 rounded-2xl bg-gradient-to-r from-[#00E676]/40 via-[#00C853]/20 to-[#00E676]/40 shadow-xl shadow-[#00E676]/10">
           <div className="px-8 py-5 rounded-[14px] bg-[#0E121A] border border-[#1E2536] flex flex-col sm:flex-row items-center justify-center gap-3">

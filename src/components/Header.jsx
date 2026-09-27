@@ -18,6 +18,8 @@ import {
   Camera,
   UserPlus
 } from 'lucide-react';
+import { SOCIAL_LINKS_ARRAY, SOCIAL_LINKS } from '../constants/socialLinks';
+import { SocialIcon } from './SocialIcons';
 
 export default function Header({
   currentPath = '/',
@@ -128,6 +130,39 @@ export default function Header({
         {/* Right Action CTA (8. Team Portal / Login) & User Controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           
+          {/* Desktop Social Quick Links */}
+          <div className="hidden 2xl:flex items-center gap-1.5 pr-2 mr-1 border-r border-white/10">
+            {SOCIAL_LINKS_ARRAY.map((social) => (
+              <a
+                key={social.id}
+                href={social.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${social.name} (${social.handle})`}
+                className={`w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 ${social.textHover} ${social.borderHover} flex items-center justify-center transition-all text-slate-300`}
+                aria-label={social.name}
+              >
+                <SocialIcon platform={social.id} className="w-3.5 h-3.5" />
+              </a>
+            ))}
+          </div>
+
+          {/* Official YouTube Live Broadcast Stream Badge */}
+          <a
+            href={SOCIAL_LINKS.youtube.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 hover:border-red-500/50 text-red-300 hover:text-white transition-all text-xs font-bold cursor-pointer group"
+            title="Watch live on YouTube (@Skoutedyouthleague)"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <SocialIcon platform="youtube" className="w-3.5 h-3.5 text-red-500" />
+            <span className="hidden xl:inline">Live Stream</span>
+          </a>
+
           {/* Goal Alerts Bell */}
           <button
             onClick={onOpenFanAlerts}
@@ -262,6 +297,48 @@ export default function Header({
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             </button>
+          </div>
+
+          {/* Official Social Media Channels in Mobile Menu */}
+          <div className="pt-3 border-t border-white/5 space-y-2">
+            <div className="text-[10px] font-mono text-slate-500 font-bold px-1 uppercase tracking-wider flex items-center justify-between">
+              <span>Follow Skouted Youth League</span>
+              <span className="text-red-400 font-bold">@Skoutedyouthleague</span>
+            </div>
+
+            {/* Live Stream Banner in Mobile Menu */}
+            <a
+              href={SOCIAL_LINKS.youtube.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-2.5 rounded-xl bg-red-600/15 border border-red-500/30 text-red-200 hover:text-white font-bold text-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <SocialIcon platform="youtube" className="w-4 h-4 text-red-500" />
+                <span>YouTube Live Broadcast</span>
+              </div>
+              <span className="text-[10px] font-mono text-red-400">Watch Live &rarr;</span>
+            </a>
+
+            <div className="grid grid-cols-3 gap-2">
+              {SOCIAL_LINKS_ARRAY.map((social) => (
+                <a
+                  key={social.id}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl bg-[#141824] border border-[#22293A] ${social.textHover} ${social.borderHover} transition-all`}
+                  title={social.name}
+                >
+                  <SocialIcon platform={social.id} className="w-4 h-4 mb-1" />
+                  <span className="text-[10px] font-bold text-slate-200">{social.name}</span>
+                </a>
+              ))}
+            </div>
           </div>
 
           {/* Quick Action Footer in Mobile Menu */}

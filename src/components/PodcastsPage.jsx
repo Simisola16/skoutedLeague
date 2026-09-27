@@ -13,6 +13,9 @@ import {
   Sparkles,
   Share2
 } from 'lucide-react';
+import { SOCIAL_LINKS } from '../constants/socialLinks';
+import { SocialIcon } from './SocialIcons';
+import YouTubeLiveEmbed from './YouTubeLiveEmbed';
 
 export default function PodcastsPage({ episodes = [], onBackToHome }) {
   const [activeEpisode, setActiveEpisode] = useState(episodes[0] || null);
@@ -299,6 +302,62 @@ export default function PodcastsPage({ episodes = [], onBackToHome }) {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* 4. Official YouTube Channel & Video Scouting Broadcast Card */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-red-950/40 via-[#151218] to-[#0E1017] border-2 border-red-500/30 p-6 sm:p-10 shadow-2xl">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-mono font-bold">
+              <SocialIcon platform="youtube" className="w-4 h-4 text-red-500" />
+              <span>OFFICIAL VIDEO BROADCAST CHANNEL</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-black font-display text-white tracking-tight">
+              Watch Matches & Scout Replays on YouTube
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Prefer full video? Watch condensed match highlights, tactical breakdown analysis, and scouting dossiers on our official YouTube channel: <strong className="text-white">{SOCIAL_LINKS.youtube.handle}</strong>.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <a
+              href={SOCIAL_LINKS.youtube.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm tracking-wide shadow-lg shadow-red-600/30 hover:shadow-red-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <SocialIcon platform="youtube" className="w-5 h-5" />
+              <span>Subscribe on YouTube</span>
+              <ExternalLink className="w-4 h-4 ml-0.5" />
+            </a>
+
+            <a
+              href={SOCIAL_LINKS.instagram.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-3.5 rounded-2xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#2B3245] text-slate-200 hover:text-white font-bold text-xs transition-all cursor-pointer"
+            >
+              <SocialIcon platform="instagram" className="w-4 h-4 text-[#E1306C]" />
+              <span>Instagram</span>
+            </a>
+
+            <a
+              href={SOCIAL_LINKS.facebook.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-3.5 rounded-2xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#2B3245] text-slate-200 hover:text-white font-bold text-xs transition-all cursor-pointer"
+            >
+              <SocialIcon platform="facebook" className="w-4 h-4 text-[#1877F2]" />
+              <span>Facebook</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Live Stream Player Embed */}
+        <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
+          <YouTubeLiveEmbed showTitle={false} />
         </div>
       </section>
 

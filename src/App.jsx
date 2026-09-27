@@ -34,6 +34,9 @@ import PodcastsPage from './components/PodcastsPage';
 import PodcastWidget from './components/PodcastWidget';
 import SponsorsPage from './components/SponsorsPage';
 import SponsorsMarquee from './components/SponsorsMarquee';
+import Footer from './components/Footer';
+import YouTubeLiveEmbed from './components/YouTubeLiveEmbed';
+import FloatingSocialShare from './components/FloatingSocialShare';
 
 import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight } from 'lucide-react';
 
@@ -524,6 +527,9 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Automated Official YouTube Live Broadcast Feed */}
+              <YouTubeLiveEmbed className="mb-4" />
+
               {/* Matches List: Top 3 only (Compact Native Sports App Layout) */}
               {prioritizedHomepageMatches.length === 0 ? (
                 <div className="rounded-2xl p-6 sm:p-8 text-center text-slate-400 space-y-2 border border-slate-800 bg-slate-900/60">
@@ -584,6 +590,15 @@ export default function App() {
         )}
 
       </main>
+
+      {/* Global Comprehensive Footer with Official Social Media Links */}
+      <Footer
+        onNavigate={navigateTo}
+        onOpenFanAlerts={() => setShowFanAlerts(true)}
+        onOpenRegisterTeam={() => navigateTo('/team/register')}
+        onOpenLogin={() => setShowLogin(true)}
+        leagueSettings={leagueSettings}
+      />
 
       {/* Interactive Match Detail Drawer */}
       {selectedFixture && (
@@ -656,6 +671,9 @@ export default function App() {
         user={user}
         liveCount={liveMatches.length}
       />
+
+      {/* Floating Official Social & Live Channel Quick Access Menu */}
+      <FloatingSocialShare />
 
     </div>
   );

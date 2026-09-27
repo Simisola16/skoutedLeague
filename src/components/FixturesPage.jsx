@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import YouTubeLiveEmbed from './YouTubeLiveEmbed';
 
 /* ── Branded export row ─────────────────────────────────────────────────── */
 function ExportCard({ fixture }) {
@@ -326,6 +327,11 @@ export default function FixturesPage({
           </div>
         )}
       </div>
+
+      {/* Automated YouTube Live Broadcast Embed for Matchday */}
+      {(statusFilter === 'live' || liveCount > 0) && (
+        <YouTubeLiveEmbed className="mb-4" />
+      )}
 
       {/* ── Fixture Grid ─────────────────────────────────────────────────── */}
       {filteredFixtures.length === 0 ? (
