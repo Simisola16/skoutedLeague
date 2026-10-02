@@ -43,6 +43,11 @@ export default function TeamRegisterModal({
       return;
     }
 
+    if (!crestFile) {
+      setErrorMsg('Official team crest / logo is required. Please upload your badge image.');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
 
@@ -198,12 +203,19 @@ export default function TeamRegisterModal({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-white mb-0.5">Team Crest / Logo</div>
+                  <div className="text-xs font-bold text-white mb-0.5 flex items-center justify-between">
+                    <span>Team Crest / Logo *</span>
+                    {crestFile ? (
+                      <span className="text-[#00E676] text-[10px] font-semibold">✓ Attached</span>
+                    ) : (
+                      <span className="text-amber-400 text-[10px] font-medium">Required *</span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-slate-400 mb-2">Upload square PNG or JPG badge (Cloudinary CDN)</p>
                   <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 transition-all">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Choose Badge</span>
-                    <input type="file" accept="image/*" onChange={handleCrestChange} className="hidden" />
+                    <span>{crestFile ? crestFile.name : 'Choose Badge *'}</span>
+                    <input type="file" required accept="image/*" onChange={handleCrestChange} className="hidden" />
                   </label>
                 </div>
               </div>

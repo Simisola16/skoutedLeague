@@ -59,6 +59,11 @@ export default function TeamRegisterPage({
       return;
     }
 
+    if (!crestFile) {
+      setErrorMsg('Official club crest / logo is required. Please upload your badge image.');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
 
@@ -121,9 +126,12 @@ export default function TeamRegisterPage({
       formData.append('managerName', managerName.trim());
       formData.append('managerEmail', managerEmail.trim());
       formData.append('managerPhone', managerPhone.trim());
-      if (crestFile) {
-        formData.append('crest', crestFile);
+      if (!crestFile) {
+        setErrorMsg('Official club crest / logo is required. Please go back and select a badge image.');
+        setLoading(false);
+        return;
       }
+      formData.append('crest', crestFile);
 
       const teamRes = await api.registerTeam(formData);
       if (teamRes.success) {
@@ -332,10 +340,15 @@ export default function TeamRegisterPage({
 
                   {/* Club Crest Upload */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Club Crest / Logo
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Club Crest / Logo *</span>
+                      {crestFile ? (
+                        <span className="text-[#00E676] text-[10px] font-semibold">✓ Attached</span>
+                      ) : (
+                        <span className="text-amber-400 text-[10px] font-medium">Required *</span>
+                      )}
                     </label>
-                    <label className="flex items-center gap-3 bg-[#090B10] border border-[#232838] hover:border-[#00E676]/50 rounded-2xl p-2.5 cursor-pointer transition-colors">
+                    <label className={`flex items-center gap-3 bg-[#090B10] border ${crestFile ? 'border-[#00E676]/60 bg-[#00E676]/5' : 'border-[#232838] hover:border-[#00E676]/50'} rounded-2xl p-2.5 cursor-pointer transition-colors`}>
                       <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
                         {crestPreview ? (
                           <img src={crestPreview} alt="Crest" className="w-full h-full object-cover" />
@@ -343,11 +356,12 @@ export default function TeamRegisterPage({
                           <Upload className="w-4 h-4 text-slate-400" />
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-400 truncate">
-                        {crestFile ? crestFile.name : 'Upload PNG or JPG logo'}
+                      <span className="text-[11px] text-slate-300 truncate font-medium">
+                        {crestFile ? crestFile.name : 'Upload PNG or JPG logo *'}
                       </span>
                       <input
                         type="file"
+                        required
                         accept="image/*"
                         onChange={handleCrestChange}
                         className="hidden"
