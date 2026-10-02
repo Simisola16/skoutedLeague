@@ -269,15 +269,15 @@ export default function TeamRegisterPage({
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Short Code (3-4) *
+                      Short Code (2-6 letters) *
                     </label>
                     <input
                       type="text"
                       required
-                      maxLength={5}
+                      maxLength={8}
                       value={shortCode}
                       onChange={(e) => setShortCode(e.target.value.toUpperCase())}
-                      placeholder="LCS"
+                      placeholder="e.g. D52FA"
                       className="w-full bg-[#090B10] border border-[#232838] rounded-2xl px-3.5 py-2.5 text-white font-mono uppercase placeholder-slate-600 focus:outline-none focus:border-[#00E676]"
                     />
                   </div>
