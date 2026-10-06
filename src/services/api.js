@@ -341,6 +341,14 @@ export const api = {
     return res.json();
   },
 
+  loginAsTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/login-as`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   // Admin Trash & Recovery Management
   getAdminTrash: async () => {
     const res = await fetch(`${API_BASE}/admin/trash`, {

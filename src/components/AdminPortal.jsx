@@ -25,6 +25,8 @@ import {
   RotateCcw,
   RefreshCw,
   ExternalLink,
+  LogIn,
+  KeyRound,
   ChevronRight,
   AlertCircle,
   Search,
@@ -139,6 +141,7 @@ export default function AdminPortal({ onExit }) {
   const [restoringItemId, setRestoringItemId] = useState(null);
   const [showEmptyTrashModal, setShowEmptyTrashModal] = useState(false);
   const [emptyTrashLoading, setEmptyTrashLoading] = useState(false);
+  const [loggingInAsTeamId, setLoggingInAsTeamId] = useState('');
 
   // Roster Inspector State
   const [selectedTeamForRoster, setSelectedTeamForRoster] = useState(null);
@@ -679,6 +682,54 @@ export default function AdminPortal({ onExit }) {
       setTimeout(() => setTeamVerificationToast(null), 6000);
     } finally {
       setRejectLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Impersonation: Direct Login as Team Manager
+  // -------------------------------------------------------------
+  const handleLoginAsTeam = async (team) => {
+    if (!team?._id) return;
+    setLoggingInAsTeamId(team._id);
+    try {
+      const res = await api.loginAsTeam(team._id);
+      if (res?.success && res.data?.token) {
+        // Backup current admin token so admin can seamlessly switch back anytime
+        const currentAdminToken = localStorage.getItem('skouted_token');
+        if (currentAdminToken) {
+          localStorage.setItem('skouted_admin_token_backup', currentAdminToken);
+          localStorage.setItem('skouted_admin_impersonating', team.name);
+        }
+        // Set manager token
+        localStorage.setItem('skouted_token', res.data.token);
+
+        try {
+          confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+        } catch (e) {}
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Authenticated as ${team.name} manager! Launching Team Portal...`
+        });
+
+        setTimeout(() => {
+          window.location.href = '/team/dashboard';
+        }, 600);
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res?.error || 'Failed to authenticate as team manager'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Login as team error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setLoggingInAsTeamId('');
     }
   };
 
@@ -3238,7 +3289,21 @@ export default function AdminPortal({ onExit }) {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => handleLoginAsTeam(t)}
+                            disabled={loggingInAsTeamId === t._id}
+                            className="py-1.5 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                            title={`Login directly as ${t.name} manager`}
+                          >
+                            {loggingInAsTeamId === t._id ? (
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+                            ) : (
+                              <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+                            )}
+                            <span>Login as Team</span>
+                          </button>
+
                           <button
                             onClick={() => handleOpenRoster(t)}
                             className="py-1.5 px-3 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
@@ -4280,6 +4345,20 @@ export default function AdminPortal({ onExit }) {
                 >
                   <Printer className="w-3.5 h-3.5 text-[#00E676]" />
                   <span>Print Match Sheet</span>
+                </button>
+
+                <button
+                  onClick={() => handleLoginAsTeam(selectedTeamForRoster)}
+                  disabled={loggingInAsTeamId === selectedTeamForRoster._id}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  title="Switch and login to Team Portal as this club manager"
+                >
+                  {loggingInAsTeamId === selectedTeamForRoster._id ? (
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+                  ) : (
+                    <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+                  )}
+                  <span>Login as Team</span>
                 </button>
 
                 <button

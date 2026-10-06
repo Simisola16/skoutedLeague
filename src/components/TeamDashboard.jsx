@@ -179,6 +179,21 @@ export default function TeamDashboard({
     return () => clearInterval(timer);
   }, []);
 
+  // Admin Impersonation detection
+  const [isAdminImpersonating, setIsAdminImpersonating] = useState(() => {
+    return Boolean(localStorage.getItem('skouted_admin_token_backup'));
+  });
+
+  const handleReturnToAdmin = () => {
+    const adminToken = localStorage.getItem('skouted_admin_token_backup');
+    if (adminToken) {
+      localStorage.setItem('skouted_token', adminToken);
+      localStorage.removeItem('skouted_admin_token_backup');
+      localStorage.removeItem('skouted_admin_impersonating');
+    }
+    window.location.href = '/admin';
+  };
+
   const notify = (text, type = 'success') => {
     setFeedback({ text, type });
     setTimeout(() => setFeedback({ text: '', type: 'success' }), 4000);
@@ -660,6 +675,32 @@ export default function TeamDashboard({
       )}
 
       {/* ========================================================= */}
+      {/* 1B. ADMIN IMPERSONATION BANNER */}
+      {/* ========================================================= */}
+      {isAdminImpersonating && (
+        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border-b border-indigo-500/40 px-4 py-2.5 text-xs font-semibold text-indigo-200 sticky top-0 z-40 shadow-xl">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              <span className="truncate">
+                👑 <strong>Admin Impersonation Mode:</strong> Currently logged in as <strong className="text-white">{team.name || 'this club'}</strong>
+              </span>
+            </div>
+            <button
+              onClick={handleReturnToAdmin}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-extrabold text-xs transition-all hover:scale-105 cursor-pointer shadow-lg shadow-indigo-500/30"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>Return to Admin Console</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
       {/* 2. DASHBOARD HEADER & CLUB IDENTITY */}
       {/* ========================================================= */}
       <header className="sticky top-0 z-30 bg-[#0E1118]/95 backdrop-blur-md border-b border-[#232838] px-4 sm:px-8 py-3.5">
@@ -714,6 +755,17 @@ export default function TeamDashboard({
 
           {/* Header Action Controls */}
           <div className="flex items-center gap-2">
+            {isAdminImpersonating && (
+              <button
+                onClick={handleReturnToAdmin}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all cursor-pointer shadow-sm"
+                title="Switch back to League Admin Console"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Back to Admin</span>
+              </button>
+            )}
+
             <button
               onClick={() => loadTeamData(true)}
               disabled={refreshing}
