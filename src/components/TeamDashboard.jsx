@@ -418,8 +418,13 @@ export default function TeamDashboard({
         setShowAddPlayerModal(false);
         loadTeamData(true);
       } else {
-        throw new Error(res.error || 'Failed to add player');
+        const errorMsg = res.error || 'Failed to add player';
+        notify(errorMsg, 'error');
+        throw new Error(errorMsg);
       }
+    } catch (err) {
+      notify(err.message, 'error');
+      throw err;
     } finally {
       setAddPlayerLoading(false);
     }

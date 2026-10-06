@@ -29,6 +29,7 @@ import {
   formatHeight,
   formatWeight
 } from '../utils/playerConstants';
+import { compressImage } from '../utils/imageCompressor';
 
 export default function PlayerFormModal({
   isOpen,
@@ -186,20 +187,27 @@ export default function PlayerFormModal({
     : null;
 
   // Handle Photo Selection
-  const handlePhotoSelect = (file) => {
+  const handlePhotoSelect = async (file) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setLocalError('Please select a valid image file (PNG, JPG, WEBP)');
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      setLocalError('Image file size must be under 8MB');
+    if (file.size > 20 * 1024 * 1024) {
+      setLocalError('Image file size must be under 20MB');
       return;
     }
     setLocalError('');
-    setPhotoFile(file);
-    const localUrl = URL.createObjectURL(file);
-    setPhotoPreview(localUrl);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+      setPhotoFile(compressed);
+      const localUrl = URL.createObjectURL(compressed);
+      setPhotoPreview(localUrl);
+    } catch {
+      setPhotoFile(file);
+      const localUrl = URL.createObjectURL(file);
+      setPhotoPreview(localUrl);
+    }
   };
 
   const handleRemovePhoto = () => {
@@ -296,7 +304,8 @@ export default function PlayerFormModal({
     formData.append('nationality', finalNationality);
 
     if (photoFile) {
-      formData.append('photo', photoFile);
+      const finalPhoto = await compressImage(photoFile, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+      formData.append('photo', finalPhoto);
     } else if (photoPreview && !photoPreview.startsWith('blob:')) {
       formData.append('photoUrl', photoPreview);
     }

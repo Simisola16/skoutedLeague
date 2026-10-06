@@ -22,6 +22,7 @@ import {
   Flame,
   Clock,
   Trash2,
+  RotateCcw,
   RefreshCw,
   ExternalLink,
   ChevronRight,
@@ -121,6 +122,23 @@ export default function AdminPortal({ onExit }) {
   const [rejectingTeam, setRejectingTeam] = useState(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [rejectLoading, setRejectLoading] = useState(false);
+
+  // Trash & Recovery State
+  const [trashData, setTrashData] = useState({
+    teams: [],
+    fixtures: [],
+    players: [],
+    counts: { teams: 0, fixtures: 0, players: 0, total: 0 }
+  });
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashCategoryFilter, setTrashCategoryFilter] = useState('all'); // 'all' | 'teams' | 'fixtures' | 'players'
+  const [deletingTeam, setDeletingTeam] = useState(null);
+  const [deletingTeamLoading, setDeletingTeamLoading] = useState(false);
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState(null); // { type, id, name }
+  const [permanentDeleteLoading, setPermanentDeleteLoading] = useState(false);
+  const [restoringItemId, setRestoringItemId] = useState(null);
+  const [showEmptyTrashModal, setShowEmptyTrashModal] = useState(false);
+  const [emptyTrashLoading, setEmptyTrashLoading] = useState(false);
 
   // Roster Inspector State
   const [selectedTeamForRoster, setSelectedTeamForRoster] = useState(null);
@@ -225,14 +243,29 @@ export default function AdminPortal({ onExit }) {
   }, []);
 
   // 2. Fetch fixtures, teams, admin team directory, and overview stats when authenticated
+  const loadTrashData = async () => {
+    setTrashLoading(true);
+    try {
+      const res = await api.getAdminTrash();
+      if (res?.success && res.data) {
+        setTrashData(res.data);
+      }
+    } catch (err) {
+      console.error('[Load Trash Error]:', err);
+    } finally {
+      setTrashLoading(false);
+    }
+  };
+
   const loadAdminData = async () => {
     try {
-      const [fixRes, teamRes, adminTeamRes, settingsRes, statsRes] = await Promise.all([
+      const [fixRes, teamRes, adminTeamRes, settingsRes, statsRes, trashRes] = await Promise.all([
         api.getFixtures(),
         api.getTeams(),
         api.getAdminTeams({ search: teamSearch }),
         api.getAdminSettings(),
-        api.getAdminStatsOverview().catch(() => ({ success: false }))
+        api.getAdminStatsOverview().catch(() => ({ success: false })),
+        api.getAdminTrash().catch(() => ({ success: false }))
       ]);
       if (fixRes.success) {
         setFixtures(fixRes.data || []);
@@ -266,10 +299,19 @@ export default function AdminPortal({ onExit }) {
       if (statsRes?.success && statsRes.data) {
         setAdminStats(statsRes.data);
       }
+      if (trashRes?.success && trashRes.data) {
+        setTrashData(trashRes.data);
+      }
     } catch (err) {
       console.error('[Load Admin Data Error]:', err);
     }
   };
+
+  useEffect(() => {
+    if (adminTab === 'trash') {
+      loadTrashData();
+    }
+  }, [adminTab]);
 
   // Real-time listener for league settings and transfer window updates
   useEffect(() => {
@@ -637,6 +679,207 @@ export default function AdminPortal({ onExit }) {
       setTimeout(() => setTeamVerificationToast(null), 6000);
     } finally {
       setRejectLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Trash & Recovery Actions
+  // -------------------------------------------------------------
+  const handleConfirmTrashTeam = async () => {
+    if (!deletingTeam) return;
+    setDeletingTeamLoading(true);
+    try {
+      const res = await api.trashAdminTeam(deletingTeam._id);
+      if (res.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Team "${deletingTeam.name}" has been moved to Trash. You can restore it or permanently erase it from the Trash & Recovery tab.`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        setAdminTeams(prev => prev.filter(t => t._id !== deletingTeam._id));
+        setTeams(prev => prev.filter(t => t._id !== deletingTeam._id));
+        setDeletingTeam(null);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to move team to trash'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Error moving team to trash: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setDeletingTeamLoading(false);
+    }
+  };
+
+  const handleRestoreTeamAction = async (teamId, teamName) => {
+    setRestoringItemId(teamId);
+    try {
+      const res = await api.restoreAdminTeam(teamId);
+      if (res.success) {
+        try {
+          confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+        } catch (e) {}
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Team "${teamName || 'Club'}" successfully restored to active directory!`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to restore team'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Restore error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setRestoringItemId(null);
+    }
+  };
+
+  const handleRestoreFixtureAction = async (fixtureId, fixtureTitle) => {
+    setRestoringItemId(fixtureId);
+    try {
+      const res = await api.restoreAdminFixture(fixtureId);
+      if (res.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Fixture "${fixtureTitle || 'Match'}" successfully restored!`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to restore fixture'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Restore error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setRestoringItemId(null);
+    }
+  };
+
+  const handleRestorePlayerAction = async (playerId, playerName) => {
+    setRestoringItemId(playerId);
+    try {
+      const res = await api.restoreAdminPlayer(playerId);
+      if (res.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Player "${playerName || 'Athlete'}" successfully restored!`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to restore player'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Restore error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setRestoringItemId(null);
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!permanentDeleteItem) return;
+    setPermanentDeleteLoading(true);
+    try {
+      let res;
+      if (permanentDeleteItem.type === 'team') {
+        res = await api.permanentlyDeleteAdminTeam(permanentDeleteItem.id);
+      } else if (permanentDeleteItem.type === 'fixture') {
+        res = await api.permanentlyDeleteAdminFixture(permanentDeleteItem.id);
+      } else if (permanentDeleteItem.type === 'player') {
+        res = await api.permanentlyDeleteAdminPlayer(permanentDeleteItem.id);
+      }
+
+      if (res?.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `${permanentDeleteItem.name} permanently deleted.`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        setPermanentDeleteItem(null);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res?.error || 'Failed to permanently delete item'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Delete error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setPermanentDeleteLoading(false);
+    }
+  };
+
+  const handleConfirmEmptyTrash = async () => {
+    setEmptyTrashLoading(true);
+    try {
+      const res = await api.emptyAdminTrash();
+      if (res.success) {
+        setTeamVerificationToast({
+          type: 'success',
+          msg: res.message || 'Trash emptied successfully!'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        setShowEmptyTrashModal(false);
+        loadTrashData();
+        loadAdminData();
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to empty trash'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Empty trash error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setEmptyTrashLoading(false);
     }
   };
 
@@ -1129,6 +1372,7 @@ export default function AdminPortal({ onExit }) {
     { id: 'squads', label: 'Squad Directory', icon: Users, badge: null },
     { id: 'fixtures', label: '2-Leg Fixture Engine', icon: CalendarDays, badge: `${fixtures.length}` },
     { id: 'operator', label: 'Live Match Operator Pad', icon: Radio, badge: liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : null, isLive: liveMatchesCount > 0 },
+    { id: 'trash', label: 'Trash & Recovery', icon: Trash2, badge: (trashData?.counts?.total > 0) ? `${trashData.counts.total}` : null, isTrashAlert: (trashData?.counts?.total > 0) },
     { id: 'social', label: 'Social Hub & Auto-Sync', icon: Radio, badge: 'AUTO' },
     { id: 'media', label: 'Media & Gallery', icon: Camera, badge: adminStats?.mediaCount ? `${adminStats.mediaCount}` : null },
     { id: 'settings', label: 'Settings', icon: Settings2, badge: leagueSettings?.transferWindowStatus === 'open' ? 'WINDOW' : null }
@@ -2674,6 +2918,14 @@ export default function AdminPortal({ onExit }) {
                     <strong className="text-white">{adminTeams.length}</strong> Clubs Registered
                   </span>
                   <button
+                    onClick={() => setAdminTab('trash')}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="View Trashed Clubs & Deleted Records"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Trash Bin {trashData?.counts?.teams > 0 ? `(${trashData.counts.teams})` : ''}</span>
+                  </button>
+                  <button
                     onClick={() => fetchFilteredTeams(teamSearch)}
                     disabled={adminTeamsLoading}
                     className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 cursor-pointer transition-all"
@@ -3007,6 +3259,14 @@ export default function AdminPortal({ onExit }) {
                             title="Print official match sheet"
                           >
                             <Printer className="w-4 h-4 text-slate-400" />
+                          </button>
+
+                          <button
+                            onClick={() => setDeletingTeam(t)}
+                            className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 hover:text-rose-300 transition-all cursor-pointer"
+                            title={`Delete ${t.name} (Move to Trash)`}
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-400" />
                           </button>
                         </div>
                       </div>
@@ -3554,6 +3814,346 @@ export default function AdminPortal({ onExit }) {
           <AdminMediaManager />
         )}
 
+        {/* ========================================================= */}
+        {/* 7. TRASH & RECYCLE BIN / RECOVERY MANAGER */}
+        {/* ========================================================= */}
+        {adminTab === 'trash' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Header & Controls */}
+            <div className="bg-[#10131C] border border-slate-800 rounded-3xl p-6 lg:p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Recycle Bin & Safe Recovery
+                  </div>
+                  <h2 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
+                    Deleted Records Archive
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    Safely inspect teams, fixtures, and squad players removed from the active system. You can restore records instantly or purge them permanently.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={loadTrashData}
+                    disabled={trashLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-slate-200 text-sm font-semibold transition-all hover:scale-[1.02] cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${trashLoading ? 'animate-spin text-[#00E676]' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowEmptyTrashModal(true)}
+                    disabled={trashLoading || (trashData.counts.total === 0)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-sm font-bold transition-all hover:scale-[1.02] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Empty All Trash ({trashData.counts.total || 0})</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 mt-6 pt-6 border-t border-slate-800/80">
+                {[
+                  { id: 'all', label: 'All Items', count: trashData.counts.total },
+                  { id: 'teams', label: 'Deleted Teams', count: trashData.counts.teams },
+                  { id: 'fixtures', label: 'Deleted Fixtures', count: trashData.counts.fixtures },
+                  { id: 'players', label: 'Deleted Players', count: trashData.counts.players }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTrashCategoryFilter(cat.id)}
+                    className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      trashCategoryFilter === cat.id
+                        ? 'bg-[#00E676] text-black shadow-lg shadow-[#00E676]/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                    }`}
+                  >
+                    <span>{cat.label}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                      trashCategoryFilter === cat.id ? 'bg-black/20 text-black' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {cat.count || 0}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content Lists */}
+            {trashLoading ? (
+              <div className="bg-[#10131C] border border-slate-800 rounded-3xl p-12 text-center">
+                <div className="w-8 h-8 rounded-full border-2 border-[#00E676] border-t-transparent animate-spin mx-auto mb-4" />
+                <p className="text-slate-400 text-sm font-medium">Loading trash archives...</p>
+              </div>
+            ) : trashData.counts.total === 0 ? (
+              <div className="bg-[#10131C] border border-slate-800 rounded-3xl p-16 text-center">
+                <div className="w-16 h-16 rounded-3xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center text-slate-400 mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-[#00E676]" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1">Recycle Bin is Empty</h3>
+                <p className="text-sm text-slate-400 max-w-md mx-auto">
+                  No deleted clubs, fixtures, or players in trash. Whenever items are deleted from the portal, they will be kept here safely for recovery.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* 1. DELETED TEAMS SECTION */}
+                {(trashCategoryFilter === 'all' || trashCategoryFilter === 'teams') && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-lg font-bold text-white">Deleted Clubs & Teams</h3>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                          {trashData.teams.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {trashData.teams.length === 0 ? (
+                      <div className="bg-[#10131C]/60 border border-slate-800/60 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                        No deleted teams currently in trash.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.teams.map(team => (
+                          <div
+                            key={team._id}
+                            className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
+                                    {team.logo ? (
+                                      <img src={team.logo} alt={team.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <Shield className="w-5 h-5 text-slate-500" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-white text-base leading-snug">{team.name}</h4>
+                                    <p className="text-xs text-slate-400">{team.category || 'Standard Club'}</p>
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                                  Deleted
+                                </span>
+                              </div>
+
+                              <div className="space-y-1.5 text-xs text-slate-400 bg-slate-900/60 rounded-xl p-3 mb-4">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Manager:</span>
+                                  <span className="text-slate-300 font-medium">{team.managerName || 'None'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Contact:</span>
+                                  <span className="text-slate-300 font-mono text-[11px] truncate max-w-[170px]">{team.contactEmail || team.managerPhone || 'N/A'}</span>
+                                </div>
+                                {team.deletedAt && (
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Deleted On:</span>
+                                    <span className="text-rose-400/80 font-mono text-[11px]">{new Date(team.deletedAt).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                              <button
+                                onClick={() => handleRestoreTeamAction(team._id, team.name)}
+                                disabled={restoringItemId === team._id}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${restoringItemId === team._id ? 'animate-spin' : ''}`} />
+                                <span>{restoringItemId === team._id ? 'Restoring...' : 'Restore Team'}</span>
+                              </button>
+
+                              <button
+                                onClick={() => setPermanentDeleteItem({ type: 'team', id: team._id, name: team.name })}
+                                className="inline-flex items-center justify-center p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-semibold transition-all cursor-pointer hover:border-rose-500/40"
+                                title="Delete Permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. DELETED FIXTURES SECTION */}
+                {(trashCategoryFilter === 'all' || trashCategoryFilter === 'fixtures') && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-amber-400" />
+                        <h3 className="text-lg font-bold text-white">Deleted Fixtures</h3>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                          {trashData.fixtures.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {trashData.fixtures.length === 0 ? (
+                      <div className="bg-[#10131C]/60 border border-slate-800/60 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                        No deleted fixtures currently in trash.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.fixtures.map(fix => (
+                          <div
+                            key={fix._id}
+                            className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="text-xs text-amber-400 font-bold">{fix.stage || `Matchday ${fix.matchday || 1}`}</span>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                                  Deleted
+                                </span>
+                              </div>
+
+                              <div className="font-bold text-white text-sm mb-3">
+                                {fix.homeTeam?.name || 'TBD'} vs {fix.awayTeam?.name || 'TBD'}
+                              </div>
+
+                              <div className="space-y-1 text-xs text-slate-400 bg-slate-900/60 rounded-xl p-3 mb-4">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Date:</span>
+                                  <span className="text-slate-300">{fix.date ? new Date(fix.date).toLocaleDateString() : 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Venue:</span>
+                                  <span className="text-slate-300 truncate max-w-[160px]">{fix.venue || 'Stadium'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                              <button
+                                onClick={() => handleRestoreFixtureAction(fix._id, `${fix.homeTeam?.name || 'TBD'} vs ${fix.awayTeam?.name || 'TBD'}`)}
+                                disabled={restoringItemId === fix._id}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${restoringItemId === fix._id ? 'animate-spin' : ''}`} />
+                                <span>{restoringItemId === fix._id ? 'Restoring...' : 'Restore Fixture'}</span>
+                              </button>
+
+                              <button
+                                onClick={() => setPermanentDeleteItem({ type: 'fixture', id: fix._id, name: `${fix.homeTeam?.name || 'Home'} vs ${fix.awayTeam?.name || 'Away'}` })}
+                                className="inline-flex items-center justify-center p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-semibold transition-all cursor-pointer hover:border-rose-500/40"
+                                title="Delete Permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. DELETED PLAYERS SECTION */}
+                {(trashCategoryFilter === 'all' || trashCategoryFilter === 'players') && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-emerald-400" />
+                        <h3 className="text-lg font-bold text-white">Deleted Squad Players</h3>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                          {trashData.players.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {trashData.players.length === 0 ? (
+                      <div className="bg-[#10131C]/60 border border-slate-800/60 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                        No deleted squad players currently in trash.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.players.map(player => (
+                          <div
+                            key={player._id}
+                            className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
+                                    {player.photo ? (
+                                      <img src={player.photo} alt={player.firstName} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <User className="w-5 h-5 text-slate-500" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-white text-sm leading-snug">
+                                      {player.firstName} {player.lastName}
+                                    </h4>
+                                    <p className="text-xs text-slate-400">
+                                      #{player.jerseyNumber || '-'} • {player.position || 'Player'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                                  Deleted
+                                </span>
+                              </div>
+
+                              <div className="space-y-1 text-xs text-slate-400 bg-slate-900/60 rounded-xl p-3 mb-4">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Club / Team:</span>
+                                  <span className="text-slate-300 font-medium">{player.team?.name || 'Unassigned'}</span>
+                                </div>
+                                {player.deletedAt && (
+                                  <div className="flex justify-between">
+                                    <span className="text-slate-500">Deleted On:</span>
+                                    <span className="text-rose-400/80 font-mono text-[11px]">{new Date(player.deletedAt).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                              <button
+                                onClick={() => handleRestorePlayerAction(player._id, `${player.firstName} ${player.lastName}`)}
+                                disabled={restoringItemId === player._id}
+                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${restoringItemId === player._id ? 'animate-spin' : ''}`} />
+                                <span>{restoringItemId === player._id ? 'Restoring...' : 'Restore Player'}</span>
+                              </button>
+
+                              <button
+                                onClick={() => setPermanentDeleteItem({ type: 'player', id: player._id, name: `${player.firstName} ${player.lastName}` })}
+                                className="inline-flex items-center justify-center p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-semibold transition-all cursor-pointer hover:border-rose-500/40"
+                                title="Delete Permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
         </div>
@@ -3914,6 +4514,44 @@ export default function AdminPortal({ onExit }) {
                             title="Edit / Correct Player Name, Jersey, Position, Role"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete Player Button (Move to Trash) */}
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Move player ${p.firstName} ${p.lastName} to Trash?`)) {
+                                try {
+                                  const res = await api.trashAdminPlayer(p._id);
+                                  if (res?.success) {
+                                    setTeamVerificationToast({
+                                      type: 'success',
+                                      msg: `Player "${p.firstName} ${p.lastName}" moved to Trash.`
+                                    });
+                                    setTimeout(() => setTeamVerificationToast(null), 5000);
+                                    if (selectedTeamForRoster?._id) {
+                                      const squadRes = await api.getAdminTeamPlayers(selectedTeamForRoster._id);
+                                      if (squadRes.success) setSelectedTeamRoster(squadRes.data?.players || []);
+                                    }
+                                    loadTrashData();
+                                    loadAdminData();
+                                  } else {
+                                    setTeamVerificationToast({
+                                      type: 'error',
+                                      msg: res?.error || 'Failed to move player to trash'
+                                    });
+                                  }
+                                } catch (err) {
+                                  setTeamVerificationToast({
+                                    type: 'error',
+                                    msg: err.message
+                                  });
+                                }
+                              }
+                            }}
+                            className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 cursor-pointer transition-colors"
+                            title="Move player to Trash"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -4986,6 +5624,173 @@ export default function AdminPortal({ onExit }) {
                   <>
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Confirm & Send Rejection Notice</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Team to Trash Confirmation Modal */}
+      {deletingTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#10131C] border border-rose-500/30 rounded-3xl p-6 lg:p-7 max-w-md w-full shadow-2xl relative space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-white">Move Team to Trash?</h3>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Are you sure you want to remove <span className="text-white font-bold">{deletingTeam.name}</span> from the active directory?
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 space-y-2">
+              <div className="flex items-center gap-2 text-rose-400 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Safe Deletion Policy</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                This club will be hidden from public standings and upcoming matches, but <strong className="text-slate-300">no data is lost</strong>. You can restore it anytime or delete it permanently from the <strong className="text-rose-400">Trash tab</strong>.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeletingTeam(null)}
+                disabled={deletingTeamLoading}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTrashTeam}
+                disabled={deletingTeamLoading}
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-rose-500/20 cursor-pointer disabled:opacity-50"
+              >
+                {deletingTeamLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Moving to Trash...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Move to Trash</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Delete Confirmation Modal */}
+      {permanentDeleteItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#10131C] border border-rose-600/50 rounded-3xl p-6 lg:p-7 max-w-md w-full shadow-2xl relative space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600/20 border border-rose-600/40 flex items-center justify-center text-rose-500 shrink-0">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-black text-rose-400">Permanently Delete?</h3>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  You are about to irreversibly purge <span className="text-white font-bold underline underline-offset-2">{permanentDeleteItem.name}</span>.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-xs text-rose-200 space-y-1">
+              <span className="font-bold uppercase tracking-wider text-[10px] text-rose-400 block">Irreversible Action</span>
+              <p className="text-[11px] leading-relaxed text-slate-300">
+                All records, statistics, registrations, and history associated with this item will be completely wiped from the database. This cannot be recovered.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPermanentDeleteItem(null)}
+                disabled={permanentDeleteLoading}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPermanentDelete}
+                disabled={permanentDeleteLoading}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-xl shadow-rose-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {permanentDeleteLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Erasing Forever...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete Forever</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty All Trash Confirmation Modal */}
+      {showEmptyTrashModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#10131C] border border-rose-600/50 rounded-3xl p-6 lg:p-7 max-w-md w-full shadow-2xl relative space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600/20 border border-rose-600/40 flex items-center justify-center text-rose-500 shrink-0">
+                <Trash2 className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-black text-rose-400">Empty Entire Recycle Bin?</h3>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  This will permanently wipe all <span className="text-white font-bold">{trashData.counts.total}</span> deleted items ({trashData.counts.teams} teams, {trashData.counts.fixtures} fixtures, {trashData.counts.players} players).
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-xs text-rose-200">
+              <p className="text-[11px] leading-relaxed text-slate-300">
+                Are you sure you want to purge everything in the trash bin? Once emptied, none of these records can be restored.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowEmptyTrashModal(false)}
+                disabled={emptyTrashLoading}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEmptyTrash}
+                disabled={emptyTrashLoading}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-xl shadow-rose-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {emptyTrashLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Emptying Trash...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Empty Everything</span>
                   </>
                 )}
               </button>

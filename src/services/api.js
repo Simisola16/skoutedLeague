@@ -102,13 +102,30 @@ export const api = {
   },
 
   addPlayer: async (teamId, formData) => {
-    const token = localStorage.getItem('skouted_token');
-    const res = await fetch(`${API_BASE}/teams/${teamId}/players`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData
-    });
-    return res.json();
+    try {
+      const token = localStorage.getItem('skouted_token');
+      const res = await fetch(`${API_BASE}/teams/${teamId}/players`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          error: (data && data.error) || (data && data.message) || (res.status === 413 ? 'Photo file is too large to upload' : `Request failed (${res.status})`)
+        };
+      }
+      return data || { success: false, error: 'Empty server response' };
+    } catch (err) {
+      console.error('[addPlayer Error]:', err);
+      return {
+        success: false,
+        error: err.message === 'Failed to fetch'
+          ? 'Network error: Unable to reach the server. Please check your internet connection or try with a smaller image.'
+          : (err.message || 'Network error while adding player')
+      };
+    }
   },
 
   getPlayer: async (id) => {
@@ -324,6 +341,94 @@ export const api = {
     return res.json();
   },
 
+  // Admin Trash & Recovery Management
+  getAdminTrash: async () => {
+    const res = await fetch(`${API_BASE}/admin/trash`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  trashAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  restoreAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/restore`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  permanentlyDeleteAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/permanent`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  trashAdminFixture: async (fixtureId) => {
+    const res = await fetch(`${API_BASE}/fixtures/${fixtureId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  restoreAdminFixture: async (fixtureId) => {
+    const res = await fetch(`${API_BASE}/fixtures/${fixtureId}/restore`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  permanentlyDeleteAdminFixture: async (fixtureId) => {
+    const res = await fetch(`${API_BASE}/fixtures/${fixtureId}?permanent=true`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  trashAdminPlayer: async (playerId) => {
+    const res = await fetch(`${API_BASE}/admin/players/${playerId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  restoreAdminPlayer: async (playerId) => {
+    const res = await fetch(`${API_BASE}/admin/players/${playerId}/restore`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  permanentlyDeleteAdminPlayer: async (playerId) => {
+    const res = await fetch(`${API_BASE}/admin/players/${playerId}/permanent`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  emptyAdminTrash: async () => {
+    const res = await fetch(`${API_BASE}/admin/trash/empty`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   // Authenticated Team Manager Dashboard Endpoints
   getTeamDashboard: async () => {
     const res = await fetch(`${API_BASE}/team/dashboard`, {
@@ -340,13 +445,30 @@ export const api = {
   },
 
   addTeamPlayer: async (formData) => {
-    const token = localStorage.getItem('skouted_token');
-    const res = await fetch(`${API_BASE}/team/roster`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData // FormData
-    });
-    return res.json();
+    try {
+      const token = localStorage.getItem('skouted_token');
+      const res = await fetch(`${API_BASE}/team/roster`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData // FormData
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        return {
+          success: false,
+          error: (data && data.error) || (data && data.message) || (res.status === 413 ? 'Photo file is too large to upload' : `Request failed (${res.status})`)
+        };
+      }
+      return data || { success: false, error: 'Empty server response' };
+    } catch (err) {
+      console.error('[addTeamPlayer Error]:', err);
+      return {
+        success: false,
+        error: err.message === 'Failed to fetch'
+          ? 'Network error: Unable to reach the server. Please check your internet connection or try with a smaller image.'
+          : (err.message || 'Network error while registering squad player')
+      };
+    }
   },
 
   updateTeamPlayer: async (playerId, formDataOrJson, isFormData = false) => {

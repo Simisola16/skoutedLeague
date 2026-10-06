@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, UserPlus, Users, Sparkles, Check, AlertCircle, Upload, Star, X, Eye } from 'lucide-react';
 import { api } from '../services/api';
 import PlayerDetailModal from './PlayerDetailModal';
+import { compressImage } from '../utils/imageCompressor';
 
 const DEFAULT_SLOTS = [
   { pos: 'GK', label: 'Goalkeeper', gridX: 50, gridY: 10 },
@@ -119,7 +120,10 @@ export default function TeamPortal({
       formData.append('lastName', lastName);
       formData.append('jerseyNumber', jerseyNumber);
       formData.append('position', position);
-      if (playerPhoto) formData.append('photo', playerPhoto);
+      if (playerPhoto) {
+        const compressed = await compressImage(playerPhoto, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+        formData.append('photo', compressed);
+      }
 
       const res = await api.addPlayer(teamId, formData);
       if (res.success) {
