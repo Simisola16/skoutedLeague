@@ -22,7 +22,7 @@ export default function StandingsTable({ standings = [], onTeamClick }) {
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-[#FFB800]" />
           <div>
-            <h3 className="font-display font-extrabold text-base text-white">Championship League Table</h3>
+            <h3 className="font-display font-extrabold text-base text-white">Skouted Youth League Championship Table</h3>
             <p className="text-[11px] text-slate-400">12 Clubs • 22 Matches per club (Home & Away) • Season 2026/2027</p>
           </div>
         </div>
