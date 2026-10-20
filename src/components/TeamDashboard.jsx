@@ -417,7 +417,7 @@ export default function TeamDashboard({
     }
 
     if (isTeamLocked) {
-      notify(`Your team has been locked by tournament administration. Player registration is suspended.${team.lockedReason ? ` Reason: ${team.lockedReason}` : ''}`, 'error');
+      notify('Your team has been locked by tournament administration. Player registration is suspended.', 'error');
       return;
     }
 
@@ -512,7 +512,7 @@ export default function TeamDashboard({
   const handleConfirmSubmitLineup = async () => {
     if (!selectedFixtureId) return;
     if (isTeamLocked) {
-      notify(`Your team has been locked by tournament administration. Matchday lineup submission is suspended.${team.lockedReason ? ` Reason: ${team.lockedReason}` : ''}`, 'error');
+      notify('Your team has been locked by tournament administration. Matchday lineup submission is suspended.', 'error');
       return;
     }
     if (startingXI.length !== 11) {
@@ -738,9 +738,7 @@ export default function TeamDashboard({
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-rose-500/40 text-white font-bold">Read Only</span>
                 </strong>
                 <p className="text-rose-200/90 text-xs mt-0.5">
-                  {team.lockedReason
-                    ? `Restriction Notice: ${team.lockedReason}`
-                    : 'All player registrations, roster transfers, and lineup submissions are suspended by the tournament committee.'}
+                  Your team has been locked by tournament administration. Player registrations, roster edits, and lineup submissions are currently suspended.
                 </p>
               </div>
             </div>

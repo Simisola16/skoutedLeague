@@ -127,7 +127,6 @@ export default function AdminPortal({ onExit }) {
 
   // Lock Team State
   const [lockingTeam, setLockingTeam] = useState(null);
-  const [lockReasonInput, setLockReasonInput] = useState('');
   const [lockLoading, setLockLoading] = useState(false);
 
   // Trash & Recovery State
@@ -696,7 +695,6 @@ export default function AdminPortal({ onExit }) {
   // Open Lock Team Modal
   const handleOpenLockModal = (team) => {
     setLockingTeam(team);
-    setLockReasonInput('');
   };
 
   // Confirm Lock Team Action
@@ -704,7 +702,7 @@ export default function AdminPortal({ onExit }) {
     if (!lockingTeam) return;
     setLockLoading(true);
     try {
-      const res = await api.lockAdminTeam(lockingTeam._id, lockReasonInput);
+      const res = await api.lockAdminTeam(lockingTeam._id);
       if (res.success) {
         setAdminTeams(prev => prev.map(t => {
           if (t._id === lockingTeam._id) {
@@ -712,7 +710,7 @@ export default function AdminPortal({ onExit }) {
               ...t,
               isLocked: true,
               lockedAt: new Date(),
-              lockedReason: lockReasonInput.trim() || 'Locked by tournament administration'
+              lockedReason: ''
             };
           }
           return t;
@@ -722,7 +720,7 @@ export default function AdminPortal({ onExit }) {
           setSelectedTeamForRoster(prev => ({
             ...prev,
             isLocked: true,
-            lockedReason: lockReasonInput.trim() || 'Locked by tournament administration'
+            lockedReason: ''
           }));
         }
 
@@ -732,7 +730,6 @@ export default function AdminPortal({ onExit }) {
         });
         setTimeout(() => setTeamVerificationToast(null), 6000);
         setLockingTeam(null);
-        setLockReasonInput('');
       } else {
         setTeamVerificationToast({
           type: 'error',
@@ -5906,10 +5903,7 @@ export default function AdminPortal({ onExit }) {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setLockingTeam(null);
-                  setLockReasonInput('');
-                }}
+                onClick={() => setLockingTeam(null)}
                 className="text-slate-400 hover:text-white p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -5919,20 +5913,12 @@ export default function AdminPortal({ onExit }) {
             {/* Modal Body */}
             <div className="space-y-3 text-xs text-slate-300">
               <p className="leading-relaxed">
-                Locking this team will immediately suspend the team manager's permissions. The manager will be <strong className="text-rose-300">blocked from adding new players, editing existing roster entries, and submitting or editing matchday lineups</strong>.
+                Are you sure you want to lock <strong className="text-white">{lockingTeam.name}</strong>? Locking this team will immediately suspend the team manager's permissions. The manager will be <strong className="text-rose-300">blocked from adding new players, editing roster entries, and submitting matchday lineups</strong>.
               </p>
 
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                  Reason for Lock (Optional - displayed to Manager)
-                </label>
-                <textarea
-                  rows={3}
-                  value={lockReasonInput}
-                  onChange={(e) => setLockReasonInput(e.target.value)}
-                  placeholder="e.g. Roster registration deadline passed / Disciplinary review / Document accreditation pending."
-                  className="w-full bg-[#090B10] border border-[#232838] focus:border-rose-500/60 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500/30 resize-none"
-                />
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>An automated notification email will be sent immediately to the team manager informing them that their team has been locked.</span>
               </div>
 
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
@@ -5945,10 +5931,7 @@ export default function AdminPortal({ onExit }) {
             <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
               <button
                 type="button"
-                onClick={() => {
-                  setLockingTeam(null);
-                  setLockReasonInput('');
-                }}
+                onClick={() => setLockingTeam(null)}
                 disabled={lockLoading}
                 className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-bold transition-all cursor-pointer"
               >
