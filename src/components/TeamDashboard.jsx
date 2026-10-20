@@ -416,6 +416,11 @@ export default function TeamDashboard({
       return;
     }
 
+    if (isTeamLocked) {
+      notify(`Your team has been locked by tournament administration. Player registration is suspended.${team.lockedReason ? ` Reason: ${team.lockedReason}` : ''}`, 'error');
+      return;
+    }
+
     const isWindowOpen = leagueSettings?.transferWindowStatus === 'open' || dashboardData?.leagueSettings?.transferWindowStatus === 'open';
     const isLocked = Boolean(leagueSettings ? leagueSettings.registrationLocked : dashboardData?.leagueSettings?.registrationLocked);
     if (isLocked && !isWindowOpen) {
@@ -450,6 +455,10 @@ export default function TeamDashboard({
   // -------------------------------------------------------------
   const handleSaveEditPlayer = async (formData, rawState) => {
     if (!editingPlayer) return;
+    if (isTeamLocked) {
+      notify('Your team has been locked by tournament administration. Squad editing is suspended.', 'error');
+      return;
+    }
     setEditPlayerLoading(true);
 
     try {
@@ -472,6 +481,10 @@ export default function TeamDashboard({
   // -------------------------------------------------------------
   const handleConfirmDeletePlayer = async () => {
     if (!deletingPlayer) return;
+    if (isTeamLocked) {
+      notify('Your team has been locked by tournament administration. Squad deletion is suspended.', 'error');
+      return;
+    }
     setDeleteLoading(true);
 
     try {
@@ -498,6 +511,10 @@ export default function TeamDashboard({
   // -------------------------------------------------------------
   const handleConfirmSubmitLineup = async () => {
     if (!selectedFixtureId) return;
+    if (isTeamLocked) {
+      notify(`Your team has been locked by tournament administration. Matchday lineup submission is suspended.${team.lockedReason ? ` Reason: ${team.lockedReason}` : ''}`, 'error');
+      return;
+    }
     if (startingXI.length !== 11) {
       notify(`11 Starting Players required! Currently: ${startingXI.length}`, 'error');
       return;
@@ -539,6 +556,10 @@ export default function TeamDashboard({
   // -------------------------------------------------------------
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    if (isTeamLocked) {
+      notify('Your team has been locked by tournament administration. Identity modifications are suspended.', 'error');
+      return;
+    }
     setProfileSaving(true);
 
     try {
@@ -640,6 +661,7 @@ export default function TeamDashboard({
   const isApproved = verificationStatus === 'approved';
   const isPending = verificationStatus === 'pending';
   const isRejected = verificationStatus === 'rejected';
+  const isTeamLocked = Boolean(team.isLocked);
 
   return (
     <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans pb-24 lg:pb-12 selection:bg-[#00E676] selection:text-black">
@@ -701,6 +723,35 @@ export default function TeamDashboard({
       )}
 
       {/* ========================================================= */}
+      {/* 1C. TEAM LOCKED BANNER */}
+      {/* ========================================================= */}
+      {isTeamLocked && (
+        <div className="bg-gradient-to-r from-red-950/95 via-rose-900/95 to-red-950/95 border-b-2 border-rose-500 px-4 py-3.5 text-xs text-rose-100 shadow-2xl sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/20 animate-pulse">
+                <Lock className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <strong className="block text-white font-black text-sm tracking-wide flex items-center gap-2">
+                  <span>CLUB RESTRICTED — LOCKED BY TOURNAMENT ADMINISTRATION</span>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-rose-500/40 text-white font-bold">Read Only</span>
+                </strong>
+                <p className="text-rose-200/90 text-xs mt-0.5">
+                  {team.lockedReason
+                    ? `Restriction Notice: ${team.lockedReason}`
+                    : 'All player registrations, roster transfers, and lineup submissions are suspended by the tournament committee.'}
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 px-3.5 py-1.5 rounded-full bg-rose-500/30 border border-rose-400/50 text-[11px] font-mono font-bold text-rose-200">
+              OPERATIONS SUSPENDED
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
       {/* 2. DASHBOARD HEADER & CLUB IDENTITY */}
       {/* ========================================================= */}
       <header className="sticky top-0 z-30 bg-[#0E1118]/95 backdrop-blur-md border-b border-[#232838] px-4 sm:px-8 py-3.5">
@@ -726,7 +777,12 @@ export default function TeamDashboard({
                 </span>
                 
                 {/* Verification Badge */}
-                {isApproved ? (
+                {isTeamLocked ? (
+                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                    <Lock className="w-3 h-3 text-rose-400" />
+                    <span>Locked Club</span>
+                  </span>
+                ) : isApproved ? (
                   <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                     <span>Approved Club</span>

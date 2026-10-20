@@ -341,6 +341,23 @@ export const api = {
     return res.json();
   },
 
+  lockAdminTeam: async (teamId, reason = '') => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/lock`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason })
+    });
+    return res.json();
+  },
+
+  unlockAdminTeam: async (teamId) => {
+    const res = await fetch(`${API_BASE}/admin/teams/${teamId}/unlock`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   loginAsTeam: async (teamId) => {
     const res = await fetch(`${API_BASE}/admin/teams/${teamId}/login-as`, {
       method: 'POST',

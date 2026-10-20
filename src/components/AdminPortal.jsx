@@ -125,6 +125,11 @@ export default function AdminPortal({ onExit }) {
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [rejectLoading, setRejectLoading] = useState(false);
 
+  // Lock Team State
+  const [lockingTeam, setLockingTeam] = useState(null);
+  const [lockReasonInput, setLockReasonInput] = useState('');
+  const [lockLoading, setLockLoading] = useState(false);
+
   // Trash & Recovery State
   const [trashData, setTrashData] = useState({
     teams: [],
@@ -419,10 +424,13 @@ export default function AdminPortal({ onExit }) {
   const fetchFilteredTeams = async (search = teamSearch, status = teamStatusFilter) => {
     setAdminTeamsLoading(true);
     try {
-      const res = await api.getAdminTeams({
-        search,
-        verificationStatus: status !== 'All' ? status : undefined
-      });
+      const params = { search };
+      if (status === 'locked') {
+        params.isLocked = 'true';
+      } else if (status !== 'All') {
+        params.verificationStatus = status;
+      }
+      const res = await api.getAdminTeams(params);
       if (res.success) {
         setAdminTeams(res.data || []);
       }
@@ -682,6 +690,115 @@ export default function AdminPortal({ onExit }) {
       setTimeout(() => setTeamVerificationToast(null), 6000);
     } finally {
       setRejectLoading(false);
+    }
+  };
+
+  // Open Lock Team Modal
+  const handleOpenLockModal = (team) => {
+    setLockingTeam(team);
+    setLockReasonInput('');
+  };
+
+  // Confirm Lock Team Action
+  const handleConfirmLockTeam = async () => {
+    if (!lockingTeam) return;
+    setLockLoading(true);
+    try {
+      const res = await api.lockAdminTeam(lockingTeam._id, lockReasonInput);
+      if (res.success) {
+        setAdminTeams(prev => prev.map(t => {
+          if (t._id === lockingTeam._id) {
+            return {
+              ...t,
+              isLocked: true,
+              lockedAt: new Date(),
+              lockedReason: lockReasonInput.trim() || 'Locked by tournament administration'
+            };
+          }
+          return t;
+        }));
+
+        if (selectedTeamForRoster?._id === lockingTeam._id) {
+          setSelectedTeamForRoster(prev => ({
+            ...prev,
+            isLocked: true,
+            lockedReason: lockReasonInput.trim() || 'Locked by tournament administration'
+          }));
+        }
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Team "${lockingTeam.name}" has been locked. The manager is blocked from adding players and submitting match lineups.`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+        setLockingTeam(null);
+        setLockReasonInput('');
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to lock team'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Lock error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
+  // Direct Unlock Team Action
+  const handleUnlockTeam = async (teamId) => {
+    const targetTeam = adminTeams.find(t => t._id === teamId);
+    const teamName = targetTeam?.name || 'Team';
+    setVerifyingTeamId(teamId);
+    try {
+      const res = await api.unlockAdminTeam(teamId);
+      if (res.success) {
+        setAdminTeams(prev => prev.map(t => {
+          if (t._id === teamId) {
+            return {
+              ...t,
+              isLocked: false,
+              lockedAt: null,
+              lockedReason: ''
+            };
+          }
+          return t;
+        }));
+
+        if (selectedTeamForRoster?._id === teamId) {
+          setSelectedTeamForRoster(prev => ({
+            ...prev,
+            isLocked: false,
+            lockedReason: ''
+          }));
+        }
+
+        setTeamVerificationToast({
+          type: 'success',
+          msg: `Team "${teamName}" has been unlocked! Full manager privileges restored.`
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      } else {
+        setTeamVerificationToast({
+          type: 'error',
+          msg: res.error || 'Failed to unlock team'
+        });
+        setTimeout(() => setTeamVerificationToast(null), 6000);
+      }
+    } catch (err) {
+      setTeamVerificationToast({
+        type: 'error',
+        msg: 'Unlock error: ' + err.message
+      });
+      setTimeout(() => setTeamVerificationToast(null), 6000);
+    } finally {
+      setVerifyingTeamId('');
     }
   };
 
@@ -2993,6 +3110,7 @@ export default function AdminPortal({ onExit }) {
                   { id: 'All', label: 'All Clubs', count: adminTeams.length },
                   { id: 'pending', label: 'Pending Verification', count: adminTeams.filter(t => (t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending')) === 'pending').length, isPending: true },
                   { id: 'approved', label: 'Approved Clubs', count: adminTeams.filter(t => (t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending')) === 'approved').length, isApproved: true },
+                  { id: 'locked', label: 'Locked Clubs', count: adminTeams.filter(t => t.isLocked).length, isLockedFilter: true },
                   { id: 'rejected', label: 'Rejected', count: adminTeams.filter(t => t.verificationStatus === 'rejected').length, isRejected: true }
                 ].map(filterTab => {
                   const isActive = teamStatusFilter === filterTab.id;
@@ -3007,6 +3125,8 @@ export default function AdminPortal({ onExit }) {
                         isActive
                           ? filterTab.isPending
                             ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-md shadow-amber-500/10 font-black'
+                            : filterTab.isLockedFilter
+                            ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-md shadow-rose-500/10 font-black'
                             : filterTab.isRejected
                             ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-md shadow-rose-500/10 font-black'
                             : 'bg-[#00E676]/20 border-[#00E676] text-[#00E676] shadow-md shadow-[#00E676]/15 font-black'
@@ -3016,12 +3136,15 @@ export default function AdminPortal({ onExit }) {
                       {filterTab.isPending && filterTab.count > 0 && (
                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                       )}
+                      {filterTab.isLockedFilter && filterTab.count > 0 && (
+                        <Lock className="w-3 h-3 text-rose-400" />
+                      )}
                       <span>{filterTab.label}</span>
                       <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
                         isActive
                           ? filterTab.isPending
                             ? 'bg-amber-500/30 text-amber-200'
-                            : filterTab.isRejected
+                            : filterTab.isLockedFilter || filterTab.isRejected
                             ? 'bg-rose-500/30 text-rose-200'
                             : 'bg-[#00E676]/30 text-white'
                           : 'bg-white/5 text-slate-400'
@@ -3115,16 +3238,26 @@ export default function AdminPortal({ onExit }) {
                   return (
                     <div
                       key={t._id}
-                      className="bg-[#121520] hover:bg-[#141824] border border-[#222738] hover:border-[#2C344B] rounded-2xl p-4 sm:p-5 transition-all space-y-4 shadow-lg group"
+                      className={`rounded-2xl p-4 sm:p-5 transition-all space-y-4 shadow-lg group border ${
+                        t.isLocked
+                          ? 'bg-[#15101a] hover:bg-[#18121f] border-rose-500/60 shadow-rose-950/30 ring-1 ring-rose-500/25'
+                          : 'bg-[#121520] hover:bg-[#141824] border-[#222738] hover:border-[#2C344B]'
+                      }`}
                     >
                       {/* Top Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-12 h-12 rounded-xl bg-[#1A1E2C] border border-white/10 p-1.5 flex items-center justify-center shrink-0 shadow-inner group-hover:border-[#00E676]/40 transition-colors">
+                          <div className={`w-12 h-12 rounded-xl border p-1.5 flex items-center justify-center shrink-0 shadow-inner transition-colors ${
+                            t.isLocked
+                              ? 'bg-[#20141f] border-rose-500/40 text-rose-300'
+                              : 'bg-[#1A1E2C] border-white/10 group-hover:border-[#00E676]/40'
+                          }`}>
                             {t.logo ? (
                               <img src={t.logo} alt="" className="w-full h-full object-contain" />
                             ) : (
-                              <span className="font-mono font-black text-sm text-[#00E676]">{t.shortCode || 'FC'}</span>
+                              <span className={`font-mono font-black text-sm ${t.isLocked ? 'text-rose-400' : 'text-[#00E676]'}`}>
+                                {t.shortCode || 'FC'}
+                              </span>
                             )}
                           </div>
                           <div className="min-w-0">
@@ -3142,6 +3275,13 @@ export default function AdminPortal({ onExit }) {
 
                         {/* Status Badges */}
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          {t.isLocked && (
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-rose-500/25 text-rose-300 border border-rose-500/50 shadow-sm shadow-rose-500/20 animate-pulse">
+                              <Lock className="w-3.5 h-3.5 text-rose-400" />
+                              <span>LOCKED</span>
+                            </span>
+                          )}
+
                           {isApproved ? (
                             <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30">
                               <CheckCircle2 className="w-3.5 h-3.5 text-[#00E676]" />
@@ -3180,6 +3320,17 @@ export default function AdminPortal({ onExit }) {
                           <div>
                             <strong className="block text-white text-[11px] uppercase tracking-wider font-bold">Rejection Reason:</strong>
                             <span className="text-[11px]">{t.rejectionReason}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Lock notice if locked */}
+                      {t.isLocked && t.lockedReason && (
+                        <div className="p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-xs text-rose-200 leading-relaxed flex items-start gap-2">
+                          <Lock className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                          <div>
+                            <strong className="block text-rose-300 text-[11px] uppercase tracking-wider font-bold">Administration Lock Notice:</strong>
+                            <span className="text-[11px] text-rose-100">{t.lockedReason}</span>
                           </div>
                         </div>
                       )}
@@ -3290,6 +3441,33 @@ export default function AdminPortal({ onExit }) {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Lock / Unlock Toggle Button */}
+                          {t.isLocked ? (
+                            <button
+                              onClick={() => handleUnlockTeam(t._id)}
+                              disabled={verifyingTeamId === t._id}
+                              className="py-1.5 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                              title="Unlock club to restore manager editing & matchday submissions"
+                            >
+                              {verifyingTeamId === t._id ? (
+                                <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                              ) : (
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              )}
+                              <span>Unlock Team</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenLockModal(t)}
+                              disabled={verifyingTeamId === t._id}
+                              className="py-1.5 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                              title="Lock team from adding players, editing rosters, or submitting lineups"
+                            >
+                              <Lock className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Lock Team</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => handleLoginAsTeam(t)}
                             disabled={loggingInAsTeamId === t._id}
@@ -5703,6 +5881,95 @@ export default function AdminPortal({ onExit }) {
                   <>
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Confirm & Send Rejection Notice</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lock Team Confirmation Modal */}
+      {lockingTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#121522] border border-rose-500/40 rounded-3xl p-6 lg:p-7 max-w-md w-full shadow-2xl relative space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Lock Team: {lockingTeam.name}</h3>
+                  <span className="text-[11px] font-mono text-rose-400">Suspend All Club Operations</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLockingTeam(null);
+                  setLockReasonInput('');
+                }}
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-3 text-xs text-slate-300">
+              <p className="leading-relaxed">
+                Locking this team will immediately suspend the team manager's permissions. The manager will be <strong className="text-rose-300">blocked from adding new players, editing existing roster entries, and submitting or editing matchday lineups</strong>.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                  Reason for Lock (Optional - displayed to Manager)
+                </label>
+                <textarea
+                  rows={3}
+                  value={lockReasonInput}
+                  onChange={(e) => setLockReasonInput(e.target.value)}
+                  placeholder="e.g. Roster registration deadline passed / Disciplinary review / Document accreditation pending."
+                  className="w-full bg-[#090B10] border border-[#232838] focus:border-rose-500/60 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500/30 resize-none"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                <span>You can unlock this team at any time from this control panel with a single click.</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setLockingTeam(null);
+                  setLockReasonInput('');
+                }}
+                disabled={lockLoading}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmLockTeam}
+                disabled={lockLoading}
+                className="px-5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-rose-500/20 cursor-pointer disabled:opacity-50"
+              >
+                {lockLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Locking Team...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Confirm & Lock Team</span>
                   </>
                 )}
               </button>
