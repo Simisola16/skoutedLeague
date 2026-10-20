@@ -728,7 +728,7 @@ export default function AdminPortal({ onExit }) {
 
         setTeamVerificationToast({
           type: 'success',
-          msg: `Team "${lockingTeam.name}" has been locked. The manager is blocked from adding players and submitting match lineups.`
+          msg: `Team "${lockingTeam.name}" has been locked. Notification email sent to manager and squad edits suspended.`
         });
         setTimeout(() => setTeamVerificationToast(null), 6000);
         setLockingTeam(null);
@@ -781,7 +781,7 @@ export default function AdminPortal({ onExit }) {
 
         setTeamVerificationToast({
           type: 'success',
-          msg: `Team "${teamName}" has been unlocked! Full manager privileges restored.`
+          msg: `Team "${teamName}" has been unlocked! Manager notified via email and privileges restored.`
         });
         setTimeout(() => setTeamVerificationToast(null), 6000);
       } else {
