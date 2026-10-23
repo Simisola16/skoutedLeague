@@ -9,7 +9,7 @@ export function getMediaUrl(url) {
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   const backendUrl = import.meta.env.VITE_API_URL || 
-    (isLocalhostEnv ? '' : 'https://api.skoutedyouthleague.com');
+    (isLocalhostEnv ? '' : 'https://skoutedyouthleague-backend-1.onrender.com');
 
   const cleanBase = backendUrl.replace(/\/$/, '');
 
