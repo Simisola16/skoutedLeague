@@ -12,7 +12,7 @@ export default function FixtureCreatorModal({
   const [awayTeam, setAwayTeam] = useState(teams[1]?._id || '');
   const [matchday, setMatchday] = useState(1);
   const [leg, setLeg] = useState(1);
-  const [stage, setStage] = useState('Matchday 1');
+  const [stage, setStage] = useState('Week 1');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('16:00');
   const [venue, setVenue] = useState('Lekan Salami Stadium, Adamasingba, Ibadan');
@@ -41,7 +41,7 @@ export default function FixtureCreatorModal({
       const res = await api.createFixture({
         homeTeam,
         awayTeam,
-        stage: stage || `Matchday ${matchday}`,
+        stage: stage || `Week ${matchday}`,
         leg: Number(leg) || 1,
         matchday: Number(matchday) || 1,
         date,
@@ -142,7 +142,7 @@ export default function FixtureCreatorModal({
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setMatchday(val);
-                  setStage(`Matchday ${val}`);
+                  setStage(`Week ${val}`);
                   if (val > 11) setLeg(2);
                   else setLeg(1);
                 }}
@@ -172,7 +172,7 @@ export default function FixtureCreatorModal({
             </label>
             <input
               type="text"
-              placeholder="e.g. Matchday 1 or Quarter-Final"
+              placeholder="e.g. Week 1 or Quarter-Final"
               value={stage}
               onChange={(e) => setStage(e.target.value)}
               className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"

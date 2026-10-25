@@ -200,7 +200,7 @@ export default function AdminPortal({ onExit }) {
   const [eventSuccessMsg, setEventSuccessMsg] = useState('');
 
   // Fixture creation
-  const [stage, setStage] = useState('Matchday 1');
+  const [stage, setStage] = useState('Week 1');
   const [matchday, setMatchday] = useState(1);
   const [leg, setLeg] = useState(1);
   const [homeTeamId, setHomeTeamId] = useState('');
@@ -225,6 +225,15 @@ export default function AdminPortal({ onExit }) {
   const [autoScheduleLoading, setAutoScheduleLoading] = useState(false);
   const [autoScheduleSuccessMsg, setAutoScheduleSuccessMsg] = useState('');
   const [autoScheduleErrMsg, setAutoScheduleErrMsg] = useState('');
+
+  // Weekend Saturday & Sunday Matchday Distribution State
+  const [autoScheduleWeekendSplit, setAutoScheduleWeekendSplit] = useState(true);
+  const [autoScheduleSatMatches, setAutoScheduleSatMatches] = useState(3);
+  const [autoScheduleSunMatches, setAutoScheduleSunMatches] = useState(3);
+  const [autoScheduleSatTimes, setAutoScheduleSatTimes] = useState(['10:00', '13:00', '15:30']);
+  const [autoScheduleSunTimes, setAutoScheduleSunTimes] = useState(['13:00', '15:30', '18:00']);
+  const [newSatTimeSlotInput, setNewSatTimeSlotInput] = useState('10:00');
+  const [newSunTimeSlotInput, setNewSunTimeSlotInput] = useState('15:30');
 
   // Recalculate message
   const [syncMsg, setSyncMsg] = useState('');
@@ -1124,7 +1133,12 @@ export default function AdminPortal({ onExit }) {
         timeSlots: autoScheduleTimeSlots,
         venues: autoScheduleVenues,
         clearExistingUpcoming: autoScheduleClearExisting,
-        autoNotifyManagers: autoScheduleNotifyManagers
+        autoNotifyManagers: autoScheduleNotifyManagers,
+        weekendSplitEnabled: autoScheduleWeekendSplit,
+        saturdayMatchesCount: Number(autoScheduleSatMatches),
+        sundayMatchesCount: Number(autoScheduleSunMatches),
+        saturdayTimeSlots: autoScheduleSatTimes,
+        sundayTimeSlots: autoScheduleSunTimes
       });
 
       if (res.success) {
@@ -2798,7 +2812,7 @@ export default function AdminPortal({ onExit }) {
                       required
                       value={stage}
                       onChange={(e) => setStage(e.target.value)}
-                      placeholder="Matchday 1"
+                      placeholder="Week 1"
                       className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
                     />
                   </div>
@@ -2811,7 +2825,13 @@ export default function AdminPortal({ onExit }) {
                       max="22"
                       required
                       value={matchday}
-                      onChange={(e) => setMatchday(Math.max(1, Math.min(22, Number(e.target.value))))}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(22, Number(e.target.value)));
+                        setMatchday(val);
+                        if (!stage || stage.startsWith('Week ') || stage.startsWith('Matchday ')) {
+                          setStage(`Week ${val}`);
+                        }
+                      }}
                       placeholder="1-22"
                       className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
                     />
@@ -2918,7 +2938,9 @@ export default function AdminPortal({ onExit }) {
                                 {f.status}
                               </span>
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400">
-                                {f.stage}
+                                {f.stage && /^matchday\s*\d+$/i.test(f.stage.trim())
+                                  ? f.stage.replace(/^matchday/i, 'Week')
+                                  : (f.stage || `Week ${f.matchday || 1}`)}
                               </span>
                               {f.matchday && (
                                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#00E676]/10 text-[#00E676] font-bold border border-[#00E676]/20">
@@ -5437,7 +5459,7 @@ export default function AdminPortal({ onExit }) {
               <div className="space-y-3">
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-[#00E676]" />
-                  <span>3. Matchday Calendar & Intervals</span>
+                  <span>3. Matchday Calendar, Intervals & Weekend Distribution</span>
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
@@ -5452,7 +5474,17 @@ export default function AdminPortal({ onExit }) {
                       onChange={(e) => setAutoScheduleStartDate(e.target.value)}
                       className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
                     />
-                    <span className="text-[10px] text-slate-500 font-mono">Matchday 1 will kick off on this date</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {(() => {
+                        try {
+                          const d = new Date(`${autoScheduleStartDate}T12:00:00`);
+                          const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+                          return `Week 1 kicks off on ${dayName}`;
+                        } catch (e) {
+                          return 'Matchday 1 will kick off on this date';
+                        }
+                      })()}
+                    </span>
                   </div>
 
                   {/* Days Between Rounds */}
@@ -5465,21 +5497,28 @@ export default function AdminPortal({ onExit }) {
                       min="1"
                       max="30"
                       value={autoScheduleDaysBetween}
-                      onChange={(e) => setAutoScheduleDaysBetween(Math.max(1, Number(e.target.value)))}
+                      onChange={(e) => {
+                        const val = Math.max(1, Number(e.target.value));
+                        setAutoScheduleDaysBetween(val);
+                        if (val === 7) setAutoScheduleWeekendSplit(true);
+                      }}
                       className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
                     />
                     
                     {/* Quick Interval Preset Chips */}
                     <div className="flex items-center gap-1.5 pt-1">
                       {[
-                        { label: '3d (Fast)', val: 3 },
-                        { label: '7d (Weekly)', val: 7 },
-                        { label: '14d (Bi-weekly)', val: 14 }
+                        { label: '3d (Fast)', val: 3, weekend: false },
+                        { label: '7d (Weekly Weekend)', val: 7, weekend: true },
+                        { label: '14d (Bi-weekly)', val: 14, weekend: true }
                       ].map(chip => (
                         <button
                           key={chip.val}
                           type="button"
-                          onClick={() => setAutoScheduleDaysBetween(chip.val)}
+                          onClick={() => {
+                            setAutoScheduleDaysBetween(chip.val);
+                            if (chip.weekend) setAutoScheduleWeekendSplit(true);
+                          }}
                           className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
                             autoScheduleDaysBetween === chip.val
                               ? 'bg-[#00E676] text-black font-extrabold'
@@ -5492,69 +5531,335 @@ export default function AdminPortal({ onExit }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Weekend Matchday Split Configuration (Saturday & Sunday) */}
+                <div className="bg-[#090B10] border border-[#202536] p-4 rounded-2xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>Weekend Distribution (Saturdays & Sundays)</span>
+                        <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                          autoScheduleWeekendSplit ? 'bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30' : 'bg-white/10 text-slate-400'
+                        }`}>
+                          {autoScheduleWeekendSplit ? 'Weekend Split Active' : 'Single Day Mode'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Distribute each matchday's games across Saturday and Sunday with customized kickoff times.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-[#121622] p-1 rounded-xl border border-[#2B3145] shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAutoScheduleWeekendSplit(true)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          autoScheduleWeekendSplit ? 'bg-[#00E676] text-black shadow-md' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Weekend Split
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAutoScheduleWeekendSplit(false)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                          !autoScheduleWeekendSplit ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Single Day
+                      </button>
+                    </div>
+                  </div>
+
+                  {autoScheduleWeekendSplit && (() => {
+                    const matchesPerRound = Math.max(1, Math.floor((teams.length || 12) / 2));
+                    return (
+                      <div className="pt-2 space-y-4 border-t border-white/5">
+                        {/* Number of matches per day */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                              Matches Count Per Matchday ({matchesPerRound} Total Matches)
+                            </label>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              Saturday: <strong className="text-emerald-400">{autoScheduleSatMatches}</strong> • Sunday: <strong className="text-cyan-400">{autoScheduleSunMatches}</strong>
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-[#121622] border border-[#2B3145] p-3 rounded-xl space-y-1.5">
+                              <label className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+                                <span>📅 Saturday Matches</span>
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={matchesPerRound}
+                                  value={autoScheduleSatMatches}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(matchesPerRound, Number(e.target.value)));
+                                    setAutoScheduleSatMatches(val);
+                                    setAutoScheduleSunMatches(matchesPerRound - val);
+                                  }}
+                                  className="w-full bg-[#090B10] border border-[#2B3145] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-[#00E676]"
+                                />
+                                <span className="text-xs text-slate-400 shrink-0">games</span>
+                              </div>
+                            </div>
+
+                            <div className="bg-[#121622] border border-[#2B3145] p-3 rounded-xl space-y-1.5">
+                              <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
+                                <span>📅 Sunday Matches</span>
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={matchesPerRound}
+                                  value={autoScheduleSunMatches}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(matchesPerRound, Number(e.target.value)));
+                                    setAutoScheduleSunMatches(val);
+                                    setAutoScheduleSatMatches(matchesPerRound - val);
+                                  }}
+                                  className="w-full bg-[#090B10] border border-[#2B3145] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-400"
+                                />
+                                <span className="text-xs text-slate-400 shrink-0">games</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Split Ratio Presets */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            <span className="text-[10px] text-slate-500 font-mono">Quick Split Presets:</span>
+                            {[
+                              { label: `Equal (${Math.ceil(matchesPerRound / 2)} Sat / ${matchesPerRound - Math.ceil(matchesPerRound / 2)} Sun)`, sat: Math.ceil(matchesPerRound / 2), sun: matchesPerRound - Math.ceil(matchesPerRound / 2) },
+                              { label: `Sat Heavy (${Math.min(matchesPerRound, Math.ceil(matchesPerRound / 2) + 1)} Sat / ${Math.max(0, matchesPerRound - Math.ceil(matchesPerRound / 2) - 1)} Sun)`, sat: Math.min(matchesPerRound, Math.ceil(matchesPerRound / 2) + 1), sun: Math.max(0, matchesPerRound - Math.ceil(matchesPerRound / 2) - 1) },
+                              { label: `Sun Heavy (${Math.max(0, Math.ceil(matchesPerRound / 2) - 1)} Sat / ${Math.min(matchesPerRound, matchesPerRound - Math.ceil(matchesPerRound / 2) + 1)} Sun)`, sat: Math.max(0, Math.ceil(matchesPerRound / 2) - 1), sun: Math.min(matchesPerRound, matchesPerRound - Math.ceil(matchesPerRound / 2) + 1) },
+                              { label: `All Saturday (${matchesPerRound} Sat)`, sat: matchesPerRound, sun: 0 },
+                              { label: `All Sunday (${matchesPerRound} Sun)`, sat: 0, sun: matchesPerRound }
+                            ].map((preset, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setAutoScheduleSatMatches(preset.sat);
+                                  setAutoScheduleSunMatches(preset.sun);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                  autoScheduleSatMatches === preset.sat && autoScheduleSunMatches === preset.sun
+                                    ? 'bg-[#00E676] text-black font-extrabold'
+                                    : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Kickoff Times for Saturday & Sunday */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                          {/* Saturday Kickoffs */}
+                          <div className="space-y-2 bg-[#121622] border border-[#2B3145] p-3 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Saturday Kickoff Times</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setAutoScheduleSatTimes(['10:00', '13:00', '15:30'])}
+                                className="text-[9px] text-slate-500 hover:text-slate-300 font-mono"
+                              >
+                                Reset Default
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                              {autoScheduleSatTimes.map((ts, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#090B10] border border-emerald-500/30 text-xs font-mono text-emerald-300"
+                                >
+                                  {ts}
+                                  {autoScheduleSatTimes.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAutoScheduleSatTimes(prev => prev.filter((_, i) => i !== idx))}
+                                      className="text-slate-500 hover:text-rose-400 ml-1 cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <input
+                                type="time"
+                                value={newSatTimeSlotInput}
+                                onChange={(e) => setNewSatTimeSlotInput(e.target.value)}
+                                className="bg-[#090B10] border border-[#2B3145] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#00E676] flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newSatTimeSlotInput && !autoScheduleSatTimes.includes(newSatTimeSlotInput)) {
+                                    setAutoScheduleSatTimes(prev => [...prev, newSatTimeSlotInput].sort());
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 text-xs font-bold border border-emerald-500/30 shrink-0 cursor-pointer"
+                              >
+                                + Add Time
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sunday Kickoffs */}
+                          <div className="space-y-2 bg-[#121622] border border-[#2B3145] p-3 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                                <span>Sunday Kickoff Times</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setAutoScheduleSunTimes(['13:00', '15:30', '18:00'])}
+                                className="text-[9px] text-slate-500 hover:text-slate-300 font-mono"
+                              >
+                                Reset Default
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                              {autoScheduleSunTimes.map((ts, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#090B10] border border-cyan-500/30 text-xs font-mono text-cyan-300"
+                                >
+                                  {ts}
+                                  {autoScheduleSunTimes.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAutoScheduleSunTimes(prev => prev.filter((_, i) => i !== idx))}
+                                      className="text-slate-500 hover:text-rose-400 ml-1 cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <input
+                                type="time"
+                                value={newSunTimeSlotInput}
+                                onChange={(e) => setNewSunTimeSlotInput(e.target.value)}
+                                className="bg-[#090B10] border border-[#2B3145] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newSunTimeSlotInput && !autoScheduleSunTimes.includes(newSunTimeSlotInput)) {
+                                    setAutoScheduleSunTimes(prev => [...prev, newSunTimeSlotInput].sort());
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold border border-cyan-500/30 shrink-0 cursor-pointer"
+                              >
+                                + Add Time
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
-              {/* 4. Daily Kickoff Time Slots & Stadium Venues */}
+              {/* 4. Single Day Kickoff Time Slots (Fallback) & Stadium Venues */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
-                {/* Time Slots */}
-                <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#00E676]" />
-                      <span>Kickoff Time Slots</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setAutoScheduleTimeSlots(['10:00', '13:00', '15:30', '18:00'])}
-                      className="text-[10px] text-slate-500 hover:text-slate-300 font-mono"
-                    >
-                      Reset Default
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {autoScheduleTimeSlots.map((ts, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#121622] border border-[#2B3145] text-xs font-mono text-slate-200"
+                {/* Fallback Single Day Time Slots */}
+                {!autoScheduleWeekendSplit ? (
+                  <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#00E676]" />
+                        <span>Daily Kickoff Time Slots</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setAutoScheduleTimeSlots(['10:00', '13:00', '15:30', '18:00'])}
+                        className="text-[10px] text-slate-500 hover:text-slate-300 font-mono"
                       >
-                        {ts}
-                        {autoScheduleTimeSlots.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setAutoScheduleTimeSlots(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-slate-500 hover:text-rose-400 ml-1"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </span>
-                    ))}
-                  </div>
+                        Reset Default
+                      </button>
+                    </div>
 
-                  {/* Add Custom Time Slot */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <input
-                      type="time"
-                      id="newTimeSlotInput"
-                      defaultValue="19:00"
-                      className="bg-[#121622] border border-[#2B3145] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#00E676]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById('newTimeSlotInput');
-                        if (el && el.value && !autoScheduleTimeSlots.includes(el.value)) {
-                          setAutoScheduleTimeSlots(prev => [...prev, el.value].sort());
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
-                    >
-                      + Add Time
-                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {autoScheduleTimeSlots.map((ts, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#121622] border border-[#2B3145] text-xs font-mono text-slate-200"
+                        >
+                          {ts}
+                          {autoScheduleTimeSlots.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setAutoScheduleTimeSlots(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-slate-500 hover:text-rose-400 ml-1"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Add Custom Time Slot */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <input
+                        type="time"
+                        id="newTimeSlotInput"
+                        defaultValue="19:00"
+                        className="bg-[#121622] border border-[#2B3145] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById('newTimeSlotInput');
+                          if (el && el.value && !autoScheduleTimeSlots.includes(el.value)) {
+                            setAutoScheduleTimeSlots(prev => [...prev, el.value].sort());
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold"
+                      >
+                        + Add Time
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl flex flex-col justify-between">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#00E676]" />
+                        <span>Weekend Scheduling Guarantee</span>
+                      </label>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Matches are automatically sequenced so that Saturday matches kick off at their specified Saturday times, and Sunday matches kick off at Sunday times.
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-[11px] text-slate-300 font-mono space-y-1">
+                      <div className="text-emerald-400 font-semibold">✓ Saturday: {autoScheduleSatMatches} matches ({autoScheduleSatTimes.join(', ')})</div>
+                      <div className="text-cyan-400 font-semibold">✓ Sunday: {autoScheduleSunMatches} matches ({autoScheduleSunTimes.join(', ')})</div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Venues */}
                 <div className="space-y-2.5 bg-[#090B10] border border-[#202536] p-4 rounded-2xl">
@@ -5681,7 +5986,7 @@ export default function AdminPortal({ onExit }) {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
                       <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                         <div className="text-[10px] uppercase font-bold text-slate-400">Total Teams</div>
                         <div className="text-base font-bold font-mono text-[#00E676] mt-0.5">
@@ -5703,7 +6008,13 @@ export default function AdminPortal({ onExit }) {
                       <div className="p-2 rounded-xl bg-black/40 border border-white/5">
                         <div className="text-[10px] uppercase font-bold text-slate-400">Matchdays</div>
                         <div className="text-base font-bold font-mono text-white mt-0.5">
-                          {estRounds} Matchdays
+                          {estRounds} Weeks
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/5 col-span-2 sm:col-span-1">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Weekend Split</div>
+                        <div className="text-xs font-bold font-mono text-cyan-400 mt-1">
+                          {autoScheduleWeekendSplit ? `${autoScheduleSatMatches} Sat + ${autoScheduleSunMatches} Sun` : 'Single Day'}
                         </div>
                       </div>
                     </div>
