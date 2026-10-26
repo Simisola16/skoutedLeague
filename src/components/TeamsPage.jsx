@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { Shield, Users, MapPin, UserCheck, ArrowLeft, CheckCircle2, ChevronRight, Trophy } from 'lucide-react';
+import Pagination from './Pagination';
 
 export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
+  const totalPages = Math.ceil(teams.length / ITEMS_PER_PAGE) || 1;
+  const paginatedTeams = teams.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-8 pb-12">
       
@@ -33,7 +39,7 @@ export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
 
       {/* 2. Teams Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {teams.map((team) => {
+        {paginatedTeams.map((team) => {
           const squadCount = team.players?.length || 0;
           return (
             <div
@@ -114,6 +120,15 @@ export default function TeamsPage({ teams = [], onBackToHome, onSelectTeam }) {
           );
         })}
       </div>
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={teams.length}
+        onPageChange={setCurrentPage}
+        label="clubs"
+      />
 
     </div>
   );

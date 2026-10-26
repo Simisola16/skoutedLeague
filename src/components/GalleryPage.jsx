@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { getMediaUrl } from '../utils/mediaUtils';
+import Pagination from './Pagination';
 
 const CATEGORIES = [
   'All',
@@ -44,6 +45,10 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
       return [];
     }
   });
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   // Lightbox State
   const [lightboxIndex, setLightboxIndex] = useState(null);
@@ -79,12 +84,14 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
 
   useEffect(() => {
     fetchGallery();
+    setCurrentPage(1); // reset page on category change
   }, [selectedCategory]);
 
   // Handle Search Debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchGallery();
+      setCurrentPage(1);
     }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -317,16 +324,23 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {items.map((item, idx) => {
-            const isLiked = likedIds.includes(item._id);
+        <>
+        {(() => {
+          const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1;
+          const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+          return (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {paginatedItems.map((item, idx) => {
+                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx;
+                  const isLiked = likedIds.includes(item._id);
 
-            return (
-              <div
-                key={item._id}
-                onClick={() => setLightboxIndex(idx)}
-                className="group relative rounded-2xl overflow-hidden border border-[#1E2330] bg-[#141720] hover:border-[#00E676]/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:shadow-[#00E676]/10 flex flex-col cursor-pointer"
-              >
+                  return (
+                    <div
+                      key={item._id}
+                      onClick={() => setLightboxIndex(globalIdx)}
+                      className="group relative rounded-2xl overflow-hidden border border-[#1E2330] bg-[#141720] hover:border-[#00E676]/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:shadow-[#00E676]/10 flex flex-col cursor-pointer"
+                    >
                 {/* Image Container with Aspect Ratio */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-slate-900">
                   <img
@@ -412,8 +426,19 @@ export default function GalleryPage({ onBackToHome, onOpenRegisterTeam }) {
                 </div>
               </div>
             );
-          })}
-        </div>
+                })}
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={items.length}
+                onPageChange={setCurrentPage}
+                label="photos"
+              />
+            </>
+          );
+        })()}
+        </>
       )}
 
       {/* =================================================================== */}

@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Newspaper, Search, ArrowLeft, Clock, Calendar, Sparkles, Filter } from 'lucide-react';
 import NewsArticleModal from './NewsArticleModal';
 import SocialFeedWidget from './SocialFeedWidget';
+import Pagination from './Pagination';
 
 export default function NewsPage({ articles = [], onBackToHome }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticle, setActiveArticle] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
 
   const categories = [
     'All',
@@ -23,6 +26,15 @@ export default function NewsPage({ articles = [], onBackToHome }) {
       art.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCat && matchSearch;
   });
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setCurrentPage(1); }, [selectedCategory, searchQuery]);
+
+  const totalPages = Math.ceil(filteredArticles.length / ITEMS_PER_PAGE) || 1;
+  const paginatedArticles = filteredArticles.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const featuredArticle = articles.find(a => a.featured) || articles[0];
 
@@ -156,7 +168,7 @@ export default function NewsPage({ articles = [], onBackToHome }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredArticles.map(article => (
+          {paginatedArticles.map(article => (
             <article
               key={article._id || article.slug}
               onClick={() => setActiveArticle(article)}
@@ -211,6 +223,15 @@ export default function NewsPage({ articles = [], onBackToHome }) {
           ))}
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredArticles.length}
+        onPageChange={setCurrentPage}
+        label="articles"
+      />
 
       {/* Automated Social Media Feed & Match Reels */}
       <div className="pt-6 border-t border-[#1E2330]">

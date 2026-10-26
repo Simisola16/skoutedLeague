@@ -16,6 +16,7 @@ import {
 import { SOCIAL_LINKS } from '../constants/socialLinks';
 import { SocialIcon } from './SocialIcons';
 import YouTubeLiveEmbed from './YouTubeLiveEmbed';
+import Pagination from './Pagination';
 
 export default function PodcastsPage({ episodes = [], onBackToHome }) {
   const [activeEpisode, setActiveEpisode] = useState(episodes[0] || null);
@@ -24,6 +25,12 @@ export default function PodcastsPage({ episodes = [], onBackToHome }) {
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef(null);
+
+  // Pagination for episode list
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
+  const totalPages = Math.ceil(episodes.length / ITEMS_PER_PAGE) || 1;
+  const paginatedEpisodes = episodes.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   useEffect(() => {
     if (episodes.length > 0 && !activeEpisode) {
@@ -248,7 +255,7 @@ export default function PodcastsPage({ episodes = [], onBackToHome }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {episodes.map(ep => {
+          {paginatedEpisodes.map(ep => {
             const isCurrent = activeEpisode?._id === ep._id;
             return (
               <div
@@ -303,6 +310,15 @@ export default function PodcastsPage({ episodes = [], onBackToHome }) {
             );
           })}
         </div>
+
+        {/* Episodes Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={episodes.length}
+          onPageChange={setCurrentPage}
+          label="episodes"
+        />
       </section>
 
       {/* 4. Official YouTube Channel & Video Scouting Broadcast Card */}
