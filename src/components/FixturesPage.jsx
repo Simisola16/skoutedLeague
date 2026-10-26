@@ -358,7 +358,6 @@ export default function FixturesPage({
             </button>
           )}
         </div>
-        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
           {paginatedFixtures.map((fixture, idx) => {
