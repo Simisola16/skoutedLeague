@@ -198,6 +198,24 @@ export const api = {
     return res.json();
   },
 
+  rescheduleFixture: async (id, payload) => {
+    const res = await fetch(`${API_BASE}/fixtures/${id}/reschedule`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  updateFixture: async (id, payload) => {
+    const res = await fetch(`${API_BASE}/fixtures/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
   logMatchEvent: async (fixtureId, payload) => {
     const res = await fetch(`${API_BASE}/fixtures/${fixtureId}/events`, {
       method: 'POST',

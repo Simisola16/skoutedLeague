@@ -54,6 +54,10 @@ export default function LiveTicker({ fixtures = [], selectedFixtureId, onSelectF
                     </>
                   ) : isFT ? (
                     <span className="text-[10px] font-mono font-bold text-slate-400">FT</span>
+                  ) : f.status === 'POSTPONED' ? (
+                    <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/15 px-1 py-0.5 rounded">POSTPONED</span>
+                  ) : f.status === 'CANCELLED' ? (
+                    <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-500/15 px-1 py-0.5 rounded">CANCELLED</span>
                   ) : (
                     <span className="text-[10px] font-mono font-bold text-[#00E676]">{f.time || '15:00'}</span>
                   )}

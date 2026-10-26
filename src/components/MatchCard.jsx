@@ -12,7 +12,10 @@ export default function MatchCard({
 
   const isLive = ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(fixture?.status);
   const isFT = fixture?.status === 'FT';
-  const isUpcoming = fixture?.status === 'UPCOMING';
+  const isPostponed = fixture?.status === 'POSTPONED';
+  const isRescheduled = fixture?.status === 'RESCHEDULED';
+  const isCancelled = ['CANCELLED', 'ABANDONED'].includes(fixture?.status);
+  const isUpcoming = fixture?.status === 'UPCOMING' || isRescheduled;
 
   const handleShare = (e) => {
     e.stopPropagation();
@@ -37,6 +40,16 @@ export default function MatchCard({
     ? fixture.venue.split(',')[0].replace(/Stadium/i, '').trim() || 'Lekan Salami'
     : 'Lekan Salami';
 
+  // Format stage: 'Matchday N' → 'Week N', else use as-is
+  const stageDisplay = fixture.stage?.toLowerCase().startsWith('matchday')
+    ? fixture.stage.replace(/matchday/i, 'Week')
+    : fixture.stage || 'Championship';
+
+  // Human-readable date helpers
+  const parsedDate = fixture.date ? new Date(fixture.date + 'T12:00:00') : null;
+  const dayOfWeek = parsedDate ? parsedDate.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase() : null;
+  const shortDate = parsedDate ? parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : null;
+
   return (
     <div
       onClick={() => onSelect(fixture)}
@@ -45,22 +58,30 @@ export default function MatchCard({
       className={`group relative w-full bg-slate-900/90 border transition-all duration-200 rounded-xl py-2.5 px-3 sm:py-3.5 sm:px-4 cursor-pointer select-none min-h-[48px] active:scale-[0.99] ${
         isLive
           ? 'border-red-500/50 bg-slate-900/95 shadow-md shadow-red-500/10 hover:border-red-400'
-          : 'border-slate-800/90 hover:border-slate-700 hover:bg-slate-900 shadow-sm shadow-black/20'
+          : isPostponed
+            ? 'border-amber-500/40 bg-amber-950/10 hover:border-amber-500/60'
+            : isRescheduled
+              ? 'border-cyan-500/40 bg-cyan-950/10 hover:border-cyan-500/60'
+              : 'border-slate-800/90 hover:border-slate-700 hover:bg-slate-900 shadow-sm shadow-black/20'
       }`}
     >
       {/* Top Meta Bar: Stage, Status Pill & Quick Action */}
       <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1.5 mb-2 border-b border-slate-800/60">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-semibold text-slate-300 truncate text-[11px]">
-            {fixture.stage || 'Championship'}
+            {stageDisplay}
           </span>
           {fixture.leg && (
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-400 font-bold border border-blue-500/30 shrink-0">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-bold border border-blue-500/30 shrink-0">
               Leg {fixture.leg}
             </span>
           )}
-          {fixture.matchday && (
-            <span className="text-slate-500 hidden sm:inline">• MD {fixture.matchday}</span>
+          {dayOfWeek && (
+            <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+              dayOfWeek === 'SAT' ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
+              : dayOfWeek === 'SUN' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+              : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}>{dayOfWeek}</span>
           )}
         </div>
 
@@ -138,13 +159,36 @@ export default function MatchCard({
                 </span>
               </div>
             </div>
+          ) : isPostponed ? (
+            <div className="flex flex-col items-center justify-center">
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-extrabold text-[10px] sm:text-xs uppercase tracking-wider">
+                POSTPONED
+              </span>
+              <span className="text-[9px] font-mono text-amber-300/80 mt-0.5 max-w-[110px] truncate" title={fixture.postponedReason || 'To be rescheduled'}>
+                {fixture.postponedReason ? 'Hold' : 'TBD'}
+              </span>
+            </div>
+          ) : isCancelled ? (
+            <div className="flex flex-col items-center justify-center">
+              <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-mono font-extrabold text-[10px] sm:text-xs uppercase tracking-wider">
+                CANCELLED
+              </span>
+              <span className="text-[9px] font-mono text-rose-300/80 mt-0.5">
+                Called Off
+              </span>
+            </div>
           ) : isUpcoming ? (
             <div className="flex flex-col items-center justify-center">
+              {isRescheduled && (
+                <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mb-0.5">
+                  RESCHEDULED
+                </span>
+              )}
               <div className="px-2 py-0.5 rounded-md bg-[#00E676]/10 border border-[#00E676]/25 text-[#00E676] font-mono font-extrabold text-xs sm:text-sm whitespace-nowrap shadow-sm">
                 {fixture.time || '15:00'}
               </div>
               <span className="text-[9px] font-mono text-slate-400 font-semibold mt-0.5">
-                {fixture.date ? fixture.date.slice(5) : 'WAT'}
+                {dayOfWeek && shortDate ? `${dayOfWeek} · ${shortDate}` : (fixture.date ? fixture.date.slice(5) : 'TBD')}
               </span>
             </div>
           ) : (
@@ -203,10 +247,23 @@ export default function MatchCard({
 
       </div>
 
+      {/* Notice bar for Postponed or Rescheduled reasons */}
+      {fixture.postponedReason && (
+        <div className={`mt-2 px-2 py-1 rounded text-[10px] font-medium flex items-center gap-1.5 ${
+          isPostponed ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
+        }`}>
+          <span>ℹ️</span>
+          <span className="truncate">{fixture.postponedReason}</span>
+          {fixture.originalDate && (
+            <span className="text-slate-400 text-[9px] shrink-0 font-mono">(Was {fixture.originalDate})</span>
+          )}
+        </div>
+      )}
+
       {/* Tap indicator footer bar (Subtle) */}
       <div className="mt-2 pt-1.5 border-t border-slate-800/40 flex items-center justify-between text-[10px] text-slate-400">
         <span className="truncate max-w-[180px] xs:max-w-none text-slate-400">
-          {fixture.date ? `${fixture.date} • ` : ''}{venueDisplay}
+          {dayOfWeek && shortDate ? `${dayOfWeek}, ${shortDate}` : fixture.date} {fixture.date ? '•' : ''} {venueDisplay}
         </span>
         <span className="flex items-center gap-0.5 font-medium text-slate-400 group-hover:text-[#00E676] transition-colors shrink-0">
           <span>Match Center</span>

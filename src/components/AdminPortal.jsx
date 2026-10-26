@@ -235,6 +235,71 @@ export default function AdminPortal({ onExit }) {
   const [newSatTimeSlotInput, setNewSatTimeSlotInput] = useState('10:00');
   const [newSunTimeSlotInput, setNewSunTimeSlotInput] = useState('15:30');
 
+  // Shift / Reschedule Match Modal State
+  const [reschedulingFixture, setReschedulingFixture] = useState(null);
+  const [rescheduleStatus, setRescheduleStatus] = useState('RESCHEDULED');
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleVenue, setRescheduleVenue] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('Shifted from Saturday to Sunday');
+  const [rescheduleCustomReason, setRescheduleCustomReason] = useState('');
+  const [rescheduleNotifyManagers, setRescheduleNotifyManagers] = useState(true);
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleSuccessMsg, setRescheduleSuccessMsg] = useState('');
+  const [rescheduleErrMsg, setRescheduleErrMsg] = useState('');
+
+  const handleOpenRescheduleModal = (f) => {
+    setReschedulingFixture(f);
+    setRescheduleStatus('RESCHEDULED');
+    setRescheduleDate(f.date || '');
+    setRescheduleTime(f.time || '15:30');
+    setRescheduleVenue(f.venue || 'Lekan Salami Stadium, Adamasingba, Ibadan');
+    setRescheduleReason('Shifted from Saturday to Sunday');
+    setRescheduleCustomReason('');
+    setRescheduleNotifyManagers(true);
+    setRescheduleSuccessMsg('');
+    setRescheduleErrMsg('');
+  };
+
+  const handleExecuteReschedule = async (e) => {
+    e.preventDefault();
+    if (!reschedulingFixture) return;
+    setRescheduleLoading(true);
+    setRescheduleErrMsg('');
+    setRescheduleSuccessMsg('');
+
+    const finalReason = rescheduleReason === 'CUSTOM' ? rescheduleCustomReason : rescheduleReason;
+
+    try {
+      const res = await api.rescheduleFixture(reschedulingFixture._id, {
+        status: rescheduleStatus,
+        date: rescheduleDate,
+        time: rescheduleTime,
+        venue: rescheduleVenue,
+        reason: finalReason,
+        notifyManagers: rescheduleNotifyManagers
+      });
+
+      if (res.success) {
+        setRescheduleSuccessMsg(res.message || 'Match schedule updated successfully!');
+        setFixtures(prev => prev.map(item => item._id === reschedulingFixture._id ? res.data : item));
+        if (activeFixture?._id === reschedulingFixture._id) {
+          setActiveFixture(res.data);
+        }
+        setTimeout(() => {
+          setReschedulingFixture(null);
+          setRescheduleSuccessMsg('');
+        }, 1500);
+      } else {
+        setRescheduleErrMsg(res.error || 'Failed to reschedule fixture');
+      }
+    } catch (err) {
+      setRescheduleErrMsg('Error: ' + err.message);
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
   // Recalculate message
   const [syncMsg, setSyncMsg] = useState('');
 
@@ -2933,6 +2998,12 @@ export default function AdminPortal({ onExit }) {
                                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse font-bold'
                                   : f.status === 'FT'
                                   ? 'bg-slate-800 text-slate-400'
+                                  : f.status === 'POSTPONED'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold'
+                                  : f.status === 'RESCHEDULED'
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold'
+                                  : f.status === 'CANCELLED' || f.status === 'ABANDONED'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold'
                                   : 'bg-white/10 text-slate-300'
                               }`}>
                                 {f.status}
@@ -2957,10 +3028,30 @@ export default function AdminPortal({ onExit }) {
                               <span>📅 {f.date} at {f.time}</span>
                               <span>•</span>
                               <span>📍 {f.venue}</span>
+                              {f.originalDate && f.originalDate !== f.date && (
+                                <span className="text-[10px] text-cyan-400 font-mono">
+                                  (Shifted from {f.originalDate} {f.originalTime || ''})
+                                </span>
+                              )}
                             </div>
+                            {f.postponedReason && (
+                              <div className="text-[11px] font-mono text-amber-300/90 flex items-center gap-1.5 mt-1 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 w-fit">
+                                <span>⚠️ Notice:</span>
+                                <span>{f.postponedReason}</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => handleOpenRescheduleModal(f)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-300 hover:text-amber-200 border border-amber-500/30 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                              title="Shift, postpone, or reschedule this match"
+                            >
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Shift / Reschedule</span>
+                            </button>
+
                             <button
                               onClick={() => setInspectingFixtureLineups(f)}
                               className="px-3 py-1.5 rounded-xl bg-[#1C2030] hover:bg-[#252B40] text-xs font-bold text-slate-200 hover:text-white border border-[#2B3145] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
@@ -6069,6 +6160,213 @@ export default function AdminPortal({ onExit }) {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: SHIFT / RESCHEDULE / POSTPONE MATCH MODAL */}
+      {/* ========================================================= */}
+      {reschedulingFixture && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+          <div className="bg-[#10131C] border border-[#2B3145] w-full max-w-xl rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Shift / Reschedule Match</h3>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    <span className="text-[#00E676] font-bold">{reschedulingFixture.homeTeam?.name || 'Home'}</span> vs <span className="text-[#00E676] font-bold">{reschedulingFixture.awayTeam?.name || 'Away'}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReschedulingFixture(null)}
+                disabled={rescheduleLoading}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Error & Success Alerts */}
+            {rescheduleErrMsg && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{rescheduleErrMsg}</span>
+              </div>
+            )}
+            {rescheduleSuccessMsg && (
+              <div className="p-3 bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] text-xs rounded-xl flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{rescheduleSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleExecuteReschedule} className="space-y-4 overflow-y-auto pr-1">
+              
+              {/* 1. Action Type / Status Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                  Select Action / Status
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'RESCHEDULED', label: '⏱ Reschedule / Shift', desc: 'Shift match to a new date or kickoff time' },
+                    { id: 'POSTPONED', label: '⚠️ Postpone Match', desc: 'Match cannot be played today; put on hold' },
+                    { id: 'CANCELLED', label: '🚫 Cancel Match', desc: 'Match abandoned or called off' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setRescheduleStatus(opt.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        rescheduleStatus === opt.id
+                          ? 'bg-[#00E676]/15 border-[#00E676] text-white shadow-sm'
+                          : 'bg-[#121622] border-[#252A38] text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-xs font-bold">{opt.label}</span>
+                      <span className="text-[10px] text-slate-500 mt-1 line-clamp-2">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Reason for Rescheduling / Postponement */}
+              <div className="space-y-1.5 bg-[#090B10] border border-[#202536] p-3.5 rounded-2xl">
+                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                  Reason for Match Shift / Postponement
+                </label>
+                <select
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                >
+                  <option value="Shifted from Saturday to Sunday">📅 Shifted from Saturday to Sunday</option>
+                  <option value="Heavy Rain / Pitch Waterlogged">🌧 Heavy Rain / Pitch Waterlogged</option>
+                  <option value="Security & Public Safety Precautions">🛡 Security & Public Safety Precautions</option>
+                  <option value="Logistical & Club Travel Delay">🚌 Logistical & Club Travel Delay</option>
+                  <option value="Stadium Lighting / Technical Maintenance">💡 Stadium Lighting / Technical Maintenance</option>
+                  <option value="Mutual Club Rescheduling Agreement">🤝 Mutual Club Rescheduling Agreement</option>
+                  <option value="CUSTOM">✍ Custom Reason (Write below)...</option>
+                </select>
+
+                {rescheduleReason === 'CUSTOM' && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter reason for shifting or postponing the match..."
+                    value={rescheduleCustomReason}
+                    onChange={(e) => setRescheduleCustomReason(e.target.value)}
+                    className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676] mt-2"
+                  />
+                )}
+              </div>
+
+              {/* 3. New Match Date, Time & Venue (Only if not Cancelled) */}
+              {rescheduleStatus !== 'CANCELLED' && (
+                <div className="space-y-3 bg-[#090B10] border border-[#202536] p-3.5 rounded-2xl">
+                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                    <span>New Schedule Details</span>
+                    {reschedulingFixture.date && (
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Original: {reschedulingFixture.date} at {reschedulingFixture.time}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">
+                        {rescheduleStatus === 'POSTPONED' ? 'Proposed Date (or leave for TBD)' : 'New Match Date *'}
+                      </label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                        className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">
+                        Kickoff Time *
+                      </label>
+                      <input
+                        type="time"
+                        value={rescheduleTime}
+                        onChange={(e) => setRescheduleTime(e.target.value)}
+                        className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">
+                      Stadium Venue / Pitch
+                    </label>
+                    <input
+                      type="text"
+                      value={rescheduleVenue}
+                      onChange={(e) => setRescheduleVenue(e.target.value)}
+                      placeholder="e.g. Lekan Salami Stadium, Adamasingba, Ibadan"
+                      className="w-full bg-[#121622] border border-[#2B3145] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Manager Email Notification */}
+              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#121622] border border-[#232838] cursor-pointer hover:border-white/15 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={rescheduleNotifyManagers}
+                  onChange={(e) => setRescheduleNotifyManagers(e.target.checked)}
+                  className="mt-0.5 accent-[#00E676] w-4 h-4 rounded cursor-pointer"
+                />
+                <div>
+                  <div className="font-bold text-xs text-white">Email Reschedule Notice to Both Team Managers</div>
+                  <div className="text-[11px] text-slate-400">
+                    Immediately dispatches an automated notice email to both club managers with the shift reason and updated kickoff details.
+                  </div>
+                </div>
+              </label>
+
+              {/* Actions */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-white/10 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setReschedulingFixture(null)}
+                  disabled={rescheduleLoading}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={rescheduleLoading}
+                  className="px-5 py-2 rounded-xl bg-[#00E676] hover:bg-[#00c968] text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-[#00E676]/25 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {rescheduleLoading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Confirm & Broadcast Shift</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

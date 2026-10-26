@@ -120,6 +120,10 @@ export default function FixturesPage({
   const [searchQuery, setSearchQuery]   = useState('');
   const [selectedStage, setSelectedStage] = useState('ALL');
 
+  // pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12; // fixtures per page
+
   /* export */
   const [exportMode, setExportMode]   = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -130,16 +134,16 @@ export default function FixturesPage({
 
   /* counts */
   const liveCount     = useMemo(() => fixtures.filter(f => ['1ST HALF','2ND HALF','HT','PENS','LIVE'].includes(f.status)).length, [fixtures]);
-  const upcomingCount = useMemo(() => fixtures.filter(f => f.status === 'UPCOMING').length, [fixtures]);
+  const upcomingCount = useMemo(() => fixtures.filter(f => f.status === 'UPCOMING' || f.status === 'RESCHEDULED').length, [fixtures]);
   const finishedCount = useMemo(() => fixtures.filter(f => f.status === 'FT').length, [fixtures]);
   const stages        = useMemo(() => { const s = new Set(); fixtures.forEach(f => f.stage && s.add(f.stage)); return [...s]; }, [fixtures]);
 
   /* filtered display list */
   const filteredFixtures = useMemo(() => fixtures.filter(f => {
     const live = ['1ST HALF','2ND HALF','HT','PENS','LIVE'].includes(f.status);
-    if (statusFilter === 'live'     && !live)                return false;
-    if (statusFilter === 'upcoming' && f.status !== 'UPCOMING') return false;
-    if (statusFilter === 'finished' && f.status !== 'FT')    return false;
+    if (statusFilter === 'live' && !live) return false;
+    if (statusFilter === 'upcoming' && f.status !== 'UPCOMING' && f.status !== 'RESCHEDULED') return false;
+    if (statusFilter === 'finished' && f.status !== 'FT') return false;
     if (selectedStage !== 'ALL' && f.stage !== selectedStage) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -151,13 +155,21 @@ export default function FixturesPage({
     return true;
   }), [fixtures, statusFilter, selectedStage, searchQuery]);
 
+  // pagination derived list
+  const totalPages = Math.ceil(filteredFixtures.length / itemsPerPage) || 1;
+  const paginatedFixtures = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredFixtures.slice(start, start + itemsPerPage);
+  }, [filteredFixtures, currentPage, itemsPerPage]);
+
   /* export set */
   const exportFixtures = useMemo(() => {
     if (exportScope === 'selected') return fixtures.filter(f => selectedIds.has(f._id));
     if (exportScope === 'leg1')     return fixtures.filter(f => { const md = parseInt(f.matchday || f.stage?.replace(/\D/g,'') || '0'); return md >= 1 && md <= 11; });
     if (exportScope === 'leg2')     return fixtures.filter(f => { const md = parseInt(f.matchday || f.stage?.replace(/\D/g,'') || '0'); return md >= 12 && md <= 22; });
-    return filteredFixtures;
-  }, [exportScope, fixtures, filteredFixtures, selectedIds]);
+    // use paginated list for export when not in selected mode
+    return exportScope === 'selected' ? fixtures.filter(f => selectedIds.has(f._id)) : paginatedFixtures;
+  }, [exportScope, fixtures, selectedIds, paginatedFixtures]);
 
   const scopeLabel = useMemo(() => ({ all: 'All Fixtures', leg1: 'Leg 1 (Weeks 1–11)', leg2: 'Leg 2 (Weeks 12–22)', selected: `Selected (${selectedIds.size})` }[exportScope]), [exportScope, selectedIds.size]);
 
@@ -346,14 +358,18 @@ export default function FixturesPage({
             </button>
           )}
         </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
-          {filteredFixtures.map(fixture => {
+          {paginatedFixtures.map((fixture, idx) => {
             const isSelected = selectedIds.has(fixture._id);
             const selectable = exportMode && exportScope === 'selected';
+            const displayIndex = (currentPage - 1) * itemsPerPage + idx + 1;
             return (
               <div key={fixture._id} className={`relative transition-all duration-150 ${selectable ? 'cursor-pointer' : ''}`}
                 onClick={selectable ? () => toggleId(fixture._id) : undefined}>
+                {/* index badge */}
+                <div className="absolute left-2 top-2 bg-[#141720]/80 text-xs text-white rounded px-1.5 py-0.5 z-20">#{displayIndex}</div>
                 {selectable && (
                   <div className={`absolute inset-0 rounded-2xl z-10 border-2 transition-all pointer-events-none ${isSelected ? 'border-[#00E676] bg-[#00E676]/5' : 'border-transparent hover:border-white/20'}`}>
                     {isSelected && (
@@ -370,6 +386,45 @@ export default function FixturesPage({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Pagination Controls ──────────────────────────────────────────────── */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-[#222735] bg-[#141720] text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            ← Prev
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`w-8 h-8 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                currentPage === page
+                  ? 'bg-[#00E676]/15 border-[#00E676] text-[#00E676]'
+                  : 'bg-[#141720] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-[#222735] bg-[#141720] text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            Next →
+          </button>
+
+          <span className="text-[11px] text-slate-500 font-mono ml-1">
+            Page {currentPage} of {totalPages} · {filteredFixtures.length} fixtures
+          </span>
         </div>
       )}
 
