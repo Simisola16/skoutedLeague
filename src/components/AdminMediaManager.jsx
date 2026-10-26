@@ -30,6 +30,7 @@ import {
 import { api } from '../services/api';
 import { getMediaUrl } from '../utils/mediaUtils';
 import AdminSocialManager from './AdminSocialManager';
+import Pagination from './Pagination';
 
 const MEDIA_CATEGORIES = [
   'All',
@@ -56,6 +57,14 @@ export default function AdminMediaManager() {
   const [mediaSearchQuery, setMediaSearchQuery] = useState('');
   const [mediaStatusFilter, setMediaStatusFilter] = useState('all'); // 'all' | 'published' | 'draft'
   const [selectedMediaIds, setSelectedMediaIds] = useState([]);
+  const [galleryPage, setGalleryPage] = useState(1);
+  const GALLERY_PER_PAGE = 12;
+  const [newsPage, setNewsPage] = useState(1);
+  const NEWS_PER_PAGE = 6;
+  const [podcastsPage, setPodcastsPage] = useState(1);
+  const PODCASTS_PER_PAGE = 6;
+  const [sponsorsPage, setSponsorsPage] = useState(1);
+  const SPONSORS_PER_PAGE = 8;
 
   // Upload Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -786,7 +795,10 @@ export default function AdminMediaManager() {
               {MEDIA_CATEGORIES.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setMediaCategoryFilter(cat)}
+                  onClick={() => {
+                    setMediaCategoryFilter(cat);
+                    setGalleryPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     mediaCategoryFilter === cat
                       ? 'bg-[#00E676]/20 border border-[#00E676] text-[#00E676]'
@@ -802,7 +814,10 @@ export default function AdminMediaManager() {
             <div className="flex items-center gap-2 shrink-0">
               <select
                 value={mediaStatusFilter}
-                onChange={(e) => setMediaStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setMediaStatusFilter(e.target.value);
+                  setGalleryPage(1);
+                }}
                 className="bg-[#161B26] border border-[#252A38] rounded-xl px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none"
               >
                 <option value="all">All Statuses</option>
@@ -815,7 +830,10 @@ export default function AdminMediaManager() {
                 <input
                   type="text"
                   value={mediaSearchQuery}
-                  onChange={(e) => setMediaSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setMediaSearchQuery(e.target.value);
+                    setGalleryPage(1);
+                  }}
                   placeholder="Filter media..."
                   className="w-full bg-[#161B26] border border-[#252A38] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
                 />
@@ -867,8 +885,9 @@ export default function AdminMediaManager() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {mediaItems.map(item => {
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {mediaItems.slice((galleryPage - 1) * GALLERY_PER_PAGE, galleryPage * GALLERY_PER_PAGE).map(item => {
                 const isSelected = selectedMediaIds.includes(item._id);
                 const isCopied = copiedId === item._id;
 
@@ -980,6 +999,15 @@ export default function AdminMediaManager() {
                 );
               })}
             </div>
+
+            <Pagination
+              currentPage={galleryPage}
+              totalPages={Math.ceil(mediaItems.length / GALLERY_PER_PAGE)}
+              totalItems={mediaItems.length}
+              onPageChange={setGalleryPage}
+              label="assets"
+            />
+          </>
           )}
 
         </div>
@@ -998,7 +1026,7 @@ export default function AdminMediaManager() {
       {subTab === 'news' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {articles.map(article => (
+            {articles.slice((newsPage - 1) * NEWS_PER_PAGE, newsPage * NEWS_PER_PAGE).map(article => (
               <div key={article._id} className="rounded-2xl bg-[#121622] border border-[#222838] overflow-hidden flex flex-col justify-between">
                 <div>
                   <div className="aspect-video bg-black overflow-hidden relative">
@@ -1046,6 +1074,14 @@ export default function AdminMediaManager() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={newsPage}
+            totalPages={Math.ceil(articles.length / NEWS_PER_PAGE)}
+            totalItems={articles.length}
+            onPageChange={setNewsPage}
+            label="articles"
+          />
         </div>
       )}
 
@@ -1055,7 +1091,7 @@ export default function AdminMediaManager() {
       {subTab === 'podcasts' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {podcasts.map(ep => (
+            {podcasts.slice((podcastsPage - 1) * PODCASTS_PER_PAGE, podcastsPage * PODCASTS_PER_PAGE).map(ep => (
               <div key={ep._id} className="rounded-2xl bg-[#121622] border border-[#222838] p-4 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[11px] font-mono text-[#00E676]">
@@ -1077,6 +1113,14 @@ export default function AdminMediaManager() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={podcastsPage}
+            totalPages={Math.ceil(podcasts.length / PODCASTS_PER_PAGE)}
+            totalItems={podcasts.length}
+            onPageChange={setPodcastsPage}
+            label="episodes"
+          />
         </div>
       )}
 
@@ -1086,7 +1130,7 @@ export default function AdminMediaManager() {
       {subTab === 'sponsors' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {sponsors.map(sp => (
+            {sponsors.slice((sponsorsPage - 1) * SPONSORS_PER_PAGE, sponsorsPage * SPONSORS_PER_PAGE).map(sp => (
               <div key={sp._id} className="rounded-2xl bg-[#121622] border border-[#222838] p-4 flex flex-col justify-between items-center text-center">
                 <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-2 mb-2">
                   {sp.logoUrl ? (
@@ -1112,6 +1156,14 @@ export default function AdminMediaManager() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={sponsorsPage}
+            totalPages={Math.ceil(sponsors.length / SPONSORS_PER_PAGE)}
+            totalItems={sponsors.length}
+            onPageChange={setSponsorsPage}
+            label="sponsors"
+          />
         </div>
       )}
 

@@ -64,6 +64,7 @@ import AdminMediaManager from './AdminMediaManager';
 import AdminSocialManager from './AdminSocialManager';
 import { SocialIcon } from './SocialIcons';
 import { SOCIAL_LINKS } from '../constants/socialLinks';
+import Pagination from './Pagination';
 
 export default function AdminPortal({ onExit }) {
   const [adminUser, setAdminUser] = useState(null);
@@ -102,6 +103,18 @@ export default function AdminPortal({ onExit }) {
     liveFixturesCount: 0,
     mediaCount: 0
   });
+
+  // Control Panel Pagination States
+  const [adminFixturesPage, setAdminFixturesPage] = useState(1);
+  const ADMIN_FIXTURES_PER_PAGE = 10;
+  const [adminTeamsPage, setAdminTeamsPage] = useState(1);
+  const ADMIN_TEAMS_PER_PAGE = 8;
+  const [adminRosterPage, setAdminRosterPage] = useState(1);
+  const ADMIN_ROSTER_PER_PAGE = 8;
+  const [trashTeamsPage, setTrashTeamsPage] = useState(1);
+  const [trashFixturesPage, setTrashFixturesPage] = useState(1);
+  const [trashPlayersPage, setTrashPlayersPage] = useState(1);
+  const TRASH_PER_PAGE = 9;
 
   // League Settings & Transfer Window State
   const [leagueSettings, setLeagueSettings] = useState(null);
@@ -521,6 +534,7 @@ export default function AdminPortal({ onExit }) {
     setRosterSearch('');
     setRosterPositionFilter('All');
     setRosterStatusFilter('All');
+    setAdminRosterPage(1);
     try {
       const res = await api.getAdminTeamPlayers(team._id);
       if (res.success) {
@@ -2968,8 +2982,9 @@ export default function AdminPortal({ onExit }) {
                   No fixtures scheduled yet. Use the form above to add tournament matches.
                 </div>
               ) : (
-                <div className="divide-y divide-white/5 space-y-4">
-                  {fixtures.map(f => {
+                <>
+                  <div className="divide-y divide-white/5 space-y-4">
+                    {fixtures.slice((adminFixturesPage - 1) * ADMIN_FIXTURES_PER_PAGE, adminFixturesPage * ADMIN_FIXTURES_PER_PAGE).map(f => {
                     const homeLineupLocked = f.homeLineup?.isLocked;
                     const awayLineupLocked = f.awayLineup?.isLocked;
                     const homeStartersCount = f.homeLineup?.startingXI?.length || 0;
@@ -3166,6 +3181,15 @@ export default function AdminPortal({ onExit }) {
                     );
                   })}
                 </div>
+
+                <Pagination
+                  currentPage={adminFixturesPage}
+                  totalPages={Math.ceil(fixtures.length / ADMIN_FIXTURES_PER_PAGE)}
+                  totalItems={fixtures.length}
+                  onPageChange={setAdminFixturesPage}
+                  label="fixtures"
+                />
+              </>
               )}
             </div>
 
@@ -3229,6 +3253,7 @@ export default function AdminPortal({ onExit }) {
                       key={filterTab.id}
                       onClick={() => {
                         setTeamStatusFilter(filterTab.id);
+                        setAdminTeamsPage(1);
                         fetchFilteredTeams(teamSearch, filterTab.id);
                       }}
                       className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer ${
@@ -3274,6 +3299,7 @@ export default function AdminPortal({ onExit }) {
                   value={teamSearch}
                   onChange={(e) => {
                     setTeamSearch(e.target.value);
+                    setAdminTeamsPage(1);
                     fetchFilteredTeams(e.target.value, teamStatusFilter);
                   }}
                   placeholder="Search by club name or short code (e.g. Telu FC, TLU)..."
@@ -3283,6 +3309,7 @@ export default function AdminPortal({ onExit }) {
                   <button
                     onClick={() => {
                       setTeamSearch('');
+                      setAdminTeamsPage(1);
                       fetchFilteredTeams('', teamStatusFilter);
                     }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
@@ -3335,8 +3362,9 @@ export default function AdminPortal({ onExit }) {
                 <p className="text-xs">Adjust your search keyword or verification status to view clubs.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {adminTeams.map(t => {
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {adminTeams.slice((adminTeamsPage - 1) * ADMIN_TEAMS_PER_PAGE, adminTeamsPage * ADMIN_TEAMS_PER_PAGE).map(t => {
                   const verificationStatus = t.verificationStatus || (t.status === 'Verified' ? 'approved' : 'pending');
                   const isApproved = verificationStatus === 'approved';
                   const isPending = verificationStatus === 'pending';
@@ -3628,6 +3656,15 @@ export default function AdminPortal({ onExit }) {
                   );
                 })}
               </div>
+
+              <Pagination
+                currentPage={adminTeamsPage}
+                totalPages={Math.ceil(adminTeams.length / ADMIN_TEAMS_PER_PAGE)}
+                totalItems={adminTeams.length}
+                onPageChange={setAdminTeamsPage}
+                label="clubs"
+              />
+            </>
             )}
 
           </div>
@@ -4220,7 +4257,12 @@ export default function AdminPortal({ onExit }) {
                 ].map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => setTrashCategoryFilter(cat.id)}
+                    onClick={() => {
+                      setTrashCategoryFilter(cat.id);
+                      setTrashTeamsPage(1);
+                      setTrashFixturesPage(1);
+                      setTrashPlayersPage(1);
+                    }}
                     className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       trashCategoryFilter === cat.id
                         ? 'bg-[#00E676] text-black shadow-lg shadow-[#00E676]/20'
@@ -4274,8 +4316,9 @@ export default function AdminPortal({ onExit }) {
                         No deleted teams currently in trash.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {trashData.teams.map(team => (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.teams.slice((trashTeamsPage - 1) * TRASH_PER_PAGE, trashTeamsPage * TRASH_PER_PAGE).map(team => (
                           <div
                             key={team._id}
                             className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
@@ -4339,6 +4382,15 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         ))}
                       </div>
+
+                      <Pagination
+                        currentPage={trashTeamsPage}
+                        totalPages={Math.ceil(trashData.teams.length / TRASH_PER_PAGE)}
+                        totalItems={trashData.teams.length}
+                        onPageChange={setTrashTeamsPage}
+                        label="teams"
+                      />
+                    </>
                     )}
                   </div>
                 )}
@@ -4361,8 +4413,9 @@ export default function AdminPortal({ onExit }) {
                         No deleted fixtures currently in trash.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {trashData.fixtures.map(fix => (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.fixtures.slice((trashFixturesPage - 1) * TRASH_PER_PAGE, trashFixturesPage * TRASH_PER_PAGE).map(fix => (
                           <div
                             key={fix._id}
                             className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
@@ -4412,6 +4465,15 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         ))}
                       </div>
+
+                      <Pagination
+                        currentPage={trashFixturesPage}
+                        totalPages={Math.ceil(trashData.fixtures.length / TRASH_PER_PAGE)}
+                        totalItems={trashData.fixtures.length}
+                        onPageChange={setTrashFixturesPage}
+                        label="fixtures"
+                      />
+                    </>
                     )}
                   </div>
                 )}
@@ -4434,8 +4496,9 @@ export default function AdminPortal({ onExit }) {
                         No deleted squad players currently in trash.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {trashData.players.map(player => (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {trashData.players.slice((trashPlayersPage - 1) * TRASH_PER_PAGE, trashPlayersPage * TRASH_PER_PAGE).map(player => (
                           <div
                             key={player._id}
                             className="bg-[#10131C] border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all"
@@ -4499,6 +4562,15 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         ))}
                       </div>
+
+                      <Pagination
+                        currentPage={trashPlayersPage}
+                        totalPages={Math.ceil(trashData.players.length / TRASH_PER_PAGE)}
+                        totalItems={trashData.players.length}
+                        onPageChange={setTrashPlayersPage}
+                        label="players"
+                      />
+                    </>
                     )}
                   </div>
                 )}
@@ -4689,7 +4761,10 @@ export default function AdminPortal({ onExit }) {
                   type="text"
                   placeholder="Filter squad by name or jersey #..."
                   value={rosterSearch}
-                  onChange={(e) => setRosterSearch(e.target.value)}
+                  onChange={(e) => {
+                    setRosterSearch(e.target.value);
+                    setAdminRosterPage(1);
+                  }}
                   className="w-full bg-[#090B10] border border-[#232838] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
                 />
               </div>
@@ -4699,7 +4774,10 @@ export default function AdminPortal({ onExit }) {
                 {['All', 'GK', 'DEF', 'MID', 'FWD'].map(pos => (
                   <button
                     key={pos}
-                    onClick={() => setRosterPositionFilter(pos)}
+                    onClick={() => {
+                      setRosterPositionFilter(pos);
+                      setAdminRosterPage(1);
+                    }}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
                       rosterPositionFilter === pos
                         ? 'bg-[#00E676] text-black font-extrabold'
@@ -4714,7 +4792,10 @@ export default function AdminPortal({ onExit }) {
               {/* Status Filter */}
               <select
                 value={rosterStatusFilter}
-                onChange={(e) => setRosterStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setRosterStatusFilter(e.target.value);
+                  setAdminRosterPage(1);
+                }}
                 className="bg-[#090B10] border border-[#232838] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
               >
                 <option value="All">All Eligibility</option>
@@ -4758,7 +4839,15 @@ export default function AdminPortal({ onExit }) {
                     );
                   }
 
-                  return filtered.map(p => {
+                  const paginatedRoster = filtered.slice(
+                    (adminRosterPage - 1) * ADMIN_ROSTER_PER_PAGE,
+                    adminRosterPage * ADMIN_ROSTER_PER_PAGE
+                  );
+
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        {paginatedRoster.map(p => {
                     const isEligible = p.status === 'Eligible' && p.isEligible !== false;
                     const role = p.role || 'Squad Player';
 
@@ -4923,8 +5012,19 @@ export default function AdminPortal({ onExit }) {
                         </div>
                       </div>
                     );
-                  });
-                })()
+                  })}
+                </div>
+
+                <Pagination
+                  currentPage={adminRosterPage}
+                  totalPages={Math.ceil(filtered.length / ADMIN_ROSTER_PER_PAGE)}
+                  totalItems={filtered.length}
+                  onPageChange={setAdminRosterPage}
+                  label="players"
+                />
+              </>
+            );
+          })()
               )}
             </div>
 

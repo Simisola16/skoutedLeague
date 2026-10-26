@@ -20,11 +20,14 @@ import {
 import { api } from '../services/api';
 import { SocialIcon } from './SocialIcons';
 import { SOCIAL_LINKS } from '../constants/socialLinks';
+import Pagination from './Pagination';
 
 export default function AdminSocialManager() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [platformFilter, setPlatformFilter] = useState('all');
+  const [socialPage, setSocialPage] = useState(1);
+  const SOCIAL_PER_PAGE = 9;
   const [toast, setToast] = useState(null);
 
   // Fast Curation Form
@@ -412,7 +415,10 @@ export default function AdminSocialManager() {
             ].map(f => (
               <button
                 key={f.id}
-                onClick={() => setPlatformFilter(f.id)}
+                onClick={() => {
+                  setPlatformFilter(f.id);
+                  setSocialPage(1);
+                }}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   platformFilter === f.id
                     ? 'bg-[#00E676] text-black font-extrabold'
@@ -440,8 +446,9 @@ export default function AdminSocialManager() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {posts.map(post => {
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {posts.slice((socialPage - 1) * SOCIAL_PER_PAGE, socialPage * SOCIAL_PER_PAGE).map(post => {
               const platformColors = {
                 youtube: 'bg-red-500/15 text-red-400 border-red-500/30',
                 instagram: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
@@ -544,6 +551,15 @@ export default function AdminSocialManager() {
               );
             })}
           </div>
+
+          <Pagination
+            currentPage={socialPage}
+            totalPages={Math.ceil(posts.length / SOCIAL_PER_PAGE)}
+            totalItems={posts.length}
+            onPageChange={setSocialPage}
+            label="posts"
+          />
+        </>
         )}
       </div>
     </div>
