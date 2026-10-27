@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import MatchCard from './MatchCard';
 import {
   Calendar, Search, Clock, ArrowLeft, Bell,
@@ -8,13 +8,64 @@ import {
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import YouTubeLiveEmbed from './YouTubeLiveEmbed';
+import leagueLogoAsset from '../assets/logo.png';
+
+/**
+ * Robustly converts an image URL to a Base64 data URL.
+ * Works across local assets (/logo.png) and remote CORS-enabled URLs.
+ */
+async function imageToDataUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+
+  // 1. Try fetch -> blob -> FileReader
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const blob = await res.blob();
+      const base64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+      if (base64) return base64;
+    }
+  } catch (err) {
+    // Fall back to Image + Canvas
+  }
+
+  // 2. Fallback: Image element + Canvas
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 48;
+        canvas.height = img.naturalHeight || img.height || 48;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        resolve(url);
+      }
+    };
+    img.onerror = () => resolve(url);
+    setTimeout(() => resolve(url), 2500); // 2.5s safe timeout
+    img.src = url.startsWith('http') ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
+  });
+}
 
 /* ── Branded export row ─────────────────────────────────────────────────── */
 function ExportCard({ fixture }) {
   const isLive = ['1ST HALF', '2ND HALF', 'HT', 'PENS', 'LIVE'].includes(fixture.status);
   const isFinished = fixture.status === 'FT';
-  const homeLogo = fixture.homeTeam?.logoUrl || fixture.homeTeam?.logo;
-  const awayLogo = fixture.awayTeam?.logoUrl || fixture.awayTeam?.logo;
+  
+  // Use pre-processed base64 dataUrl if available, else raw logo
+  const homeLogo = fixture.homeLogoData || fixture.homeTeam?.logo || fixture.homeTeam?.logoUrl;
+  const awayLogo = fixture.awayLogoData || fixture.awayTeam?.logo || fixture.awayTeam?.logoUrl;
+  
   const statusColor = isLive ? '#FF4B4B' : isFinished ? '#94a3b8' : '#00E676';
   const statusLabel = isLive ? 'LIVE' : isFinished ? 'FULL TIME' : (fixture.status === 'RESCHEDULED' ? 'RESCHEDULED' : 'UPCOMING');
   const matchDate = fixture.date
@@ -40,8 +91,8 @@ function ExportCard({ fixture }) {
           {fixture.homeTeam?.name || 'TBD'}
         </span>
         <div style={{
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           borderRadius: 8,
           background: '#1A2030',
           overflow: 'hidden',
@@ -49,12 +100,20 @@ function ExportCard({ fixture }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0
+          flexShrink: 0,
+          padding: homeLogo ? 2 : 0
         }}>
           {homeLogo ? (
-            <img src={homeLogo} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img
+              src={homeLogo}
+              alt=""
+              crossOrigin="anonymous"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+            />
           ) : (
-            <span style={{ color: '#00E676', fontWeight: 900, fontSize: 13 }}>{(fixture.homeTeam?.name || 'H')[0]}</span>
+            <span style={{ color: '#00E676', fontWeight: 900, fontSize: 13 }}>
+              {(fixture.homeTeam?.name || 'H')[0]}
+            </span>
           )}
         </div>
       </div>
@@ -103,8 +162,8 @@ function ExportCard({ fixture }) {
       {/* Away Team */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
         <div style={{
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           borderRadius: 8,
           background: '#1A2030',
           overflow: 'hidden',
@@ -112,12 +171,20 @@ function ExportCard({ fixture }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0
+          flexShrink: 0,
+          padding: awayLogo ? 2 : 0
         }}>
           {awayLogo ? (
-            <img src={awayLogo} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img
+              src={awayLogo}
+              alt=""
+              crossOrigin="anonymous"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+            />
           ) : (
-            <span style={{ color: '#3B82F6', fontWeight: 900, fontSize: 13 }}>{(fixture.awayTeam?.name || 'A')[0]}</span>
+            <span style={{ color: '#3B82F6', fontWeight: 900, fontSize: 13 }}>
+              {(fixture.awayTeam?.name || 'A')[0]}
+            </span>
           )}
         </div>
         <span style={{ color: '#FFFFFF', fontWeight: 800, fontSize: 13, fontFamily: 'Inter,system-ui,sans-serif' }}>
@@ -139,7 +206,7 @@ function ExportCard({ fixture }) {
 }
 
 /* ── Off-screen export template ─────────────────────────────────────────── */
-function ExportTemplate({ fixtures: list, filterLabel }) {
+function ExportTemplate({ fixtures: list, filterLabel, leagueLogoData }) {
   // Group fixtures by Stage / Matchday
   const groupedFixtures = useMemo(() => {
     const map = new Map();
@@ -160,7 +227,7 @@ function ExportTemplate({ fixtures: list, filterLabel }) {
       <div style={{ position: 'absolute', top: -120, left: -120, width: 440, height: 440, borderRadius: '50%', background: 'rgba(0,230,118,0.06)', filter: 'blur(90px)' }} />
       <div style={{ position: 'absolute', bottom: -120, right: -60, width: 400, height: 400, borderRadius: '50%', background: 'rgba(59,130,246,0.08)', filter: 'blur(90px)' }} />
 
-      {/* Header */}
+      {/* Header with Official Logo */}
       <div style={{
         borderBottom: '1.5px solid rgba(0, 230, 118, 0.25)',
         paddingBottom: 22,
@@ -171,23 +238,30 @@ function ExportTemplate({ fixtures: list, filterLabel }) {
         gap: 20
       }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
             <div style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, rgba(0,230,118,0.2) 0%, rgba(59,130,246,0.15) 100%)',
-              border: '1.5px solid rgba(0,230,118,0.4)',
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(18,22,34,0.95) 0%, rgba(20,26,42,0.95) 100%)',
+              border: '1.5px solid rgba(0,230,118,0.45)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 22,
-              boxShadow: '0 0 15px rgba(0,230,118,0.2)'
+              overflow: 'hidden',
+              flexShrink: 0,
+              padding: 5,
+              boxShadow: '0 0 20px rgba(0,230,118,0.25)'
             }}>
-              🏆
+              <img
+                src={leagueLogoData || leagueLogoAsset}
+                alt="Skouted Youth League"
+                crossOrigin="anonymous"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+              />
             </div>
             <div>
-              <div style={{ color: '#00E676', fontWeight: 900, fontSize: 18, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              <div style={{ color: '#00E676', fontWeight: 900, fontSize: 19, letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Skouted Youth League Championship
               </div>
               <div style={{ color: '#E2E8F0', fontSize: 12, fontWeight: 700, marginTop: 2 }}>
@@ -274,9 +348,17 @@ function ExportTemplate({ fixtures: list, filterLabel }) {
         </div>
       ))}
 
-      {/* Footer */}
+      {/* Footer with Logo */}
       <div style={{ marginTop: 28, borderTop: '1px solid #1E2330', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 9, color: '#475569', fontFamily: 'monospace' }}>skoutedyouthleague.com</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img
+            src={leagueLogoData || leagueLogoAsset}
+            alt=""
+            crossOrigin="anonymous"
+            style={{ width: 18, height: 18, objectFit: 'contain' }}
+          />
+          <span style={{ fontSize: 9, color: '#64748B', fontFamily: 'monospace' }}>skoutedyouthleague.com</span>
+        </div>
         <span style={{ fontSize: 9, color: '#475569', fontFamily: 'monospace' }}>© 2026 Skouted Youth League Championship. All rights reserved.</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 9, color: '#00E676', fontFamily: 'monospace', fontWeight: 700 }}>OFFICIAL VERIFIED SCHEDULE</span>
@@ -311,7 +393,20 @@ export default function FixturesPage({
   const [isExporting, setIsExporting] = useState(false);
   const [exportFmt, setExportFmt]     = useState(null);
   const [exportStep, setExportStep]   = useState('');
+  const [leagueLogoData, setLeagueLogoData] = useState('');
+  const [preparedFixtures, setPreparedFixtures] = useState([]);
   const exportRef = useRef(null);
+
+  // Pre-load official league logo — use bundled asset first (guaranteed to work in html-to-image),
+  // then try to convert to full base64 data URL for maximum compatibility.
+  useEffect(() => {
+    // Immediately set the bundled asset URL (Vite resolves this at build time)
+    setLeagueLogoData(leagueLogoAsset);
+    // Also try to convert to a base64 data URL for deepest embed support
+    imageToDataUrl(leagueLogoAsset)
+      .then(data => { if (data && data.startsWith('data:')) setLeagueLogoData(data); })
+      .catch(() => {});
+  }, []);
 
   /* counts */
   const liveCount     = useMemo(() => fixtures.filter(f => ['1ST HALF','2ND HALF','HT','PENS','LIVE'].includes(f.status)).length, [fixtures]);
@@ -381,18 +476,80 @@ export default function FixturesPage({
     if (!exportFixtures.length) return;
     setExportFmt(fmt);
     setIsExporting(true);
-    setExportStep('Preparing high-resolution render...');
-    await new Promise(r => setTimeout(r, 200));
+    setExportStep('Pre-loading official crest and club logos...');
 
     try {
+      // 1. Ensure official league logo is available as base64 or asset URL
+      let currentLeagueLogo = leagueLogoData;
+      if (!currentLeagueLogo || !currentLeagueLogo.startsWith('data:')) {
+        // Try to convert bundled asset to full base64 data URL
+        const converted = await imageToDataUrl(leagueLogoAsset);
+        currentLeagueLogo = (converted && converted.startsWith('data:')) ? converted : leagueLogoAsset;
+        setLeagueLogoData(currentLeagueLogo);
+      }
+
+      // 2. Pre-convert all unique team logos into base64 Data URLs in parallel
+      const uniqueLogos = new Set();
+      exportFixtures.forEach(f => {
+        const h = f.homeTeam?.logo || f.homeTeam?.logoUrl;
+        const a = f.awayTeam?.logo || f.awayTeam?.logoUrl;
+        if (h) uniqueLogos.add(h);
+        if (a) uniqueLogos.add(a);
+      });
+
+      const logoMap = new Map();
+      await Promise.all(
+        Array.from(uniqueLogos).map(async (url) => {
+          try {
+            const data = await imageToDataUrl(url);
+            if (data) logoMap.set(url, data);
+          } catch (e) {
+            logoMap.set(url, url);
+          }
+        })
+      );
+
+      // 3. Attach pre-converted base64 images to fixtures for export
+      const enriched = exportFixtures.map(f => {
+        const hUrl = f.homeTeam?.logo || f.homeTeam?.logoUrl;
+        const aUrl = f.awayTeam?.logo || f.awayTeam?.logoUrl;
+        return {
+          ...f,
+          homeLogoData: (hUrl && logoMap.get(hUrl)) || hUrl,
+          awayLogoData: (aUrl && logoMap.get(aUrl)) || aUrl
+        };
+      });
+
+      setPreparedFixtures(enriched);
+
+      // 4. Wait for DOM to mount ExportTemplate with pre-loaded base64 images
+      setExportStep('Rendering high-resolution layout...');
+      await new Promise(r => setTimeout(r, 300));
+
+      // 5. Ensure all <img> tags inside export container have finished loading
+      if (exportRef.current) {
+        const imgElements = exportRef.current.querySelectorAll('img');
+        await Promise.all(
+          Array.from(imgElements).map(img => {
+            if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+            return new Promise(res => {
+              img.onload = res;
+              img.onerror = res;
+              setTimeout(res, 2000);
+            });
+          })
+        );
+      }
+
+      // 6. Generate toPng
+      setExportStep('Generating high-resolution document...');
       const node = exportRef.current;
       if (!node) throw new Error('Export container not mounted');
 
-      setExportStep('Rendering official tournament schedule...');
       const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: 2,
-        backgroundColor: '#0D1117'
+        backgroundColor: '#0A0D14'
       });
 
       const slug = (exportScope === 'all_season' ? 'full-season-all-fixtures' : (scopeLabel || 'fixtures'))
@@ -439,7 +596,7 @@ export default function FixturesPage({
       setExportFmt(null);
       setExportStep('');
     }
-  }, [exportFixtures, exportScope, scopeLabel]);
+  }, [exportFixtures, exportScope, scopeLabel, leagueLogoData]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -447,7 +604,13 @@ export default function FixturesPage({
       {/* Hidden export mount */}
       <div style={{ position: 'fixed', top: 0, left: -9999, zIndex: -999, pointerEvents: 'none' }}>
         <div ref={exportRef}>
-          {isExporting && <ExportTemplate fixtures={exportFixtures} filterLabel={scopeLabel} />}
+          {isExporting && (
+            <ExportTemplate
+              fixtures={preparedFixtures.length ? preparedFixtures : exportFixtures}
+              filterLabel={scopeLabel}
+              leagueLogoData={leagueLogoData}
+            />
+          )}
         </div>
       </div>
 
@@ -678,23 +841,12 @@ export default function FixturesPage({
         )}
       </div>
 
-      {/* Automated YouTube Live Broadcast Embed for Matchday */}
-      {(statusFilter === 'live' || liveCount > 0) && (
-        <YouTubeLiveEmbed className="mb-4" />
-      )}
-
-      {/* ── Fixture Grid ─────────────────────────────────────────────────── */}
-      {filteredFixtures.length === 0 ? (
-        <div className="rounded-2xl p-8 sm:p-12 text-center space-y-3 border border-slate-800 bg-slate-900/60">
-          <Clock className="w-10 h-10 mx-auto text-slate-600" />
-          <h4 className="font-bold text-white text-base">No Matching Fixtures Found</h4>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">Try adjusting your search or status filter.</p>
-          {(searchQuery || statusFilter !== 'all' || selectedStage !== 'ALL') && (
-            <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSelectedStage('ALL'); }}
-              className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer transition-colors">
-              Reset Filters
-            </button>
-          )}
+      {/* ── Fixtures Grid ───────────────────────────────────────────────── */}
+      {!filteredFixtures.length ? (
+        <div className="rounded-2xl border border-white/5 bg-[#141720]/40 p-12 text-center">
+          <Calendar className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-slate-300">No fixtures found</p>
+          <p className="text-xs text-slate-500 mt-1">Try resetting your filter or search query.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
