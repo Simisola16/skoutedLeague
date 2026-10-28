@@ -9,12 +9,12 @@ export function getMediaUrl(url) {
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   const backendUrl = import.meta.env.VITE_API_URL || 
-    (isLocalhostEnv ? '' : 'https://skoutedyouthleague-backend-1.onrender.com');
+    (isLocalhostEnv ? '' : 'https://api.skoutedyouthleague.com');
 
   const cleanBase = backendUrl.replace(/\/$/, '');
 
-  // If URL has localhost:5055 but client is running on remote/production, rewrite to production backend
-  if (!isLocalhostEnv && (url.includes('localhost:5055') || url.includes('127.0.0.1:5055'))) {
+  // If URL points to old Render backend or localhost:5055, rewrite to current backend
+  if (url.includes('skoutedyouthleague-backend-1.onrender.com') || url.includes('localhost:5055') || url.includes('127.0.0.1:5055')) {
     const path = url.replace(/^https?:\/\/[^/]+/, '');
     return `${cleanBase}${path}`;
   }
