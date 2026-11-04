@@ -834,13 +834,14 @@ export default function TeamDashboard({
           </div>
 
           {/* Header Action Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setShowGuideModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold transition-all cursor-pointer shadow-sm relative"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold transition-all cursor-pointer shadow-sm relative shrink-0"
               title="Open Team Manager Guide & Instructions"
             >
               <BookOpen className="w-3.5 h-3.5" />
+              <span className="inline sm:hidden">Guide</span>
               <span className="hidden sm:inline">Manager Guide</span>
               {squad.length < 11 && (
                 <span className="w-2 h-2 rounded-full bg-[#00E676] animate-ping" />
@@ -2079,17 +2080,17 @@ export default function TeamDashboard({
                   </div>
 
                   {/* Formation Selector */}
-                  <div className="flex items-center gap-3">
-                    <div>
+                  <div className="flex flex-wrap sm:flex-nowrap items-end gap-3 w-full sm:w-auto">
+                    <div className="w-full sm:w-auto">
                       <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                         Tactical Formation
                       </label>
-                      <div className="flex rounded-xl bg-[#090B10] p-1 border border-[#232838]">
+                      <div className="flex rounded-xl bg-[#090B10] p-1 border border-[#232838] overflow-x-auto no-scrollbar">
                         {Object.keys(FORMATION_PRESETS).map(f => (
                           <button
                             key={f}
                             onClick={() => handleFormationChange(f)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                            className={`flex-1 sm:flex-none px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                               formation === f ? 'bg-[#00E676] text-black font-black' : 'text-slate-400 hover:text-white'
                             }`}
                           >
@@ -2101,7 +2102,7 @@ export default function TeamDashboard({
 
                     <button
                       onClick={() => autoFillStartingXI(squad, formation)}
-                      className="mt-5 px-3 py-2 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full sm:w-auto py-2 px-3 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
                       title="Auto-pick 11 starters and bench"
                     >
                       <Sparkles className="w-3.5 h-3.5" />

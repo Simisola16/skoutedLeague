@@ -32,27 +32,27 @@ export default function ManagerGuideModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-[#0E121B] border border-[#232838] shadow-2xl overflow-hidden"
+        className="relative w-full max-w-3xl max-h-[94vh] sm:max-h-[90vh] flex flex-col rounded-2xl sm:rounded-3xl bg-[#0E121B] border border-[#232838] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Banner */}
-        <div className="relative px-6 py-5 border-b border-[#232838] bg-gradient-to-r from-[#141A28] via-[#0E121B] to-[#121824] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-lg shadow-[#00E676]/10">
-              <BookOpen className="w-5 h-5" />
+        <div className="relative px-4 py-3.5 sm:px-6 sm:py-5 border-b border-[#232838] bg-gradient-to-r from-[#141A28] via-[#0E121B] to-[#121824] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-lg shadow-[#00E676]/10 shrink-0">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display font-black text-white text-lg tracking-tight">
-                  Team Manager Portal Guide
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-display font-black text-white text-sm sm:text-lg tracking-tight">
+                  Team Manager Guide
                 </h3>
-                <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded-full bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30">
-                  Official Instructions
+                <span className="text-[9px] sm:text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded-full bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30">
+                  Official Manual
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate sm:whitespace-normal">
                 Step-by-step instructions on squad registration, matchday lineups, and rules.
               </p>
             </div>
@@ -60,7 +60,7 @@ export default function ManagerGuideModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
             title="Close Guide"
           >
             <X className="w-5 h-5" />
@@ -68,7 +68,7 @@ export default function ManagerGuideModal({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-[#232838] bg-[#0A0D14] px-4 overflow-x-auto no-scrollbar gap-1">
+        <div className="flex items-center border-b border-[#232838] bg-[#0A0D14] px-3 sm:px-4 overflow-x-auto no-scrollbar gap-1 scroll-smooth">
           {[
             { id: 'getting_started', label: '1. Getting Started', icon: Sparkles },
             { id: 'players', label: '2. Registering Players', icon: UserPlus },
@@ -81,13 +81,13 @@ export default function ManagerGuideModal({
               <button
                 key={tab.id}
                 onClick={() => setActiveGuideTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
                   isActive
                     ? 'border-[#00E676] text-[#00E676] bg-[#00E676]/5 font-black'
                     : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
@@ -95,7 +95,7 @@ export default function ManagerGuideModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6">
           
           {/* TAB 1: GETTING STARTED */}
           {activeGuideTab === 'getting_started' && (
@@ -305,17 +305,17 @@ export default function ManagerGuideModal({
               </div>
 
               {/* Call to action */}
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex flex-col sm:flex-row justify-end">
                 <button
                   onClick={() => {
                     onClose();
                     onGoToAddPlayer();
                   }}
-                  className="btn-primary px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
+                  className="btn-primary w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4 shrink-0" />
                   <span>Register a Player Right Now</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </button>
               </div>
             </div>
@@ -409,17 +409,17 @@ export default function ManagerGuideModal({
               </div>
 
               {/* Call to action */}
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex flex-col sm:flex-row justify-end">
                 <button
                   onClick={() => {
                     onClose();
                     onGoToLineup();
                   }}
-                  className="btn-primary px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
+                  className="btn-primary w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
                 >
-                  <Shirt className="w-4 h-4" />
+                  <Shirt className="w-4 h-4 shrink-0" />
                   <span>Open Lineup Builder</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </button>
               </div>
             </div>
@@ -438,7 +438,7 @@ export default function ManagerGuideModal({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="p-4 rounded-2xl bg-[#090B10] border border-white/5 space-y-2">
                   <div className="flex items-center gap-2 text-[#00E676]">
                     <Clock className="w-4 h-4" />
@@ -485,13 +485,13 @@ export default function ManagerGuideModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-[#232838] bg-[#0A0D14] flex items-center justify-between">
-          <div className="text-[11px] text-slate-500 font-mono hidden sm:block">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-[#232838] bg-[#0A0D14] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono text-center sm:text-left">
             Skouted Youth League • Official Club Manual
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all ml-auto cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all sm:ml-auto cursor-pointer text-center"
           >
             Close Guide
           </button>
@@ -500,3 +500,4 @@ export default function ManagerGuideModal({
     </div>
   );
 }
+
