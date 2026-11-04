@@ -34,12 +34,17 @@ import {
   Palette,
   Send,
   Loader2,
-  ArrowRightLeft
+  ArrowRightLeft,
+  BookOpen,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { api } from '../services/api';
 import socket from '../services/socket';
 import PlayerDetailModal from './PlayerDetailModal';
 import PlayerFormModal from './PlayerFormModal';
+import ManagerGuideModal from './ManagerGuideModal';
 
 // Tactical formation coordinate presets (percentage values for pitch x, y)
 const FORMATION_PRESETS = {
@@ -116,6 +121,18 @@ export default function TeamDashboard({
   // Modals & Feedback
   const [feedback, setFeedback] = useState({ text: '', type: 'success' });
   const [selectedPlayerForDossier, setSelectedPlayerForDossier] = useState(null);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [guideMinimized, setGuideMinimized] = useState(() => {
+    return localStorage.getItem('skouted_manager_guide_minimized') === 'true';
+  });
+
+  const toggleGuideMinimized = () => {
+    setGuideMinimized(prev => {
+      const next = !prev;
+      localStorage.setItem('skouted_manager_guide_minimized', String(next));
+      return next;
+    });
+  };
 
   // --- SQUAD STATE ---
   const [squadSearch, setSquadSearch] = useState('');
@@ -663,6 +680,15 @@ export default function TeamDashboard({
   const isRejected = verificationStatus === 'rejected';
   const isTeamLocked = Boolean(team.isLocked);
 
+  const completedStepsCount = useMemo(() => {
+    let count = 0;
+    if (squad.length >= 11) count++;
+    if (nextMatch?.isLineupSubmitted) count++;
+    if (fixtures.length > 0) count++;
+    if (team?.homeKitColor && team?.homeGround) count++;
+    return count;
+  }, [squad.length, nextMatch?.isLineupSubmitted, fixtures.length, team?.homeKitColor, team?.homeGround]);
+
   return (
     <div className="min-h-screen bg-[#0A0C10] text-slate-100 flex flex-col font-sans pb-24 lg:pb-12 selection:bg-[#00E676] selection:text-black">
       
@@ -809,6 +835,18 @@ export default function TeamDashboard({
 
           {/* Header Action Controls */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGuideModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold transition-all cursor-pointer shadow-sm relative"
+              title="Open Team Manager Guide & Instructions"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Manager Guide</span>
+              {squad.length < 11 && (
+                <span className="w-2 h-2 rounded-full bg-[#00E676] animate-ping" />
+              )}
+            </button>
+
             {isAdminImpersonating && (
               <button
                 onClick={handleReturnToAdmin}
@@ -1021,6 +1059,238 @@ export default function TeamDashboard({
             {/* ========================================================= */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
+
+                {/* Manager Quick-Start & Action Guide Card */}
+                <div className="rounded-3xl border border-[#232838] bg-gradient-to-br from-[#121622] via-[#0E121B] to-[#0A0D14] p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-[#00E676]/5 rounded-full blur-3xl pointer-events-none" />
+
+                  {/* Top Bar of the Card */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] shadow-lg shadow-[#00E676]/10 shrink-0">
+                        <Sparkles className="w-5 h-5 text-[#00E676]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-display font-black text-white text-base tracking-tight">
+                            Manager Action Guide & Checklist
+                          </h3>
+                          <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
+                            completedStepsCount === 4
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : 'bg-[#00E676]/15 text-[#00E676] border-[#00E676]/30'
+                          }`}>
+                            {completedStepsCount} of 4 Ready ({Math.round((completedStepsCount / 4) * 100)}%)
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {squad.length < 11
+                            ? 'Action required: Register your players and prepare your matchday lineup.'
+                            : 'Follow these 4 essential steps to manage your squad, fixtures, and starting XI.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <button
+                        onClick={() => setShowGuideModal(true)}
+                        className="px-3 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        title="Open detailed guide with instructions and rules"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>View Instructions</span>
+                      </button>
+
+                      <button
+                        onClick={toggleGuideMinimized}
+                        className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 text-xs transition-colors cursor-pointer"
+                        title={guideMinimized ? "Expand Checklist" : "Minimize Checklist"}
+                      >
+                        {guideMinimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expandable Step Items */}
+                  {!guideMinimized && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5 pt-4 border-t border-white/5 relative z-10 animate-in fade-in duration-200">
+                      
+                      {/* Step 1: Register Squad Players */}
+                      <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                        squad.length >= 11
+                          ? 'bg-[#0B1017] border-emerald-500/20'
+                          : 'bg-[#151B28] border-amber-500/40 shadow-lg shadow-amber-500/5'
+                      }`}>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 rounded-full bg-white/10 text-white font-mono text-xs font-bold flex items-center justify-center">
+                              1
+                            </span>
+                            {squad.length >= 11 ? (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Ready ({squad.length})</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold animate-pulse">
+                                Step 1 Needed
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">1. Register Squad</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                              {squad.length === 0
+                                ? 'Add at least 11 players with names, jersey numbers, and photos.'
+                                : squad.length < 11
+                                ? `${squad.length}/11 players registered. Need ${11 - squad.length} more.`
+                                : `${squad.length} players registered (up to 35 max).`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setActiveTab('squad');
+                            if (squad.length < maxSquadSize) setShowAddPlayerModal(true);
+                          }}
+                          className={`mt-3 w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            squad.length >= 11
+                              ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                              : 'bg-[#00E676] hover:bg-[#00c864] text-black font-black shadow-md shadow-[#00E676]/20'
+                          }`}
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>{squad.length === 0 ? '+ Register First Player' : squad.length < 11 ? '+ Add Players' : 'Manage Squad'}</span>
+                        </button>
+                      </div>
+
+                      {/* Step 2: Prepare Starting 11 Lineup */}
+                      <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                        nextMatch?.isLineupSubmitted
+                          ? 'bg-[#0B1017] border-emerald-500/20'
+                          : squad.length < 11
+                          ? 'bg-[#0E121B] border-white/5 opacity-70'
+                          : 'bg-[#151B28] border-amber-500/40 shadow-lg shadow-amber-500/5'
+                      }`}>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 rounded-full bg-white/10 text-white font-mono text-xs font-bold flex items-center justify-center">
+                              2
+                            </span>
+                            {nextMatch?.isLineupSubmitted ? (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Submitted</span>
+                              </span>
+                            ) : squad.length < 11 ? (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 font-bold">
+                                Locked
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold animate-pulse">
+                                Step 2 Needed
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">2. Set Starting 11</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                              {squad.length < 11
+                                ? 'Unlock by registering at least 11 players first.'
+                                : nextMatch?.isLineupSubmitted
+                                ? 'Lineup locked in and submitted to officials.'
+                                : 'Choose formation, starting 11 players, and Captain (C).'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (squad.length < 11) {
+                              notify('Register at least 11 players before preparing lineup.', 'error');
+                              setActiveTab('squad');
+                              setShowAddPlayerModal(true);
+                              return;
+                            }
+                            if (nextMatch) setSelectedFixtureId(nextMatch._id);
+                            setActiveTab('lineup');
+                          }}
+                          disabled={squad.length < 11}
+                          className={`mt-3 w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+                            nextMatch?.isLineupSubmitted
+                              ? 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                              : squad.length < 11
+                              ? 'bg-white/5 text-slate-500 border border-white/5'
+                              : 'bg-[#00E676] hover:bg-[#00c864] text-black font-black shadow-md shadow-[#00E676]/20'
+                          }`}
+                        >
+                          <Shirt className="w-3.5 h-3.5" />
+                          <span>{nextMatch?.isLineupSubmitted ? 'Review Starting XI' : 'Pick Starting 11'}</span>
+                        </button>
+                      </div>
+
+                      {/* Step 3: Match Schedule & Dates */}
+                      <div className="p-4 rounded-2xl bg-[#0B1017] border border-white/5 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 rounded-full bg-white/10 text-white font-mono text-xs font-bold flex items-center justify-center">
+                              3
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold">
+                              Schedule
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">3. Match Schedule</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                              {nextMatch
+                                ? `${nextMatch.date} (${nextMatch.time}) vs ${nextMatch.opponent?.shortCode || 'Opponent'}`
+                                : 'Track all league match dates, kickoffs, and venues.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setActiveTab('matches')}
+                          className="mt-3 w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>View Fixtures</span>
+                        </button>
+                      </div>
+
+                      {/* Step 4: Kit Colors & Home Ground */}
+                      <div className="p-4 rounded-2xl bg-[#0B1017] border border-white/5 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="w-6 h-6 rounded-full bg-white/10 text-white font-mono text-xs font-bold flex items-center justify-center">
+                              4
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold">
+                              Identity
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">4. Kit & Colors</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                              Verify your official jersey colors and venue to prevent kit clashes on matchday.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setActiveTab('settings')}
+                          className="mt-3 w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Palette className="w-3.5 h-3.5" />
+                          <span>Kit Settings</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
                 
                 {/* Next Match Hero Card */}
                 {nextMatch ? (
@@ -1543,13 +1813,55 @@ export default function TeamDashboard({
 
                 {/* Roster Cards List */}
                 {filteredSquad.length === 0 ? (
-                  <div className="py-20 text-center rounded-3xl bg-[#121622] border border-[#232838] space-y-3">
-                    <Users className="w-10 h-10 text-slate-600 mx-auto" />
-                    <h4 className="text-sm font-bold text-white">No players found</h4>
-                    <p className="text-xs text-slate-400">
-                      {squad.length === 0 ? 'Your squad roster is empty. Register your players to prepare for matchday.' : 'No players match your search filter.'}
-                    </p>
-                  </div>
+                  squad.length === 0 ? (
+                    <div className="rounded-3xl p-8 sm:p-10 bg-gradient-to-br from-[#121622] via-[#0E121B] to-[#0A0D14] border border-[#232838] text-center space-y-4 shadow-xl">
+                      <div className="w-16 h-16 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] mx-auto shadow-lg shadow-[#00E676]/10">
+                        <UserPlus className="w-8 h-8" />
+                      </div>
+                      <div className="max-w-md mx-auto space-y-2">
+                        <h4 className="font-display font-black text-white text-lg">
+                          Your Squad Roster is Currently Empty
+                        </h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          To participate in the championship and unlock the matchday lineup builder, you need to add your players. You need at least 11 players and can register up to {maxSquadSize}.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <button
+                          onClick={() => {
+                            if (!isApproved) {
+                              notify('Locked: Awaiting Admin Verification. You will receive an email once approved.', 'error');
+                              return;
+                            }
+                            if (isRegistrationClosed) {
+                              notify('Player registration is locked. The transfer window will open immediately after Leg 1 concludes.', 'error');
+                              return;
+                            }
+                            setShowAddPlayerModal(true);
+                          }}
+                          className="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#00E676]/20 cursor-pointer"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>Register First Player</span>
+                        </button>
+                        <button
+                          onClick={() => setShowGuideModal(true)}
+                          className="px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <BookOpen className="w-4 h-4 text-[#00E676]" />
+                          <span>How It Works Guide</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-20 text-center rounded-3xl bg-[#121622] border border-[#232838] space-y-3">
+                      <Users className="w-10 h-10 text-slate-600 mx-auto" />
+                      <h4 className="text-sm font-bold text-white">No players found</h4>
+                      <p className="text-xs text-slate-400">
+                        No players match your search filter. Try adjusting your search query or position filter.
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredSquad.map(player => {
@@ -1684,6 +1996,62 @@ export default function TeamDashboard({
             {/* ========================================================= */}
             {activeTab === 'lineup' && (
               <div className="space-y-6">
+
+                {/* Manager Lineup Guidance / Squad Warning Banner */}
+                {squad.length < 11 ? (
+                  <div className="p-4 md:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                          Squad Size Incomplete ({squad.length} / 11 Players)
+                        </h4>
+                        <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                          Official league regulations require a minimum of 11 registered players before you can submit a starting lineup for any matchday. Please register your remaining players first.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          setActiveTab('squad');
+                          setShowAddPlayerModal(true);
+                        }}
+                        className="btn-primary px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Register Players</span>
+                      </button>
+                      <button
+                        onClick={() => setShowGuideModal(true)}
+                        className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-[#00E676]" />
+                        <span>Lineup Guide</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 md:p-4 rounded-2xl bg-[#121622] border border-[#232838] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#00E676]/10 text-[#00E676] flex items-center justify-center shrink-0">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        <span className="font-bold text-white">How to build your Starting 11:</span> Select a formation, pick 11 starters on the tactical pitch, tap any starter to designate your matchday Captain <span className="text-amber-400 font-bold">(©)</span>, pick your bench, and tap <span className="text-[#00E676] font-bold">Lock In & Submit</span>.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowGuideModal(true)}
+                      className="text-xs font-bold text-[#00E676] hover:underline shrink-0 flex items-center gap-1 px-2 py-1 cursor-pointer"
+                    >
+                      <span>Full Guide</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 
                 {/* Match Selector & Lineup Meta */}
                 <div className="bg-[#121622] border border-[#232838] p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2394,6 +2762,27 @@ export default function TeamDashboard({
           onClose={() => setSelectedPlayerForDossier(null)}
         />
       )}
+
+      {/* ========================================================= */}
+      {/* MODAL 6: MANAGER ONBOARDING & MATCHDAY GUIDE */}
+      {/* ========================================================= */}
+      <ManagerGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onGoToAddPlayer={() => {
+          setActiveTab('squad');
+          setShowAddPlayerModal(true);
+        }}
+        onGoToLineup={() => {
+          setActiveTab('lineup');
+        }}
+        onGoToSettings={() => {
+          setActiveTab('settings');
+        }}
+        squadCount={squad.length}
+        maxSquadSize={maxSquadSize}
+        nextMatch={nextMatch}
+      />
 
     </div>
   );
