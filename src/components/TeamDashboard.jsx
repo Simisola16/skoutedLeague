@@ -2523,7 +2523,7 @@ export default function TeamDashboard({
                               </div>
                             )}
 
-                            {!isPast && !fix.isLocked && (
+                            {!isPast && (
                               <button
                                 onClick={() => {
                                   setSelectedFixtureId(fix._id);
@@ -2531,7 +2531,7 @@ export default function TeamDashboard({
                                 }}
                                 className="text-xs text-[#00E676] hover:underline font-bold mt-1 block"
                               >
-                                Submit Starting XI →
+                                {fix.isLocked ? 'Modify / Edit Starting XI →' : 'Submit Starting XI →'}
                               </button>
                             )}
                           </div>

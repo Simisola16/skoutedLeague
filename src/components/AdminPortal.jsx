@@ -619,11 +619,32 @@ export default function AdminPortal({ onExit }) {
   };
 
   // Helper to extract player details from startingXI or bench slot
-  const resolveLineupPlayer = (slot) => {
+  const resolveLineupPlayer = (slot, teamObj = null) => {
     if (!slot) return { jerseyNumber: '?', name: 'Player', position: 'MID', isCaptain: false, raw: {} };
-    const p = (slot.player && typeof slot.player === 'object') ? slot.player : (typeof slot === 'object' ? slot : {});
+    let p = (slot.player && typeof slot.player === 'object') ? slot.player : (typeof slot === 'object' && (slot.firstName || slot.name) ? slot : {});
+
+    // If player object is incomplete or just an ID string, find in team squad or all teams
+    const playerId = typeof slot.player === 'string' ? slot.player : (p._id || slot.playerId);
+    if ((!p.firstName && !p.lastName && !p.name) && playerId) {
+      const squad = teamObj?.squad || [];
+      let found = squad.find(sp => String(sp._id || sp.id) === String(playerId));
+      if (!found && Array.isArray(teams)) {
+        for (const t of teams) {
+          if (t.squad && Array.isArray(t.squad)) {
+            found = t.squad.find(sp => String(sp._id || sp.id) === String(playerId));
+            if (found) break;
+          }
+        }
+      }
+      if (found) {
+        p = { ...found, ...p };
+      }
+    }
+
     const jerseyNumber = p.jerseyNumber !== undefined && p.jerseyNumber !== null ? p.jerseyNumber : (slot.jerseyNumber !== undefined ? slot.jerseyNumber : '?');
-    const name = p.name || (p.firstName || p.lastName ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : (slot.name || `${slot.firstName || ''} ${slot.lastName || ''}`.trim() || `Player #${jerseyNumber}`));
+    const fullName = p.name || (p.firstName || p.lastName ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '');
+    const fallbackName = slot.name || (slot.firstName || slot.lastName ? `${slot.firstName || ''} ${slot.lastName || ''}`.trim() : '');
+    const name = fullName || fallbackName || (jerseyNumber !== '?' ? `Player #${jerseyNumber}` : 'Player');
     const position = slot.position || p.position || 'MID';
     const isCaptain = !!(slot.isCaptain || p.isCaptain);
     return {
@@ -637,11 +658,13 @@ export default function AdminPortal({ onExit }) {
 
   // Open Lineup Inspection Modal (fetches deeply populated fixture)
   const handleOpenInspectLineups = async (fixtureItem) => {
+    if (!fixtureItem) return;
     setInspectingFixtureLineups(fixtureItem);
     try {
       const res = await api.getFixture(fixtureItem._id);
-      if (res && res.success && res.data) {
-        setInspectingFixtureLineups(res.data);
+      const fixtureData = res?.data?.fixture || res?.fixture || (res?.data?._id ? res.data : null);
+      if (fixtureData && (fixtureData._id || fixtureData.homeTeam)) {
+        setInspectingFixtureLineups(prev => ({ ...(prev || {}), ...fixtureData }));
       }
     } catch (err) {
       console.error('[Open Lineup Inspection Error]:', err);
@@ -5105,283 +5128,313 @@ export default function AdminPortal({ onExit }) {
       {/* ========================================================= */}
       {/* MODAL 3: MATCHDAY LINEUP INSPECTION MODAL */}
       {/* ========================================================= */}
-      {inspectingFixtureLineups && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
-          <div className="bg-[#10131C] border border-[#232838] w-full max-w-4xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col">
-            
-            {/* Modal Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-[#00E676]" />
-                  <h3 className="font-extrabold text-base text-white">Matchday Starting XI & Bench Inspection</h3>
+      {inspectingFixtureLineups && (() => {
+        const homeTeamObj = (typeof inspectingFixtureLineups.homeTeam === 'object' && inspectingFixtureLineups.homeTeam !== null)
+          ? inspectingFixtureLineups.homeTeam
+          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) || { name: inspectingFixtureLineups.homeTeamName || 'Home Team', shortCode: '' };
+
+        const awayTeamObj = (typeof inspectingFixtureLineups.awayTeam === 'object' && inspectingFixtureLineups.awayTeam !== null)
+          ? inspectingFixtureLineups.awayTeam
+          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) || { name: inspectingFixtureLineups.awayTeamName || 'Away Team', shortCode: '' };
+
+        const homeName = homeTeamObj.name || inspectingFixtureLineups.homeTeamName || 'Home Club';
+        const awayName = awayTeamObj.name || inspectingFixtureLineups.awayTeamName || 'Away Club';
+        const homeCode = homeTeamObj.shortCode || '';
+        const awayCode = awayTeamObj.shortCode || '';
+
+        const homeStarting = inspectingFixtureLineups.homeLineup?.startingXI || [];
+        const homeBench = inspectingFixtureLineups.homeLineup?.bench || [];
+        const awayStarting = inspectingFixtureLineups.awayLineup?.startingXI || [];
+        const awayBench = inspectingFixtureLineups.awayLineup?.bench || [];
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
+            <div className="bg-[#10131C] border border-[#232838] w-full max-w-4xl rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 my-auto max-h-[92vh] flex flex-col">
+              
+              {/* Modal Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-5 h-5 text-[#00E676]" />
+                    <h3 className="font-extrabold text-base text-white">Matchday Starting XI & Bench Inspection</h3>
+                  </div>
+                  <div className="text-xs text-slate-400 font-mono mt-0.5">
+                    {homeName} vs {awayName} • {inspectingFixtureLineups.date || 'Upcoming'} at {inspectingFixtureLineups.time || 'TBD'} ({inspectingFixtureLineups.venue || 'Stadium'})
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 font-mono mt-0.5">
-                  {inspectingFixtureLineups.homeTeam?.name} vs {inspectingFixtureLineups.awayTeam?.name} • {inspectingFixtureLineups.date} at {inspectingFixtureLineups.time} ({inspectingFixtureLineups.venue})
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleSendLineupReminder(inspectingFixtureLineups._id)}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Resend Lineup Reminder</span>
+                  </button>
+
+                  <button
+                    onClick={() => setInspectingFixtureLineups(null)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleSendLineupReminder(inspectingFixtureLineups._id)}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Mail className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Resend Lineup Reminder</span>
-                </button>
+              {/* Side-by-Side Lineup Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
+                
+                {/* Home Team Column */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {homeTeamObj.logo && (
+                        <img src={homeTeamObj.logo} alt="" className="w-5 h-5 rounded-full object-contain shrink-0" />
+                      )}
+                      <span className="font-bold text-white text-sm truncate">{homeName}</span>
+                      {homeCode && (
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0">({homeCode})</span>
+                      )}
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      inspectingFixtureLineups.homeLineup?.isLocked
+                        ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {inspectingFixtureLineups.homeLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
+                    </span>
+                  </div>
 
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Starting XI ({homeStarting.length}/11)
+                    </div>
+                    {homeStarting.length === 0 ? (
+                      <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                        No Starting XI submitted yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {homeStarting.map((slot, idx) => {
+                          const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPlayerForDetails({
+                                  ...raw,
+                                  firstName: raw.firstName || name.split(' ')[0],
+                                  lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                  jerseyNumber,
+                                  position,
+                                  team: homeTeamObj
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                              title="Click to view full player details & stats"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
+                                <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
+                                  {name}
+                                </span>
+                                {isCaptain && (
+                                  <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
+                                    C
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                                  {position}
+                                </span>
+                                <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Bench */}
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                      Substitutes / Bench ({homeBench.length})
+                    </div>
+                    {homeBench.length === 0 ? (
+                      <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                        No substitutes listed.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {homeBench.map((slot, idx) => {
+                          const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPlayerForDetails({
+                                  ...raw,
+                                  firstName: raw.firstName || name.split(' ')[0],
+                                  lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                  jerseyNumber,
+                                  position,
+                                  team: homeTeamObj
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                              title="Click to view full player details & stats"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
+                                <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                                  {position}
+                                </span>
+                                <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Away Team Column */}
+                <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {awayTeamObj.logo && (
+                        <img src={awayTeamObj.logo} alt="" className="w-5 h-5 rounded-full object-contain shrink-0" />
+                      )}
+                      <span className="font-bold text-white text-sm truncate">{awayName}</span>
+                      {awayCode && (
+                        <span className="text-[10px] font-mono text-slate-400 shrink-0">({awayCode})</span>
+                      )}
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      inspectingFixtureLineups.awayLineup?.isLocked
+                        ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {inspectingFixtureLineups.awayLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Starting XI ({awayStarting.length}/11)
+                    </div>
+                    {awayStarting.length === 0 ? (
+                      <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                        No Starting XI submitted yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {awayStarting.map((slot, idx) => {
+                          const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPlayerForDetails({
+                                  ...raw,
+                                  firstName: raw.firstName || name.split(' ')[0],
+                                  lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                  jerseyNumber,
+                                  position,
+                                  team: awayTeamObj
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                              title="Click to view full player details & stats"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
+                                <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
+                                  {name}
+                                </span>
+                                {isCaptain && (
+                                  <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
+                                    C
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                                  {position}
+                                </span>
+                                <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Bench */}
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                      Substitutes / Bench ({awayBench.length})
+                    </div>
+                    {awayBench.length === 0 ? (
+                      <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
+                        No substitutes listed.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {awayBench.map((slot, idx) => {
+                          const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPlayerForDetails({
+                                  ...raw,
+                                  firstName: raw.firstName || name.split(' ')[0],
+                                  lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                  jerseyNumber,
+                                  position,
+                                  team: awayTeamObj
+                                });
+                              }}
+                              className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                              title="Click to view full player details & stats"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
+                                <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                                  {position}
+                                </span>
+                                <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="pt-3 border-t border-white/10 flex items-center justify-end">
                 <button
                   onClick={() => setInspectingFixtureLineups(null)}
-                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  Close Inspector
                 </button>
               </div>
-            </div>
-
-            {/* Side-by-Side Lineup Comparison */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
-              
-              {/* Home Team Column */}
-              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-sm">{inspectingFixtureLineups.homeTeam?.name}</span>
-                    <span className="text-[10px] font-mono text-slate-400">({inspectingFixtureLineups.homeTeam?.shortCode})</span>
-                  </div>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                    inspectingFixtureLineups.homeLineup?.isLocked
-                      ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
-                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                  }`}>
-                    {inspectingFixtureLineups.homeLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Starting XI ({inspectingFixtureLineups.homeLineup?.startingXI?.length || 0}/11)
-                  </div>
-                  {(!inspectingFixtureLineups.homeLineup?.startingXI || inspectingFixtureLineups.homeLineup.startingXI.length === 0) ? (
-                    <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
-                      No Starting XI submitted yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {inspectingFixtureLineups.homeLineup.startingXI.map((slot, idx) => {
-                        const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setSelectedPlayerForDetails({
-                                ...raw,
-                                firstName: raw.firstName || name.split(' ')[0],
-                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
-                                jerseyNumber,
-                                position,
-                                team: inspectingFixtureLineups.homeTeam
-                              });
-                            }}
-                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
-                            title="Click to view full player details & stats"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
-                              <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
-                                {name}
-                              </span>
-                              {isCaptain && (
-                                <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
-                                  C
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
-                                {position}
-                              </span>
-                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Bench */}
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
-                    Substitutes / Bench ({inspectingFixtureLineups.homeLineup?.bench?.length || 0})
-                  </div>
-                  {(!inspectingFixtureLineups.homeLineup?.bench || inspectingFixtureLineups.homeLineup.bench.length === 0) ? (
-                    <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
-                      No substitutes listed.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {inspectingFixtureLineups.homeLineup.bench.map((slot, idx) => {
-                        const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setSelectedPlayerForDetails({
-                                ...raw,
-                                firstName: raw.firstName || name.split(' ')[0],
-                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
-                                jerseyNumber,
-                                position,
-                                team: inspectingFixtureLineups.homeTeam
-                              });
-                            }}
-                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
-                            title="Click to view full player details & stats"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
-                              <span className="group-hover:text-white transition-colors truncate">{name}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
-                                {position}
-                              </span>
-                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Away Team Column */}
-              <div className="p-4 rounded-2xl bg-[#090B10] border border-[#202536] space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-sm">{inspectingFixtureLineups.awayTeam?.name}</span>
-                    <span className="text-[10px] font-mono text-slate-400">({inspectingFixtureLineups.awayTeam?.shortCode})</span>
-                  </div>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                    inspectingFixtureLineups.awayLineup?.isLocked
-                      ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30'
-                      : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                  }`}>
-                    {inspectingFixtureLineups.awayLineup?.isLocked ? '✅ Lineup Locked' : '⏳ Pending Submission'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Starting XI ({inspectingFixtureLineups.awayLineup?.startingXI?.length || 0}/11)
-                  </div>
-                  {(!inspectingFixtureLineups.awayLineup?.startingXI || inspectingFixtureLineups.awayLineup.startingXI.length === 0) ? (
-                    <div className="p-4 rounded-xl bg-white/5 text-center text-xs text-slate-500">
-                      No Starting XI submitted yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {inspectingFixtureLineups.awayLineup.startingXI.map((slot, idx) => {
-                        const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setSelectedPlayerForDetails({
-                                ...raw,
-                                firstName: raw.firstName || name.split(' ')[0],
-                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
-                                jerseyNumber,
-                                position,
-                                team: inspectingFixtureLineups.awayTeam
-                              });
-                            }}
-                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
-                            title="Click to view full player details & stats"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
-                              <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
-                                {name}
-                              </span>
-                              {isCaptain && (
-                                <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
-                                  C
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
-                                {position}
-                              </span>
-                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Bench */}
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
-                    Substitutes / Bench ({inspectingFixtureLineups.awayLineup?.bench?.length || 0})
-                  </div>
-                  {(!inspectingFixtureLineups.awayLineup?.bench || inspectingFixtureLineups.awayLineup.bench.length === 0) ? (
-                    <div className="p-3 rounded-xl bg-white/5 text-center text-xs text-slate-500">
-                      No substitutes listed.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {inspectingFixtureLineups.awayLineup.bench.map((slot, idx) => {
-                        const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setSelectedPlayerForDetails({
-                                ...raw,
-                                firstName: raw.firstName || name.split(' ')[0],
-                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
-                                jerseyNumber,
-                                position,
-                                team: inspectingFixtureLineups.awayTeam
-                              });
-                            }}
-                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
-                            title="Click to view full player details & stats"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
-                              <span className="group-hover:text-white transition-colors truncate">{name}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
-                                {position}
-                              </span>
-                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
 
             </div>
-
-            <div className="pt-3 border-t border-white/10 flex items-center justify-end">
-              <button
-                onClick={() => setInspectingFixtureLineups(null)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
-              >
-                Close Inspector
-              </button>
-            </div>
-
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================= */}
       {/* MODAL 4: PRINTABLE OFFICIAL TEAM MATCH SHEET */}
