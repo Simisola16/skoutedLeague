@@ -171,6 +171,8 @@ export default function TeamDashboard({
   const [bench, setBench] = useState([]);
   const [showLockConfirmModal, setShowLockConfirmModal] = useState(false);
   const [lineupSubmitting, setLineupSubmitting] = useState(false);
+  const [changingSlotIndex, setChangingSlotIndex] = useState(null);
+  const [playerPickerSearch, setPlayerPickerSearch] = useState('');
 
   // --- SETTINGS STATE ---
   const [profileForm, setProfileForm] = useState({
@@ -359,6 +361,8 @@ export default function TeamDashboard({
     if (gk) {
       chosen.push({ playerId: gk._id, position: 'GK', gridX: slots[0].gridX, gridY: slots[0].gridY, isCaptain: false });
       usedIds.add(gk._id);
+    } else {
+      chosen.push({ playerId: null, position: slots[0].pos, gridX: slots[0].gridX, gridY: slots[0].gridY, isCaptain: false });
     }
 
     // 2. Assign Outfield Slots
@@ -374,11 +378,20 @@ export default function TeamDashboard({
           isCaptain: false
         });
         usedIds.add(candidate._id);
+      } else {
+        chosen.push({
+          playerId: null,
+          position: slot.pos,
+          gridX: slot.gridX,
+          gridY: slot.gridY,
+          isCaptain: false
+        });
       }
     });
 
     // 3. Mark Captain
-    if (chosen.length > 0) {
+    const assignedPlayers = chosen.filter(c => c.playerId);
+    if (assignedPlayers.length > 0) {
       // Prefer designated captain from squad
       const designatedCap = playersList.find(p => p.role === 'Captain' && usedIds.has(p._id));
       if (designatedCap) {
@@ -386,8 +399,8 @@ export default function TeamDashboard({
         if (idx !== -1) chosen[idx].isCaptain = true;
         setCaptainId(designatedCap._id);
       } else {
-        chosen[0].isCaptain = true;
-        setCaptainId(chosen[0].playerId);
+        assignedPlayers[0].isCaptain = true;
+        setCaptainId(assignedPlayers[0].playerId);
       }
     }
 
@@ -403,16 +416,114 @@ export default function TeamDashboard({
     setFormation(newForm);
     const slots = FORMATION_PRESETS[newForm] || FORMATION_PRESETS['4-3-3'];
     setStartingXI(prev => {
-      return prev.map((slot, idx) => {
-        const preset = slots[idx] || slots[slots.length - 1];
+      return slots.map((preset, idx) => {
+        const existing = prev[idx];
         return {
-          ...slot,
+          playerId: existing?.playerId || null,
           position: preset.pos,
           gridX: preset.gridX,
-          gridY: preset.gridY
+          gridY: preset.gridY,
+          isCaptain: existing?.playerId ? existing.playerId === captainId : false
         };
       });
     });
+  };
+
+  // -------------------------------------------------------------
+  // Player Slot Selection & Swap Handlers
+  // -------------------------------------------------------------
+  const handleSelectPlayerForSlot = (targetSlotIndex, newPlayerId) => {
+    if (targetSlotIndex === null || targetSlotIndex < 0 || targetSlotIndex >= startingXI.length) return;
+    const currentSlot = startingXI[targetSlotIndex];
+    const oldPlayerId = currentSlot.playerId;
+
+    if (oldPlayerId === newPlayerId) {
+      setChangingSlotIndex(null);
+      return;
+    }
+
+    const newPlayer = squad.find(p => p._id === newPlayerId);
+    const oldPlayer = squad.find(p => p._id === oldPlayerId);
+
+    // Case 1: If the selected player is ALREADY starting in another slot -> SWAP them!
+    const existingStarterIndex = startingXI.findIndex((s, idx) => idx !== targetSlotIndex && s.playerId === newPlayerId);
+    if (existingStarterIndex !== -1) {
+      setStartingXI(prev => {
+        const next = [...prev];
+        next[targetSlotIndex] = { ...next[targetSlotIndex], playerId: newPlayerId };
+        next[existingStarterIndex] = { ...next[existingStarterIndex], playerId: oldPlayerId };
+        return next;
+      });
+      notify(`Tactical Swap: #${newPlayer?.jerseyNumber || ''} ${newPlayer?.lastName || ''} swapped positions with #${oldPlayer?.jerseyNumber || ''} ${oldPlayer?.lastName || ''}`, 'success');
+      setChangingSlotIndex(null);
+      return;
+    }
+
+    // Case 2: If the selected player is on the bench or in the squad
+    const isNewPlayerOnBench = bench.some(b => b.playerId === newPlayerId);
+
+    // Update startingXI
+    setStartingXI(prev => {
+      const next = [...prev];
+      next[targetSlotIndex] = { ...next[targetSlotIndex], playerId: newPlayerId };
+      return next;
+    });
+
+    // If new player was on the bench, place the old player onto the bench
+    if (isNewPlayerOnBench) {
+      setBench(prev => {
+        const filtered = prev.filter(b => b.playerId !== newPlayerId);
+        if (oldPlayerId) {
+          return [...filtered, { playerId: oldPlayerId, position: oldPlayer?.position || 'SUB' }];
+        }
+        return filtered;
+      });
+    } else if (oldPlayerId) {
+      // If bench has space (< 7) and old player wasn't on bench, put old player on bench
+      setBench(prev => {
+        if (prev.length < 7 && !prev.some(b => b.playerId === oldPlayerId)) {
+          return [...prev, { playerId: oldPlayerId, position: oldPlayer?.position || 'SUB' }];
+        }
+        return prev;
+      });
+    }
+
+    // If old player was captain, assign new player as captain
+    if (oldPlayerId && captainId === oldPlayerId) {
+      setCaptainId(newPlayerId);
+    }
+
+    notify(`Assigned #${newPlayer?.jerseyNumber || ''} ${newPlayer?.lastName || ''} to ${currentSlot.position}`, 'success');
+    setChangingSlotIndex(null);
+  };
+
+  const handleClearSlot = (targetSlotIndex) => {
+    if (targetSlotIndex === null || targetSlotIndex < 0 || targetSlotIndex >= startingXI.length) return;
+    const currentSlot = startingXI[targetSlotIndex];
+    const oldPlayerId = currentSlot.playerId;
+    const oldPlayer = squad.find(p => p._id === oldPlayerId);
+
+    setStartingXI(prev => {
+      const next = [...prev];
+      next[targetSlotIndex] = { ...next[targetSlotIndex], playerId: null };
+      return next;
+    });
+
+    // Move unassigned player to bench if space available
+    if (oldPlayerId) {
+      setBench(prev => {
+        if (prev.length < 7 && !prev.some(b => b.playerId === oldPlayerId)) {
+          return [...prev, { playerId: oldPlayerId, position: oldPlayer?.position || 'SUB' }];
+        }
+        return prev;
+      });
+      if (captainId === oldPlayerId) {
+        setCaptainId('');
+      }
+    }
+
+    notify(`Removed player from ${currentSlot.position}`, 'success');
+    setChangingSlotIndex(null);
   };
 
   // -------------------------------------------------------------
@@ -532,12 +643,13 @@ export default function TeamDashboard({
       notify('Your team has been locked by tournament administration. Matchday lineup submission is suspended.', 'error');
       return;
     }
-    if (startingXI.length !== 11) {
-      notify(`11 Starting Players required! Currently: ${startingXI.length}`, 'error');
+    const assignedStarters = startingXI.filter(s => s.playerId);
+    if (assignedStarters.length !== 11) {
+      notify(`11 Starting Players required! Currently: ${assignedStarters.length}/11 assigned. Click any open position on the pitch to assign a player.`, 'error');
       return;
     }
-    if (!captainId) {
-      notify('You must designate 1 Captain among your starting 11 players', 'error');
+    if (!captainId || !assignedStarters.some(s => s.playerId === captainId)) {
+      notify('You must designate 1 Captain (©) among your starting 11 players', 'error');
       return;
     }
 
@@ -2123,7 +2235,7 @@ export default function TeamDashboard({
                         <h4 className="font-extrabold text-sm text-white">Starting XI Pitch Layout ({formation})</h4>
                       </div>
                       <span className="text-xs font-mono font-bold text-[#00E676]">
-                        {startingXI.length} / 11 Starters Selected
+                        {startingXI.filter(s => s.playerId).length} / 11 Starters Assigned
                       </span>
                     </div>
 
@@ -2139,47 +2251,58 @@ export default function TeamDashboard({
                       {/* Render Starting XI slots on pitch */}
                       {startingXI.map((slot, index) => {
                         const playerObj = squad.find(p => p._id === slot.playerId);
-                        const isCap = slot.playerId === captainId;
+                        const isCap = slot.playerId && slot.playerId === captainId;
 
                         return (
                           <div
                             key={index}
                             onClick={() => {
-                              // Designate captain on tap
-                              setCaptainId(slot.playerId);
+                              // Open player change/swap selector
+                              setChangingSlotIndex(index);
                             }}
                             className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer flex flex-col items-center group transition-transform duration-200 hover:scale-110 z-10"
                             style={{
                               left: `${slot.gridX}%`,
                               top: `${slot.gridY}%`
                             }}
-                            title="Click to set as Captain"
+                            title={playerObj ? `Click to change #${playerObj.jerseyNumber} ${playerObj.lastName} or swap position` : `Click to assign ${slot.position}`}
                           >
-                            <div
-                              className="w-9 h-9 rounded-full border-2 border-white flex items-center justify-center font-bold text-xs shadow-xl relative"
-                              style={{
-                                backgroundColor: slot.position === 'GK' ? '#FFB800' : (team.homeKitColor || '#00E676'),
-                                color: slot.position === 'GK' ? '#000000' : '#07120B'
-                              }}
-                            >
-                              {playerObj?.jerseyNumber || slot.position}
-                              {isCap && (
-                                <span className="absolute -top-1.5 -right-1.5 bg-[#FFB800] text-black text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-black shadow">
-                                  C
+                            {playerObj ? (
+                              <div
+                                className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center font-black text-xs shadow-xl relative group-hover:ring-4 group-hover:ring-[#00E676]/50 transition-all"
+                                style={{
+                                  backgroundColor: slot.position === 'GK' ? '#FFB800' : (team.homeKitColor || '#00E676'),
+                                  color: slot.position === 'GK' ? '#000000' : '#07120B'
+                                }}
+                              >
+                                {playerObj.jerseyNumber || slot.position}
+                                {isCap && (
+                                  <span className="absolute -top-1.5 -right-1.5 bg-[#FFB800] text-black text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-black shadow">
+                                    C
+                                  </span>
+                                )}
+                                <span className="absolute -bottom-1 -right-1 bg-black/90 text-[#00E676] text-[8px] p-0.5 rounded-full border border-white/30 opacity-70 group-hover:opacity-100 transition-opacity">
+                                  <ArrowRightLeft className="w-2.5 h-2.5" />
                                 </span>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 rounded-full border-2 border-dashed border-[#00E676]/60 bg-[#00E676]/10 flex flex-col items-center justify-center font-bold text-[10px] text-[#00E676] shadow-lg group-hover:bg-[#00E676]/20 group-hover:border-[#00E676] transition-all">
+                                <span>+</span>
+                                <span className="text-[9px] font-mono leading-none">{slot.position}</span>
+                              </div>
+                            )}
 
-                            <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center">
-                              {playerObj ? playerObj.lastName || playerObj.firstName : slot.position}
+                            <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center flex items-center gap-1 group-hover:border-[#00E676]/50 transition-colors">
+                              <span>{playerObj ? playerObj.lastName || playerObj.firstName : slot.position}</span>
                             </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="text-[11px] text-slate-400 text-center font-mono">
-                      💡 Tip: Click any player on the pitch to designate them as Captain 👑 (C).
+                    <div className="text-[11px] text-slate-300 text-center font-mono flex items-center justify-center gap-1.5">
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span>Click any position on the pitch or click <strong className="text-[#00E676]">"Change"</strong> in the list to substitute or swap players.</span>
                     </div>
                   </div>
 
@@ -2190,42 +2313,56 @@ export default function TeamDashboard({
                     <div className="bg-[#121622] border border-[#232838] rounded-3xl p-5 space-y-3">
                       <div className="flex items-center justify-between pb-2 border-b border-white/5">
                         <h4 className="font-extrabold text-sm text-white">Starting 11 Players</h4>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          {startingXI.length}/11 Selected
+                        <span className="text-[11px] font-mono text-[#00E676]">
+                          {startingXI.filter(s => s.playerId).length}/11 Assigned
                         </span>
                       </div>
 
-                      <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                      <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1">
                         {startingXI.map((slot, idx) => {
                           const player = squad.find(p => p._id === slot.playerId);
-                          const isCap = slot.playerId === captainId;
+                          const isCap = slot.playerId && slot.playerId === captainId;
 
                           return (
                             <div
                               key={idx}
-                              className="p-2 rounded-xl bg-[#090B10] border border-white/5 flex items-center justify-between text-xs"
+                              className="p-2 rounded-xl bg-[#090B10] border border-white/5 flex items-center justify-between text-xs gap-2 hover:border-white/20 transition-colors"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-5 font-mono font-black text-center text-[#00E676]">
-                                  #{player?.jerseyNumber || '?'}
+                                <span className="w-6 font-mono font-black text-center text-[#00E676]">
+                                  #{player?.jerseyNumber || '-'}
                                 </span>
                                 <span className="text-white font-semibold truncate">
-                                  {player?.firstName} {player?.lastName}
+                                  {player ? `${player.firstName} ${player.lastName}` : <span className="text-amber-400 italic font-normal">Unassigned</span>}
                                 </span>
-                                <span className="text-[10px] font-mono text-slate-400">({slot.position})</span>
+                                <span className="text-[10px] font-mono text-slate-400 shrink-0">({slot.position})</span>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => setCaptainId(slot.playerId)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-mono font-black transition-colors ${
-                                  isCap
-                                    ? 'bg-[#FFB800] text-black shadow'
-                                    : 'bg-white/5 text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                {isCap ? '👑 CAPTAIN' : 'SET (C)'}
-                              </button>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setChangingSlotIndex(idx)}
+                                  className="px-2 py-1 rounded-lg bg-[#00E676]/10 hover:bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                  title="Change / Swap Player"
+                                >
+                                  <ArrowRightLeft className="w-3 h-3" />
+                                  <span>Change</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => player && setCaptainId(player._id)}
+                                  disabled={!player}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-mono font-black transition-colors cursor-pointer disabled:opacity-30 ${
+                                    isCap
+                                      ? 'bg-[#FFB800] text-black shadow'
+                                      : 'bg-white/5 text-slate-400 hover:text-white'
+                                  }`}
+                                  title={isCap ? 'Designated Captain' : 'Set as Captain'}
+                                >
+                                  {isCap ? '👑 CAPTAIN' : 'SET (C)'}
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -2280,11 +2417,15 @@ export default function TeamDashboard({
                     {/* Lock In Lineup CTA Button */}
                     <button
                       onClick={() => setShowLockConfirmModal(true)}
-                      disabled={startingXI.length !== 11 || !captainId}
+                      disabled={startingXI.filter(s => s.playerId).length !== 11 || !captainId}
                       className="w-full btn-primary py-3 rounded-2xl font-black text-xs uppercase tracking-wider shadow-xl shadow-[#00E676]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <Lock className="w-4 h-4" />
-                      <span>Lock In & Submit Official Lineup</span>
+                      <span>
+                        {currentSelectedFixture?.isLocked || currentSelectedFixture?.myLineup?.isLocked
+                          ? 'Update & Re-Submit Official Lineup'
+                          : 'Lock In & Submit Official Lineup'}
+                      </span>
                     </button>
 
                   </div>
@@ -2784,6 +2925,309 @@ export default function TeamDashboard({
         maxSquadSize={maxSquadSize}
         nextMatch={nextMatch}
       />
+
+      {/* ========================================================= */}
+      {/* MODAL 7: CHANGE / SWAP STARTING XI PLAYER */}
+      {/* ========================================================= */}
+      {changingSlotIndex !== null && startingXI[changingSlotIndex] && (() => {
+        const slot = startingXI[changingSlotIndex];
+        const currentStarter = squad.find(p => p._id === slot.playerId);
+        const isCap = slot.playerId && slot.playerId === captainId;
+        const formationPreset = FORMATION_PRESETS[formation]?.[changingSlotIndex] || { label: slot.position };
+
+        // Other starters that can be swapped with
+        const otherStarters = startingXI
+          .map((s, idx) => ({ ...s, slotIndex: idx }))
+          .filter(s => s.slotIndex !== changingSlotIndex && s.playerId);
+
+        // Eligible squad players (bench + unassigned)
+        const currentStarterIds = new Set(startingXI.map(s => s.playerId).filter(Boolean));
+        const availableSquad = squad.filter(p => {
+          if (p._id === slot.playerId) return false;
+          if (p.isEligible === false) return false;
+          // Filter by search if typed
+          if (playerPickerSearch.trim()) {
+            const query = playerPickerSearch.toLowerCase();
+            const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+            const num = String(p.jerseyNumber || '');
+            const pos = String(p.position || '').toLowerCase();
+            return fullName.includes(query) || num.includes(query) || pos.includes(query);
+          }
+          return true;
+        });
+
+        // Recommended players (same position category: GK, DEF, MID, FWD)
+        const isMatchPos = (pPos, sPos) => {
+          if (sPos === 'GK') return pPos === 'GK';
+          if (['LB', 'RB', 'CB', 'RWB', 'LWB', 'DEF'].includes(sPos)) return ['DEF', 'LB', 'RB', 'CB'].includes(pPos);
+          if (['CDM', 'CM', 'CAM', 'LM', 'RM', 'MID'].includes(sPos)) return ['MID', 'CDM', 'CM', 'CAM', 'LM', 'RM'].includes(pPos);
+          if (['LW', 'RW', 'ST', 'CF', 'FWD'].includes(sPos)) return ['FWD', 'ST', 'LW', 'RW', 'CF'].includes(pPos);
+          return false;
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+            <div 
+              className="relative w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-[#0E121B] border border-[#232838] shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-[#232838] bg-gradient-to-r from-[#141A28] via-[#0E121B] to-[#121824] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676] font-mono font-black text-xs shrink-0 shadow-lg shadow-[#00E676]/10">
+                    {slot.position}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display font-black text-white text-base tracking-tight truncate">
+                        Position: {formationPreset.label || slot.position} ({slot.position})
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/30">
+                        Starting XI Slot
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      {currentStarter ? (
+                        <>Current: <strong className="text-white">#{currentStarter.jerseyNumber} {currentStarter.firstName} {currentStarter.lastName}</strong> ({currentStarter.position})</>
+                      ) : (
+                        <span className="text-amber-400 font-bold">Unassigned slot • Pick a player below</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setChangingSlotIndex(null);
+                    setPlayerPickerSearch('');
+                  }}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Current Starter Quick Controls */}
+              {currentStarter && (
+                <div className="px-5 py-3 bg-[#0A0D14] border-b border-white/5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCaptainId(currentStarter._id);
+                        notify(`Designated #${currentStarter.jerseyNumber} ${currentStarter.lastName} as Team Captain (©)!`, 'success');
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        isCap
+                          ? 'bg-[#FFB800] text-black shadow-md'
+                          : 'bg-white/5 hover:bg-[#FFB800]/20 text-slate-300 hover:text-[#FFB800] border border-white/10'
+                      }`}
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      <span>{isCap ? '👑 Team Captain (©)' : 'Make Team Captain (©)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleClearSlot(changingSlotIndex)}
+                      className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                      title="Remove player from starting XI and send to bench"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] font-mono text-slate-500">
+                    Tap any player below to replace
+                  </span>
+                </div>
+              )}
+
+              {/* Search filter */}
+              <div className="p-4 border-b border-white/5 bg-[#0D1018]">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={playerPickerSearch}
+                    onChange={(e) => setPlayerPickerSearch(e.target.value)}
+                    placeholder="Search replacement player by name, jersey number, or position..."
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#090B10] border border-[#232838] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#00E676]"
+                  />
+                  {playerPickerSearch && (
+                    <button
+                      onClick={() => setPlayerPickerSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Body / Player List */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+
+                {/* Section A: Available Squad & Substitutes */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-[#00E676]" />
+                      <span>Available Squad & Substitutes ({availableSquad.length})</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      Click to substitute into {slot.position}
+                    </span>
+                  </div>
+
+                  {availableSquad.length === 0 ? (
+                    <div className="p-6 rounded-2xl bg-[#090B10] border border-white/5 text-center space-y-1 text-slate-400 text-xs">
+                      <p>No eligible replacement players found.</p>
+                      <p className="text-[11px] text-slate-500">All available squad players may already be assigned or registered.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {availableSquad.map(player => {
+                        const isBench = bench.some(b => b.playerId === player._id);
+                        const isRecommended = isMatchPos(player.position, slot.position);
+
+                        return (
+                          <div
+                            key={player._id}
+                            onClick={() => handleSelectPlayerForSlot(changingSlotIndex, player._id)}
+                            className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 group ${
+                              isRecommended
+                                ? 'bg-[#0E1520] hover:bg-[#121E2E] border-[#00E676]/30 hover:border-[#00E676]'
+                                : 'bg-[#090B10] hover:bg-[#121622] border-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {/* Jersey badge */}
+                              <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-mono font-black text-sm text-[#00E676] shrink-0 group-hover:scale-105 transition-transform">
+                                #{player.jerseyNumber}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-white text-xs truncate group-hover:text-[#00E676] transition-colors">
+                                    {player.firstName} {player.lastName}
+                                  </span>
+                                  {player.role === 'Captain' && (
+                                    <span className="text-[9px] font-black text-amber-400">👑</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                                    player.position === 'GK'
+                                      ? 'bg-amber-500/20 text-amber-300'
+                                      : 'bg-white/10 text-slate-300'
+                                  }`}>
+                                    {player.position}
+                                  </span>
+                                  {isBench && (
+                                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/15 px-1.5 py-0.2 rounded">
+                                      Bench
+                                    </span>
+                                  )}
+                                  {isRecommended && (
+                                    <span className="text-[10px] font-bold text-[#00E676]">
+                                      ★ Recommended
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 rounded-xl bg-[#00E676]/10 group-hover:bg-[#00E676] text-[#00E676] group-hover:text-black font-black text-[11px] uppercase tracking-wider shrink-0 transition-all flex items-center gap-1"
+                            >
+                              <ArrowRightLeft className="w-3 h-3" />
+                              <span>Sub In</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section B: Swap Position with Another Starter */}
+                {otherStarters.length > 0 && (
+                  <div className="space-y-3 pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Swap With Another Starter ({otherStarters.length})</span>
+                      </h4>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        Swaps both players' pitch positions
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {otherStarters.map(other => {
+                        const otherPlayer = squad.find(p => p._id === other.playerId);
+                        if (!otherPlayer) return null;
+
+                        return (
+                          <div
+                            key={other.slotIndex}
+                            onClick={() => handleSelectPlayerForSlot(changingSlotIndex, otherPlayer._id)}
+                            className="p-2.5 rounded-2xl bg-[#090B10] hover:bg-[#121622] border border-white/5 hover:border-blue-500/40 transition-all cursor-pointer flex items-center justify-between gap-2 group"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs font-mono font-black text-blue-400 w-10 shrink-0">
+                                {other.position}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-white truncate group-hover:text-blue-300">
+                                  #{otherPlayer.jerseyNumber} {otherPlayer.lastName}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  Natural: {otherPlayer.position}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="px-2.5 py-1 rounded-lg bg-blue-500/10 group-hover:bg-blue-500 text-blue-400 group-hover:text-black font-black text-[10px] uppercase tracking-wider shrink-0 transition-all flex items-center gap-1"
+                            >
+                              <ArrowRightLeft className="w-2.5 h-2.5" />
+                              <span>Swap</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-[#232838] bg-[#0A0D14] flex items-center justify-between">
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Tactical changes take effect immediately on your pitch
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangingSlotIndex(null);
+                    setPlayerPickerSearch('');
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
