@@ -618,6 +618,36 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
+  // Helper to extract player details from startingXI or bench slot
+  const resolveLineupPlayer = (slot) => {
+    if (!slot) return { jerseyNumber: '?', name: 'Player', position: 'MID', isCaptain: false, raw: {} };
+    const p = (slot.player && typeof slot.player === 'object') ? slot.player : (typeof slot === 'object' ? slot : {});
+    const jerseyNumber = p.jerseyNumber !== undefined && p.jerseyNumber !== null ? p.jerseyNumber : (slot.jerseyNumber !== undefined ? slot.jerseyNumber : '?');
+    const name = p.name || (p.firstName || p.lastName ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : (slot.name || `${slot.firstName || ''} ${slot.lastName || ''}`.trim() || `Player #${jerseyNumber}`));
+    const position = slot.position || p.position || 'MID';
+    const isCaptain = !!(slot.isCaptain || p.isCaptain);
+    return {
+      jerseyNumber,
+      name,
+      position,
+      isCaptain,
+      raw: p
+    };
+  };
+
+  // Open Lineup Inspection Modal (fetches deeply populated fixture)
+  const handleOpenInspectLineups = async (fixtureItem) => {
+    setInspectingFixtureLineups(fixtureItem);
+    try {
+      const res = await api.getFixture(fixtureItem._id);
+      if (res && res.success && res.data) {
+        setInspectingFixtureLineups(res.data);
+      }
+    } catch (err) {
+      console.error('[Open Lineup Inspection Error]:', err);
+    }
+  };
+
   // Send Urgent Lineup Reminder Email
   const handleSendLineupReminder = async (fixtureId, teamId = null) => {
     setLineupReminderStatus(prev => ({
@@ -3068,7 +3098,7 @@ export default function AdminPortal({ onExit }) {
                             </button>
 
                             <button
-                              onClick={() => setInspectingFixtureLineups(f)}
+                              onClick={() => handleOpenInspectLineups(f)}
                               className="px-3 py-1.5 rounded-xl bg-[#1C2030] hover:bg-[#252B40] text-xs font-bold text-slate-200 hover:text-white border border-[#2B3145] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                               title="Inspect both teams' Starting XI & Bench"
                             >
@@ -5138,34 +5168,44 @@ export default function AdminPortal({ onExit }) {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {inspectingFixtureLineups.homeLineup.startingXI.map((p, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setSelectedPlayerForDetails({
-                              ...p,
-                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
-                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
-                              team: inspectingFixtureLineups.homeTeam
-                            });
-                          }}
-                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
-                          title="Click to view full player details & stats"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 text-center font-mono font-black text-[#00E676]">#{p.jerseyNumber}</span>
-                            <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors">
-                              {p.name || `${p.firstName} ${p.lastName}`}
-                            </span>
+                      {inspectingFixtureLineups.homeLineup.startingXI.map((slot, idx) => {
+                        const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedPlayerForDetails({
+                                ...raw,
+                                firstName: raw.firstName || name.split(' ')[0],
+                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                jerseyNumber,
+                                position,
+                                team: inspectingFixtureLineups.homeTeam
+                              });
+                            }}
+                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                            title="Click to view full player details & stats"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
+                              <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
+                                {name}
+                              </span>
+                              {isCaptain && (
+                                <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
+                                  C
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                                {position}
+                              </span>
+                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
-                              {p.position || 'MID'}
-                            </span>
-                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -5179,32 +5219,37 @@ export default function AdminPortal({ onExit }) {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {inspectingFixtureLineups.homeLineup.bench.map((p, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setSelectedPlayerForDetails({
-                              ...p,
-                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
-                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
-                              team: inspectingFixtureLineups.homeTeam
-                            });
-                          }}
-                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
-                          title="Click to view full player details & stats"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 text-center font-mono font-bold text-slate-400">#{p.jerseyNumber}</span>
-                            <span className="group-hover:text-white transition-colors">{p.name || `${p.firstName} ${p.lastName}`}</span>
+                      {inspectingFixtureLineups.homeLineup.bench.map((slot, idx) => {
+                        const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedPlayerForDetails({
+                                ...raw,
+                                firstName: raw.firstName || name.split(' ')[0],
+                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                jerseyNumber,
+                                position,
+                                team: inspectingFixtureLineups.homeTeam
+                              });
+                            }}
+                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                            title="Click to view full player details & stats"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
+                              <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                                {position}
+                              </span>
+                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
-                              {p.position || 'SUB'}
-                            </span>
-                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -5236,34 +5281,44 @@ export default function AdminPortal({ onExit }) {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {inspectingFixtureLineups.awayLineup.startingXI.map((p, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setSelectedPlayerForDetails({
-                              ...p,
-                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
-                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
-                              team: inspectingFixtureLineups.awayTeam
-                            });
-                          }}
-                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
-                          title="Click to view full player details & stats"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 text-center font-mono font-black text-[#00E676]">#{p.jerseyNumber}</span>
-                            <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors">
-                              {p.name || `${p.firstName} ${p.lastName}`}
-                            </span>
+                      {inspectingFixtureLineups.awayLineup.startingXI.map((slot, idx) => {
+                        const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedPlayerForDetails({
+                                ...raw,
+                                firstName: raw.firstName || name.split(' ')[0],
+                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                jerseyNumber,
+                                position,
+                                team: inspectingFixtureLineups.awayTeam
+                              });
+                            }}
+                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs cursor-pointer transition-all group"
+                            title="Click to view full player details & stats"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 text-center font-mono font-black text-[#00E676] shrink-0">#{jerseyNumber}</span>
+                              <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
+                                {name}
+                              </span>
+                              {isCaptain && (
+                                <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
+                                  C
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                                {position}
+                              </span>
+                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
-                              {p.position || 'MID'}
-                            </span>
-                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -5277,32 +5332,37 @@ export default function AdminPortal({ onExit }) {
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      {inspectingFixtureLineups.awayLineup.bench.map((p, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setSelectedPlayerForDetails({
-                              ...p,
-                              firstName: p.firstName || (p.name ? p.name.split(' ')[0] : 'Player'),
-                              lastName: p.lastName || (p.name ? p.name.split(' ').slice(1).join(' ') : `#${p.jerseyNumber}`),
-                              team: inspectingFixtureLineups.awayTeam
-                            });
-                          }}
-                          className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
-                          title="Click to view full player details & stats"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 text-center font-mono font-bold text-slate-400">#{p.jerseyNumber}</span>
-                            <span className="group-hover:text-white transition-colors">{p.name || `${p.firstName} ${p.lastName}`}</span>
+                      {inspectingFixtureLineups.awayLineup.bench.map((slot, idx) => {
+                        const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot);
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setSelectedPlayerForDetails({
+                                ...raw,
+                                firstName: raw.firstName || name.split(' ')[0],
+                                lastName: raw.lastName || name.split(' ').slice(1).join(' ') || `#${jerseyNumber}`,
+                                jerseyNumber,
+                                position,
+                                team: inspectingFixtureLineups.awayTeam
+                              });
+                            }}
+                            className="p-2 rounded-xl bg-[#121522] hover:bg-[#1A1F30] border border-white/5 hover:border-[#00E676]/40 flex items-center justify-between text-xs text-slate-300 cursor-pointer transition-all group"
+                            title="Click to view full player details & stats"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
+                              <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
+                                {position}
+                              </span>
+                              <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400">
-                              {p.position || 'SUB'}
-                            </span>
-                            <Eye className="w-3 h-3 text-slate-500 group-hover:text-[#00E676] transition-colors" />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
