@@ -712,13 +712,21 @@ export default function AdminPortal({ onExit }) {
     if (!slot) return { jerseyNumber: '?', name: 'Player', position: 'MID', isCaptain: false, goals: 0, raw: {} };
     let p = (slot.player && typeof slot.player === 'object') ? slot.player : (typeof slot === 'object' && (slot.firstName || slot.name) ? slot : {});
 
-    const playerId = typeof slot.player === '    // If player object is incomplete or just an ID string, find in team squad or all teams
-string' ? slot.player : (p._id || slot.playerId);
+    // If player object is incomplete or just an ID string, find in team squad or all teams
+    const playerId = typeof slot.player === 'string' ? slot.player : (p._id || slot.playerId);
     if ((!p.firstName && !p.lastName && !p.name) && playerId) {
       const squad = teamObj?.squad || [];
       let found = squad.find(sp => String(sp._id || sp.id) === String(playerId));
       if (!found && Array.isArray(teams)) {
         for (const t of teams) {
+          if (t.squad && Array.isArray(t.squad)) {
+            found = t.squad.find(sp => String(sp._id || sp.id) === String(playerId));
+            if (found) break;
+          }
+        }
+      }
+      if (!found && Array.isArray(adminTeams)) {
+        for (const t of adminTeams) {
           if (t.squad && Array.isArray(t.squad)) {
             found = t.squad.find(sp => String(sp._id || sp.id) === String(playerId));
             if (found) break;
@@ -731,9 +739,10 @@ string' ? slot.player : (p._id || slot.playerId);
     }
 
     const jerseyNumber = p.jerseyNumber !== undefined && p.jerseyNumber !== null ? p.jerseyNumber : (slot.jerseyNumber !== undefined ? slot.jerseyNumber : '?');
-    const fullName = p.name || (p.firstName || p.lastName ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '');
-    const fallbackName = slot.name || (slot.firstName || slot.lastName ? `${slot.firstName || ''} ${slot.lastName || ''}`.trim() : '');
-    const name = fullName || fallbackName || (jerseyNumber !== '?' ? `Player #${jerseyNumber}` : 'Player');
+    const rawFullName = p.name || (p.firstName || p.lastName ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '');
+    const rawFallbackName = slot.name || (slot.firstName || slot.lastName ? `${slot.firstName || ''} ${slot.lastName || ''}`.trim() : '');
+    const cleanFullName = (rawFullName || rawFallbackName || '').replace(/undefined/gi, '').trim();
+    const name = cleanFullName || (jerseyNumber !== '?' ? `Player #${jerseyNumber}` : 'Player');
     const position = slot.position || p.position || 'MID';
     const isCaptain = !!(slot.isCaptain || p.isCaptain);
 
@@ -5487,11 +5496,15 @@ string' ? slot.player : (p._id || slot.playerId);
       {inspectingFixtureLineups && (() => {
         const homeTeamObj = (typeof inspectingFixtureLineups.homeTeam === 'object' && inspectingFixtureLineups.homeTeam !== null)
           ? inspectingFixtureLineups.homeTeam
-          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) || { name: inspectingFixtureLineups.homeTeamName || 'Home Team', shortCode: '' };
+          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) ||
+            (Array.isArray(adminTeams) && adminTeams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) ||
+            { name: inspectingFixtureLineups.homeTeamName || 'Home Team', shortCode: '' };
 
         const awayTeamObj = (typeof inspectingFixtureLineups.awayTeam === 'object' && inspectingFixtureLineups.awayTeam !== null)
           ? inspectingFixtureLineups.awayTeam
-          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) || { name: inspectingFixtureLineups.awayTeamName || 'Away Team', shortCode: '' };
+          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) ||
+            (Array.isArray(adminTeams) && adminTeams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) ||
+            { name: inspectingFixtureLineups.awayTeamName || 'Away Team', shortCode: '' };
 
         const homeName = homeTeamObj.name || inspectingFixtureLineups.homeTeamName || 'Home Club';
         const awayName = awayTeamObj.name || inspectingFixtureLineups.awayTeamName || 'Away Club';
