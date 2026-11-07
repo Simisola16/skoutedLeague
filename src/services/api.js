@@ -180,20 +180,35 @@ export const api = {
     return res.json();
   },
 
-  updateScore: async (id, homeScore, awayScore, minute) => {
+  updateScore: async (id, homeScore, awayScore, minute, isClockRunning) => {
+    const payload = { homeScore, awayScore };
+    if (minute !== undefined) payload.minute = minute;
+    if (isClockRunning !== undefined) payload.isClockRunning = isClockRunning;
     const res = await fetch(`${API_BASE}/fixtures/${id}/score`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ homeScore, awayScore, minute })
+      body: JSON.stringify(payload)
     });
     return res.json();
   },
 
-  updatePeriod: async (id, status, minute) => {
+  updatePeriod: async (id, status, minute, isClockRunning) => {
+    const payload = { status };
+    if (minute !== undefined) payload.minute = minute;
+    if (isClockRunning !== undefined) payload.isClockRunning = isClockRunning;
     const res = await fetch(`${API_BASE}/fixtures/${id}/period`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ status, minute })
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  updateClock: async (id, payload) => {
+    const res = await fetch(`${API_BASE}/fixtures/${id}/clock`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
     });
     return res.json();
   },

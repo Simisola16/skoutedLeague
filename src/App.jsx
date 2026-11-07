@@ -268,6 +268,29 @@ export default function App() {
     };
   }, []);
 
+  // Live matches local clock ticker - smoothly advances match minute every minute
+  useEffect(() => {
+    const clockInterval = setInterval(() => {
+      setFixtures(prev => {
+        let changed = false;
+        const updated = prev.map(f => {
+          if (f.isClockRunning && f.periodStartedAt && (f.status === '1ST HALF' || f.status === '2ND HALF')) {
+            const elapsed = Math.floor((Date.now() - new Date(f.periodStartedAt).getTime()) / 60000);
+            const computed = (f.periodBaseMinute || 0) + elapsed;
+            if (computed > (f.minute || 0)) {
+              changed = true;
+              return { ...f, minute: computed };
+            }
+          }
+          return f;
+        });
+        return changed ? updated : prev;
+      });
+    }, 10000);
+
+    return () => clearInterval(clockInterval);
+  }, []);
+
   // When selected fixture changes, load its events and join room
   const handleSelectFixture = async (fixture) => {
     setSelectedFixture(fixture);

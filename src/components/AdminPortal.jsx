@@ -55,7 +55,9 @@ import {
   Sliders,
   ChevronDown,
   Download,
-  Share2
+  Share2,
+  Play,
+  Pause
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
@@ -1581,6 +1583,24 @@ export default function AdminPortal({ onExit }) {
     setAdminUser(null);
   };
 
+  // Live Match Clock local auto-tick for active live fixture
+  useEffect(() => {
+    if (!activeFixture || !activeFixture.isClockRunning || !activeFixture.periodStartedAt) return;
+
+    const timer = setInterval(() => {
+      const elapsedMs = Date.now() - new Date(activeFixture.periodStartedAt).getTime();
+      const elapsedMins = Math.floor(elapsedMs / 60000);
+      const computed = (activeFixture.periodBaseMinute || 0) + elapsedMins;
+
+      if (computed !== activeFixture.minute && computed > (activeFixture.minute || 0)) {
+        setActiveFixture(prev => prev ? { ...prev, minute: computed } : prev);
+        setEventMinute(computed);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeFixture?.isClockRunning, activeFixture?.periodStartedAt, activeFixture?.periodBaseMinute, activeFixture?.minute]);
+
   // Score quick update
   const handleQuickScore = async (homeDelta, awayDelta) => {
     if (!activeFixture) return;
@@ -1588,7 +1608,7 @@ export default function AdminPortal({ onExit }) {
     const newAway = Math.max(0, (activeFixture.awayScore || 0) + awayDelta);
 
     try {
-      const res = await api.updateScore(activeFixture._id, newHome, newAway, eventMinute);
+      const res = await api.updateScore(activeFixture._id, newHome, newAway, activeFixture.minute || 0);
       if (res.success) {
         setActiveFixture(res.data);
       }
@@ -1597,11 +1617,27 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
-  // Period switch
+  // Period switch with automated timer start / stop
   const handlePeriodSwitch = async (newStatus) => {
     if (!activeFixture) return;
     try {
-      const res = await api.updatePeriod(activeFixture._id, newStatus, eventMinute);
+      let defMin = activeFixture.minute || 0;
+      let startClock = false;
+      if (newStatus === '1ST HALF') {
+        defMin = 1;
+        startClock = true;
+      } else if (newStatus === 'HT') {
+        defMin = 45;
+        startClock = false;
+      } else if (newStatus === '2ND HALF') {
+        defMin = 46;
+        startClock = true;
+      } else if (newStatus === 'FT') {
+        defMin = 90;
+        startClock = false;
+      }
+      setEventMinute(defMin);
+      const res = await api.updatePeriod(activeFixture._id, newStatus, defMin, startClock);
       if (res.success) {
         setActiveFixture(res.data);
       }
@@ -1610,19 +1646,46 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
-  // Minute adjust
-  const handleMinuteAdjust = async (delta) => {
+  // Toggle Play / Pause on Match Clock
+  const handleToggleClock = async () => {
     if (!activeFixture) return;
-    const newMin = Math.max(0, (activeFixture.minute || 0) + delta);
-    setEventMinute(newMin);
+    const nextRunning = !activeFixture.isClockRunning;
     try {
-      const res = await api.updateScore(activeFixture._id, activeFixture.homeScore, activeFixture.awayScore, newMin);
+      const res = await api.updateClock(activeFixture._id, {
+        isClockRunning: nextRunning,
+        minute: activeFixture.minute || 0
+      });
+      if (res.success) {
+        setActiveFixture(res.data);
+      }
+    } catch (err) {
+      alert('Error toggling match clock: ' + err.message);
+    }
+  };
+
+  // Direct minute jump
+  const handleSetMinute = async (newMin) => {
+    if (!activeFixture) return;
+    const minVal = Math.max(0, Number(newMin) || 0);
+    setEventMinute(minVal);
+    try {
+      const res = await api.updateClock(activeFixture._id, {
+        minute: minVal,
+        isClockRunning: activeFixture.isClockRunning
+      });
       if (res.success) {
         setActiveFixture(res.data);
       }
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Minute adjust (+/- delta)
+  const handleMinuteAdjust = async (delta) => {
+    if (!activeFixture) return;
+    const newMin = Math.max(0, (activeFixture.minute || 0) + delta);
+    handleSetMinute(newMin);
   };
 
   // Event Logger Submit
@@ -2692,22 +2755,59 @@ export default function AdminPortal({ onExit }) {
                           <span>{activeFixture.awayScore || 0}</span>
                         </div>
                         
-                        {/* Minute Clock Adjust */}
-                        <div className="mt-3 flex items-center gap-1.5 bg-[#090B10] px-3 py-1 rounded-full border border-[#222738] text-xs font-mono font-bold text-[#00E676]">
-                          <Clock className="w-3.5 h-3.5 animate-spin" />
-                          <span>{activeFixture.minute || 0}'</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 mt-2 text-[10px] font-mono">
-                          <button onClick={() => handleMinuteAdjust(-1)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
-                            -1m
+                        {/* Minute Clock Controller */}
+                        <div className="mt-3 flex flex-col items-center">
+                          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono font-bold transition-all shadow-inner ${
+                            activeFixture.isClockRunning
+                              ? 'bg-[#00E676]/10 border-[#00E676]/30 text-[#00E676]'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                          }`}>
+                            <Clock className={`w-3.5 h-3.5 ${activeFixture.isClockRunning ? 'animate-spin text-[#00E676]' : 'text-amber-400'}`} />
+                            <span className="text-sm font-black tracking-wider">{activeFixture.minute || 0}'</span>
+                            <span className={`w-2 h-2 rounded-full ${activeFixture.isClockRunning ? 'bg-[#00E676] animate-ping' : 'bg-amber-400'}`} />
+                            <span className="text-[10px] uppercase font-bold tracking-wider">
+                              {activeFixture.isClockRunning ? 'LIVE' : 'PAUSED'}
+                            </span>
+                          </div>
+
+                          {/* Play / Pause Toggle Button */}
+                          <button
+                            onClick={handleToggleClock}
+                            className={`mt-2 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all shadow ${
+                              activeFixture.isClockRunning
+                                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                                : 'bg-[#00E676] hover:bg-[#00c864] text-black font-black'
+                            }`}
+                            title={activeFixture.isClockRunning ? 'Pause match timer' : 'Start match timer'}
+                          >
+                            {activeFixture.isClockRunning ? (
+                              <>
+                                <Pause className="w-3 h-3 fill-current" />
+                                <span>Pause Timer</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>Start Timer</span>
+                              </>
+                            )}
                           </button>
-                          <button onClick={() => handleMinuteAdjust(1)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
-                            +1m
-                          </button>
-                          <button onClick={() => handleMinuteAdjust(5)} className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400">
-                            +5m
-                          </button>
+
+                          {/* Quick Adjust Buttons */}
+                          <div className="flex items-center gap-1 mt-2 text-[10px] font-mono">
+                            <button onClick={() => handleMinuteAdjust(-5)} className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white" title="Rewind 5 minutes">
+                              -5m
+                            </button>
+                            <button onClick={() => handleMinuteAdjust(-1)} className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white" title="Rewind 1 minute">
+                              -1m
+                            </button>
+                            <button onClick={() => handleMinuteAdjust(1)} className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white" title="Forward 1 minute">
+                              +1m
+                            </button>
+                            <button onClick={() => handleMinuteAdjust(5)} className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white" title="Forward 5 minutes">
+                              +5m
+                            </button>
+                          </div>
                         </div>
                       </div>
 

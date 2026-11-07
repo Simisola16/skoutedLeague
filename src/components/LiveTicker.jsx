@@ -2,6 +2,19 @@ import React from 'react';
 import { Activity } from 'lucide-react';
 
 export default function LiveTicker({ fixtures = [], selectedFixtureId, onSelectFixture }) {
+  const getLiveDisplayMinute = (f) => {
+    if (!f) return "0'";
+    if (f.status === 'HT') return 'HT';
+    if (f.status === 'FT') return 'FT';
+    let min = f.minute || 0;
+    if (f.isClockRunning && f.periodStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(f.periodStartedAt).getTime()) / 60000);
+      const computed = (f.periodBaseMinute || 0) + elapsed;
+      if (computed > min) min = computed;
+    }
+    return `${min}'`;
+  };
+
   if (!fixtures || fixtures.length === 0) {
     return (
       <div className="bg-[#12151D] border-b border-[#1E2330] py-2 overflow-hidden">
@@ -49,7 +62,7 @@ export default function LiveTicker({ fixtures = [], selectedFixtureId, onSelectF
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping mb-0.5"></span>
                       <span className="text-[10px] font-mono font-black text-[#FF4B4B]">
-                        {f.status === 'HT' ? 'HT' : `${f.minute}'`}
+                        {getLiveDisplayMinute(f)}
                       </span>
                     </>
                   ) : isFT ? (

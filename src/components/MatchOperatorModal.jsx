@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Radio, Plus, Minus, Send, AlertTriangle, Shield, Check, Flame } from 'lucide-react';
+import { X, Radio, Plus, Minus, Send, AlertTriangle, Shield, Check, Flame, Play, Pause, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 
@@ -60,6 +60,20 @@ export default function MatchOperatorModal({
 
   const currentTeamPlayers = eventTeamId === currentFixture?.homeTeam?._id ? homePlayers : awayPlayers;
 
+  // Auto-tick live clock locally when match clock is running
+  useEffect(() => {
+    if (!currentFixture || !currentFixture.isClockRunning || !currentFixture.periodStartedAt) return;
+    const timer = setInterval(() => {
+      const elapsedMs = Date.now() - new Date(currentFixture.periodStartedAt).getTime();
+      const elapsedMins = Math.floor(elapsedMs / 60000);
+      const computed = (currentFixture.periodBaseMinute || 0) + elapsedMins;
+      if (computed !== minute && computed > minute) {
+        setMinute(computed);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [currentFixture?.isClockRunning, currentFixture?.periodStartedAt, currentFixture?.periodBaseMinute, minute]);
+
   // Handle Quick Score Change
   const handleScoreChange = async (teamSide, delta) => {
     if (!currentFixture) return;
@@ -86,19 +100,66 @@ export default function MatchOperatorModal({
   const handlePeriodChange = async (newStatus) => {
     if (!currentFixture) return;
     let defMinute = minute;
-    if (newStatus === '1ST HALF') defMinute = 1;
-    if (newStatus === 'HT') defMinute = 45;
-    if (newStatus === '2ND HALF') defMinute = 46;
-    if (newStatus === 'FT') defMinute = 90;
+    let startClock = false;
+    if (newStatus === '1ST HALF') {
+      defMinute = 1;
+      startClock = true;
+    } else if (newStatus === 'HT') {
+      defMinute = 45;
+      startClock = false;
+    } else if (newStatus === '2ND HALF') {
+      defMinute = 46;
+      startClock = true;
+    } else if (newStatus === 'FT') {
+      defMinute = 90;
+      startClock = false;
+    }
 
     setMinute(defMinute);
 
     try {
-      const res = await api.updatePeriod(currentFixture._id, newStatus, defMinute);
+      const res = await api.updatePeriod(currentFixture._id, newStatus, defMinute, startClock);
       if (res.success) {
         setStatusMsg(`Match period shifted to ${newStatus}`);
         if (onFixtureUpdated) onFixtureUpdated(res.data);
         setTimeout(() => setStatusMsg(''), 2000);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Toggle Live Clock
+  const handleToggleClock = async () => {
+    if (!currentFixture) return;
+    const nextRunning = !currentFixture.isClockRunning;
+    try {
+      const res = await api.updateClock(currentFixture._id, {
+        isClockRunning: nextRunning,
+        minute: minute
+      });
+      if (res.success) {
+        setStatusMsg(nextRunning ? 'Timer Started' : 'Timer Paused');
+        if (onFixtureUpdated) onFixtureUpdated(res.data);
+        setTimeout(() => setStatusMsg(''), 2000);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Manual minute change
+  const handleManualMinuteChange = async (newVal) => {
+    const val = Math.max(0, Number(newVal) || 0);
+    setMinute(val);
+    if (!currentFixture) return;
+    try {
+      const res = await api.updateClock(currentFixture._id, {
+        minute: val,
+        isClockRunning: currentFixture.isClockRunning
+      });
+      if (res.success && onFixtureUpdated) {
+        onFixtureUpdated(res.data);
       }
     } catch (err) {
       console.error(err);
@@ -257,18 +318,43 @@ export default function MatchOperatorModal({
                     Match Period: <strong className="text-white">{currentFixture.status}</strong>
                   </span>
                   
-                  {/* Clock minute adjuster */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-slate-400 font-medium">Clock:</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="130"
-                      value={minute}
-                      onChange={(e) => setMinute(Number(e.target.value))}
-                      className="w-16 bg-[#141720] border border-[#252A38] rounded-lg px-2 py-1 text-xs font-mono font-bold text-white text-center"
-                    />
-                    <span className="text-xs text-slate-400">'</span>
+                  {/* Clock minute adjuster & timer toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleClock}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                        currentFixture.isClockRunning
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                          : 'bg-[#00E676] text-black hover:bg-[#00c864]'
+                      }`}
+                      title={currentFixture.isClockRunning ? 'Pause match timer' : 'Start match timer'}
+                    >
+                      {currentFixture.isClockRunning ? (
+                        <>
+                          <Pause className="w-3 h-3 fill-current" />
+                          <span>Pause</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>Start</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center gap-1 bg-[#141720] border border-[#252A38] rounded-lg px-2 py-0.5">
+                      <Clock className={`w-3 h-3 ${currentFixture.isClockRunning ? 'text-[#00E676] animate-spin' : 'text-slate-400'}`} />
+                      <input
+                        type="number"
+                        min="0"
+                        max="130"
+                        value={minute}
+                        onChange={(e) => handleManualMinuteChange(e.target.value)}
+                        className="w-12 bg-transparent text-xs font-mono font-bold text-white text-center focus:outline-none"
+                      />
+                      <span className="text-xs text-slate-400 font-mono">'</span>
+                    </div>
                   </div>
                 </div>
 

@@ -45,6 +45,22 @@ export default function MatchCard({
     ? fixture.stage.replace(/matchday/i, 'Week')
     : fixture.stage || 'Championship';
 
+  // Live match elapsed minute display helper
+  const getLiveDisplayMinute = (f) => {
+    if (!f) return "0'";
+    if (f.status === 'HT') return 'HT';
+    if (f.status === 'FT') return 'FT';
+    let min = f.minute || 0;
+    if (f.isClockRunning && f.periodStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(f.periodStartedAt).getTime()) / 60000);
+      const computed = (f.periodBaseMinute || 0) + elapsed;
+      if (computed > min) {
+        min = computed;
+      }
+    }
+    return `${min}'`;
+  };
+
   // Human-readable date helpers
   const parsedDate = fixture.date ? new Date(fixture.date + 'T12:00:00') : null;
   const dayOfWeek = parsedDate ? parsedDate.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase() : null;
@@ -147,7 +163,7 @@ export default function MatchCard({
             <div className="flex flex-col items-center justify-center">
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] font-mono font-black text-[10px] leading-none mb-1 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping" />
-                <span>{fixture.status === 'HT' ? 'HT' : `${fixture.minute || 0}'`}</span>
+                <span>{getLiveDisplayMinute(fixture)}</span>
               </span>
               <div className="font-mono text-lg sm:text-2xl font-black text-white tracking-wider flex items-center justify-center gap-1">
                 <span className={fixture.homeScore > fixture.awayScore ? 'text-[#00E676]' : 'text-white'}>

@@ -14,6 +14,19 @@ export default function MatchDetailDrawer({
   if (!fixture) return null;
 
   const isLive = fixture.status === '1ST HALF' || fixture.status === '2ND HALF' || fixture.status === 'HT' || fixture.status === 'PENS';
+
+  const getLiveDisplayMinute = (f) => {
+    if (!f) return "0'";
+    if (f.status === 'HT') return 'HT';
+    if (f.status === 'FT') return 'FT';
+    let min = f.minute || 0;
+    if (f.isClockRunning && f.periodStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(f.periodStartedAt).getTime()) / 60000);
+      const computed = (f.periodBaseMinute || 0) + elapsed;
+      if (computed > min) min = computed;
+    }
+    return `${min}'`;
+  };
   const stats = fixture.stats || {
     homePossession: 50,
     awayPossession: 50,
@@ -81,7 +94,7 @@ export default function MatchDetailDrawer({
               {isLive ? (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] font-mono font-bold text-[10px]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FF4B4B] animate-ping"></span>
-                  <span>{fixture.status === 'HT' ? 'HT' : `${fixture.minute}'`}</span>
+                  <span>{getLiveDisplayMinute(fixture)}</span>
                 </div>
               ) : (
                 <span className="text-[10px] font-mono font-bold text-slate-400 uppercase">
