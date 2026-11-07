@@ -1726,6 +1726,41 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
+  // Edit Timeline Event Minute
+  const handleEditEventMinute = async (eventItem) => {
+    if (!eventItem?._id || !activeFixture?._id) return;
+    const input = prompt(`Edit minute for ${eventItem.type} (${eventItem.player ? `${eventItem.player.firstName} ${eventItem.player.lastName}` : 'Team'}):`, eventItem.minute);
+    if (input === null) return;
+    const newMin = Math.max(0, Number(input));
+    if (isNaN(newMin)) return alert('Please enter a valid minute number');
+
+    try {
+      const res = await api.updateMatchEvent(activeFixture._id, eventItem._id, { minute: newMin });
+      if (res.success && res.data?.events) {
+        setFixtureEvents(res.data.events);
+      } else if (res.success && res.data?.event) {
+        setFixtureEvents(prev => prev.map(e => (e._id === eventItem._id ? res.data.event : e)));
+      }
+    } catch (err) {
+      alert('Error updating event minute: ' + err.message);
+    }
+  };
+
+  // Delete Timeline Event
+  const handleDeleteEvent = async (eventItem) => {
+    if (!eventItem?._id || !activeFixture?._id) return;
+    if (!confirm(`Are you sure you want to delete this ${eventItem.type} event at minute ${eventItem.minute}'?`)) return;
+
+    try {
+      const res = await api.deleteMatchEvent(activeFixture._id, eventItem._id);
+      if (res.success) {
+        setFixtureEvents(prev => prev.filter(e => e._id !== eventItem._id));
+      }
+    } catch (err) {
+      alert('Error deleting event: ' + err.message);
+    }
+  };
+
   // Create Fixture Submit
   const handleCreateFixtureSubmit = async (e) => {
     e.preventDefault();
@@ -2886,12 +2921,12 @@ export default function AdminPortal({ onExit }) {
                     ) : (
                       <div className="divide-y divide-white/5 space-y-2">
                         {fixtureEvents.map((evt, idx) => (
-                          <div key={idx} className="pt-2 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2.5">
-                              <span className="font-mono font-bold text-[#00E676] bg-[#00E676]/10 px-1.5 py-0.5 rounded text-[11px]">
+                          <div key={evt._id || idx} className="pt-2 flex items-center justify-between text-xs gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-mono font-black text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/20 px-2 py-0.5 rounded text-[11px] shrink-0">
                                 {evt.minute}'
                               </span>
-                              <span className="font-bold text-white">
+                              <span className="font-bold text-white shrink-0">
                                 {evt.type === 'GOAL' && '⚽ GOAL'}
                                 {evt.type === 'YELLOW_CARD' && '🟨 Yellow Card'}
                                 {evt.type === 'RED_CARD' && '🟥 Red Card'}
@@ -2899,13 +2934,33 @@ export default function AdminPortal({ onExit }) {
                                 {evt.type === 'VAR' && '📺 VAR Check'}
                                 {evt.type === 'OWN_GOAL' && '🥅 Own Goal'}
                               </span>
-                              <span className="text-slate-300">
-                                {evt.player?.firstName} {evt.player?.lastName}
+                              <span className="text-slate-300 truncate font-medium">
+                                {evt.player ? `${evt.player.firstName} ${evt.player.lastName}` : (evt.description || 'Squad')}
                               </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              {evt.team?.shortCode || evt.team?.name}
-                            </span>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                                {evt.team?.shortCode || evt.team?.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleEditEventMinute(evt)}
+                                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-[#00E676] text-[10px] font-mono border border-white/5 flex items-center gap-0.5 transition-colors"
+                                title="Edit timeline minute"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEvent(evt)}
+                                className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[10px] border border-rose-500/20 transition-colors"
+                                title="Delete event"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

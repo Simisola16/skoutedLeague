@@ -240,6 +240,23 @@ export const api = {
     return res.json();
   },
 
+  updateMatchEvent: async (fixtureId, eventId, payload) => {
+    const res = await fetch(`${API_BASE}/fixtures/${fixtureId}/events/${eventId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  deleteMatchEvent: async (fixtureId, eventId) => {
+    const res = await fetch(`${API_BASE}/fixtures/${fixtureId}/events/${eventId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   updateStats: async (fixtureId, statsPayload) => {
     const res = await fetch(`${API_BASE}/fixtures/${fixtureId}/stats`, {
       method: 'PATCH',
