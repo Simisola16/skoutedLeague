@@ -291,6 +291,7 @@ export default function MatchDetailDrawer({
                 lineup={currentLineup}
                 teamName={currentTeamName}
                 teamColor={currentTeamColor}
+                events={events}
                 onPlayerClick={onPlayerClick}
               />
 

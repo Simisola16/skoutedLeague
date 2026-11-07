@@ -1,7 +1,7 @@
 import React from 'react';
 import { Shield, User } from 'lucide-react';
 
-export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676', onPlayerClick }) {
+export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676', onPlayerClick, events = [] }) {
   if (!lineup || !lineup.startingXI || lineup.startingXI.length === 0) {
     return (
       <div className="football-pitch w-full h-[360px] flex flex-col items-center justify-center p-6 text-center text-slate-300 rounded-2xl border border-white/10">
@@ -61,6 +61,31 @@ export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676',
           const posX = slot.gridX !== undefined ? slot.gridX : 50;
           const posY = slot.gridY !== undefined ? slot.gridY : 50;
 
+          // Goal count for this player in this match
+          const pId = playerObj._id || slot.playerId;
+          const pFullName = `${playerObj.firstName || ''} ${playerObj.lastName || ''}`.trim().toLowerCase();
+          const pLastName = (playerObj.lastName || '').trim().toLowerCase();
+          const goalCount = (events || []).filter(ev => {
+            if (ev.type !== 'GOAL') return false;
+            const evPId = ev.player?._id || (typeof ev.player === 'string' ? ev.player : null);
+            if (pId && evPId && String(evPId) === String(pId)) return true;
+            if (ev.player && typeof ev.player === 'object') {
+              const evName = `${ev.player.firstName || ''} ${ev.player.lastName || ''}`.trim().toLowerCase();
+              if (evName && pFullName && (evName === pFullName || pFullName.includes(evName) || evName.includes(pFullName))) return true;
+              if (pLastName && pLastName.length > 2 && (ev.player.lastName || '').toLowerCase() === pLastName) return true;
+            }
+            if (pFullName && typeof ev.player === 'string' && ev.player.length !== 24) {
+              const evStr = ev.player.trim().toLowerCase();
+              if (evStr === pFullName || pFullName.includes(evStr)) return true;
+            }
+            if (ev.description && (pFullName || pLastName)) {
+              const desc = ev.description.toLowerCase();
+              if (pFullName && desc.includes(pFullName)) return true;
+              if (pLastName && pLastName.length > 3 && desc.includes(pLastName)) return true;
+            }
+            return false;
+          }).length;
+
           return (
             <div
               key={index}
@@ -71,6 +96,20 @@ export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676',
                 top: `${posY}%`
               }}
             >
+              {/* Goal Balls Floating on Player Head */}
+              {goalCount > 0 && (
+                <div 
+                  className="absolute -top-4.5 left-1/2 -translate-x-1/2 flex items-center justify-center gap-0.5 z-30 pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] animate-bounce"
+                  title={`Scored ${goalCount} ${goalCount > 1 ? 'goals' : 'goal'}!`}
+                >
+                  {Array.from({ length: goalCount }).map((_, gIdx) => (
+                    <span key={gIdx} className="text-sm select-none filter drop-shadow">
+                      ⚽
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Player Jersey Circle */}
               <div 
                 className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center font-bold text-xs shadow-lg relative"
@@ -88,8 +127,13 @@ export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676',
               </div>
 
               {/* Player Name Label */}
-              <div className="mt-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[80px] truncate text-center">
-                {playerObj.lastName || playerObj.firstName || slot.position}
+              <div className="mt-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[80px] truncate text-center flex items-center gap-0.5 justify-center">
+                <span>{playerObj.lastName || playerObj.firstName || slot.position}</span>
+                {goalCount > 0 && (
+                  <span className="text-[9px] text-[#00E676] font-mono font-black">
+                    ⚽{goalCount > 1 ? `x${goalCount}` : ''}
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -106,6 +150,21 @@ export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676',
           <div className="flex flex-wrap gap-2">
             {bench.map((b, i) => {
               const p = b.player || {};
+              const bpId = p._id || b.playerId;
+              const bpFullName = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
+              const bpLastName = (p.lastName || '').trim().toLowerCase();
+              const bGoals = (events || []).filter(ev => {
+                if (ev.type !== 'GOAL') return false;
+                const evPId = ev.player?._id || (typeof ev.player === 'string' ? ev.player : null);
+                if (bpId && evPId && String(evPId) === String(bpId)) return true;
+                if (ev.player && typeof ev.player === 'object') {
+                  const evName = `${ev.player.firstName || ''} ${ev.player.lastName || ''}`.trim().toLowerCase();
+                  if (evName && bpFullName && (evName === bpFullName || bpFullName.includes(evName) || evName.includes(bpFullName))) return true;
+                  if (bpLastName && bpLastName.length > 2 && (ev.player.lastName || '').toLowerCase() === bpLastName) return true;
+                }
+                return false;
+              }).length;
+
               return (
                 <div
                   key={i}
@@ -116,6 +175,11 @@ export default function TacticalPitch({ lineup, teamName, teamColor = '#00E676',
                     {p.jerseyNumber || '#'}
                   </span>
                   <span className="text-slate-200 font-medium">{p.lastName || p.firstName || 'Substitute'}</span>
+                  {bGoals > 0 && (
+                    <span className="text-xs" title={`Scored ${bGoals} goal(s)`}>
+                      {'⚽'.repeat(bGoals)}
+                    </span>
+                  )}
                   <span className="text-[10px] text-slate-400">({b.position || p.position})</span>
                 </div>
               );

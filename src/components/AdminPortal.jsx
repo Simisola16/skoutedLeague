@@ -708,12 +708,12 @@ export default function AdminPortal({ onExit }) {
   };
 
   // Helper to extract player details from startingXI or bench slot
-  const resolveLineupPlayer = (slot, teamObj = null) => {
-    if (!slot) return { jerseyNumber: '?', name: 'Player', position: 'MID', isCaptain: false, raw: {} };
+  const resolveLineupPlayer = (slot, teamObj = null, eventsList = []) => {
+    if (!slot) return { jerseyNumber: '?', name: 'Player', position: 'MID', isCaptain: false, goals: 0, raw: {} };
     let p = (slot.player && typeof slot.player === 'object') ? slot.player : (typeof slot === 'object' && (slot.firstName || slot.name) ? slot : {});
 
-    // If player object is incomplete or just an ID string, find in team squad or all teams
-    const playerId = typeof slot.player === 'string' ? slot.player : (p._id || slot.playerId);
+    const playerId = typeof slot.player === '    // If player object is incomplete or just an ID string, find in team squad or all teams
+string' ? slot.player : (p._id || slot.playerId);
     if ((!p.firstName && !p.lastName && !p.name) && playerId) {
       const squad = teamObj?.squad || [];
       let found = squad.find(sp => String(sp._id || sp.id) === String(playerId));
@@ -736,11 +736,38 @@ export default function AdminPortal({ onExit }) {
     const name = fullName || fallbackName || (jerseyNumber !== '?' ? `Player #${jerseyNumber}` : 'Player');
     const position = slot.position || p.position || 'MID';
     const isCaptain = !!(slot.isCaptain || p.isCaptain);
+
+    // Calculate goals scored by this player in this match
+    const pId = p._id || playerId;
+    const cleanName = name.trim().toLowerCase();
+    const cleanLast = (p.lastName || name.split(' ').slice(-1)[0] || '').trim().toLowerCase();
+    const goals = (eventsList || []).filter(ev => {
+      if (ev.type !== 'GOAL') return false;
+      const evPId = ev.player?._id || (typeof ev.player === 'string' ? ev.player : null);
+      if (pId && evPId && String(evPId) === String(pId)) return true;
+      if (ev.player && typeof ev.player === 'object') {
+        const evName = `${ev.player.firstName || ''} ${ev.player.lastName || ''}`.trim().toLowerCase();
+        if (evName && cleanName && (evName === cleanName || cleanName.includes(evName) || evName.includes(cleanName))) return true;
+        if (cleanLast && cleanLast.length > 2 && (ev.player.lastName || '').toLowerCase() === cleanLast) return true;
+      }
+      if (cleanName && typeof ev.player === 'string' && ev.player.length !== 24) {
+        const evStr = ev.player.trim().toLowerCase();
+        if (evStr === cleanName || cleanName.includes(evStr)) return true;
+      }
+      if (ev.description && (cleanName || cleanLast)) {
+        const desc = ev.description.toLowerCase();
+        if (cleanName && desc.includes(cleanName)) return true;
+        if (cleanLast && cleanLast.length > 3 && desc.includes(cleanLast)) return true;
+      }
+      return false;
+    }).length;
+
     return {
       jerseyNumber,
       name,
       position,
       isCaptain,
+      goals,
       raw: p
     };
   };
@@ -827,15 +854,20 @@ export default function AdminPortal({ onExit }) {
     }
   };
 
-  // Open Lineup Inspection Modal (fetches deeply populated fixture)
+  // Open Lineup Inspection Modal (fetches deeply populated fixture & events)
   const handleOpenInspectLineups = async (fixtureItem) => {
     if (!fixtureItem) return;
     setInspectingFixtureLineups(fixtureItem);
     try {
       const res = await api.getFixture(fixtureItem._id);
       const fixtureData = res?.data?.fixture || res?.fixture || (res?.data?._id ? res.data : null);
+      const eventsData = res?.events || res?.data?.events || [];
       if (fixtureData && (fixtureData._id || fixtureData.homeTeam)) {
-        setInspectingFixtureLineups(prev => ({ ...(prev || {}), ...fixtureData }));
+        setInspectingFixtureLineups(prev => ({
+          ...(prev || {}),
+          ...fixtureData,
+          events: eventsData
+        }));
       }
     } catch (err) {
       console.error('[Open Lineup Inspection Error]:', err);
@@ -5474,6 +5506,8 @@ export default function AdminPortal({ onExit }) {
         const awayBench = inspectingFixtureLineups.awayLineup?.bench || [];
         const awayFormation = inspectingFixtureLineups.awayLineup?.formation || '4-3-3';
 
+        const inspectorEvents = inspectingFixtureLineups?.events || inspectingFixtureLineups?.fixtureEvents || [];
+
         return (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 overflow-y-auto no-print">
             <div
@@ -5638,7 +5672,7 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         ) : (
                           homeStarting.map((slot, idx) => {
-                            const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                            const { jerseyNumber, name, position, isCaptain, goals, raw } = resolveLineupPlayer(slot, homeTeamObj, inspectorEvents);
                             const coords = getSlotCoordinates(slot, idx, homeFormation);
                             const isGK = position === 'GK';
 
@@ -5662,6 +5696,20 @@ export default function AdminPortal({ onExit }) {
                                 }}
                                 title={`Click to view #${jerseyNumber} ${name} (${position}) profile`}
                               >
+                                {/* Goal Balls Floating on Player Head */}
+                                {goals > 0 && (
+                                  <div 
+                                    className="absolute -top-5 left-1/2 -translate-x-1/2 flex items-center justify-center gap-0.5 z-30 pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] animate-bounce"
+                                    title={`Scored ${goals} ${goals > 1 ? 'goals' : 'goal'}!`}
+                                  >
+                                    {Array.from({ length: goals }).map((_, gIdx) => (
+                                      <span key={gIdx} className="text-sm select-none filter drop-shadow">
+                                        ⚽
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
                                 {/* Position Badge Above Circle */}
                                 <span className="mb-0.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-black uppercase tracking-wider bg-black/95 border border-white/25 text-[#00E676] shadow-md group-hover:border-[#00E676] transition-colors leading-tight">
                                   {position}
@@ -5684,8 +5732,13 @@ export default function AdminPortal({ onExit }) {
                                 </div>
 
                                 {/* Name badge */}
-                                <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center group-hover:border-[#00E676]/60 transition-colors">
-                                  {name.split(' ').slice(-1)[0] || name}
+                                <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center group-hover:border-[#00E676]/60 transition-colors flex items-center justify-center gap-1">
+                                  <span className="truncate">{name.split(' ').slice(-1)[0] || name}</span>
+                                  {goals > 0 && (
+                                    <span className="text-[10px] text-[#00E676] font-mono font-black shrink-0">
+                                      ⚽{goals > 1 ? `x${goals}` : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5709,7 +5762,7 @@ export default function AdminPortal({ onExit }) {
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {homeBench.map((slot, idx) => {
-                              const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                              const { jerseyNumber, name, position, goals, raw } = resolveLineupPlayer(slot, homeTeamObj, inspectorEvents);
                               return (
                                 <div
                                   key={idx}
@@ -5728,6 +5781,11 @@ export default function AdminPortal({ onExit }) {
                                 >
                                   <span className="font-mono font-bold text-[#00E676] text-[10px]">#{jerseyNumber}</span>
                                   <span className="font-medium text-slate-200 truncate max-w-[105px]">{name.split(' ').slice(-1)[0] || name}</span>
+                                  {goals > 0 && (
+                                    <span className="text-xs shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                   <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded uppercase">{position || 'SUB'}</span>
                                 </div>
                               );
@@ -5749,7 +5807,7 @@ export default function AdminPortal({ onExit }) {
                       ) : (
                         <div className="space-y-1">
                           {homeStarting.map((slot, idx) => {
-                            const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                            const { jerseyNumber, name, position, isCaptain, goals, raw } = resolveLineupPlayer(slot, homeTeamObj, inspectorEvents);
                             return (
                               <div
                                 key={idx}
@@ -5771,6 +5829,11 @@ export default function AdminPortal({ onExit }) {
                                   <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
                                     {name}
                                   </span>
+                                  {goals > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-xs font-mono font-bold text-[#00E676] flex items-center gap-0.5 shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                   {isCaptain && (
                                     <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
                                       C
@@ -5800,7 +5863,7 @@ export default function AdminPortal({ onExit }) {
                       ) : (
                         <div className="space-y-1">
                           {homeBench.map((slot, idx) => {
-                            const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, homeTeamObj);
+                            const { jerseyNumber, name, position, goals, raw } = resolveLineupPlayer(slot, homeTeamObj, inspectorEvents);
                             return (
                               <div
                                 key={idx}
@@ -5820,6 +5883,11 @@ export default function AdminPortal({ onExit }) {
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
                                   <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                                  {goals > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-xs font-mono font-bold text-[#00E676] flex items-center gap-0.5 shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase">
@@ -5891,7 +5959,7 @@ export default function AdminPortal({ onExit }) {
                           </div>
                         ) : (
                           awayStarting.map((slot, idx) => {
-                            const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                            const { jerseyNumber, name, position, isCaptain, goals, raw } = resolveLineupPlayer(slot, awayTeamObj, inspectorEvents);
                             const coords = getSlotCoordinates(slot, idx, awayFormation);
                             const isGK = position === 'GK';
 
@@ -5915,6 +5983,20 @@ export default function AdminPortal({ onExit }) {
                                 }}
                                 title={`Click to view #${jerseyNumber} ${name} (${position}) profile`}
                               >
+                                {/* Goal Balls Floating on Player Head */}
+                                {goals > 0 && (
+                                  <div 
+                                    className="absolute -top-5 left-1/2 -translate-x-1/2 flex items-center justify-center gap-0.5 z-30 pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] animate-bounce"
+                                    title={`Scored ${goals} ${goals > 1 ? 'goals' : 'goal'}!`}
+                                  >
+                                    {Array.from({ length: goals }).map((_, gIdx) => (
+                                      <span key={gIdx} className="text-sm select-none filter drop-shadow">
+                                        ⚽
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
                                 {/* Position Badge Above Circle */}
                                 <span className="mb-0.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-black uppercase tracking-wider bg-black/95 border border-white/25 text-[#00E676] shadow-md group-hover:border-[#00E676] transition-colors leading-tight">
                                   {position}
@@ -5937,8 +6019,13 @@ export default function AdminPortal({ onExit }) {
                                 </div>
 
                                 {/* Name badge */}
-                                <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center group-hover:border-[#00E676]/60 transition-colors">
-                                  {name.split(' ').slice(-1)[0] || name}
+                                <div className="mt-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/20 text-[10px] font-semibold text-white tracking-tight whitespace-nowrap shadow max-w-[85px] truncate text-center group-hover:border-[#00E676]/60 transition-colors flex items-center justify-center gap-1">
+                                  <span className="truncate">{name.split(' ').slice(-1)[0] || name}</span>
+                                  {goals > 0 && (
+                                    <span className="text-[10px] text-[#00E676] font-mono font-black shrink-0">
+                                      ⚽{goals > 1 ? `x${goals}` : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5962,7 +6049,7 @@ export default function AdminPortal({ onExit }) {
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {awayBench.map((slot, idx) => {
-                              const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                              const { jerseyNumber, name, position, goals, raw } = resolveLineupPlayer(slot, awayTeamObj, inspectorEvents);
                               return (
                                 <div
                                   key={idx}
@@ -5981,6 +6068,11 @@ export default function AdminPortal({ onExit }) {
                                 >
                                   <span className="font-mono font-bold text-[#00E676] text-[10px]">#{jerseyNumber}</span>
                                   <span className="font-medium text-slate-200 truncate max-w-[105px]">{name.split(' ').slice(-1)[0] || name}</span>
+                                  {goals > 0 && (
+                                    <span className="text-xs shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                   <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded uppercase">{position || 'SUB'}</span>
                                 </div>
                               );
@@ -6002,7 +6094,7 @@ export default function AdminPortal({ onExit }) {
                       ) : (
                         <div className="space-y-1">
                           {awayStarting.map((slot, idx) => {
-                            const { jerseyNumber, name, position, isCaptain, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                            const { jerseyNumber, name, position, isCaptain, goals, raw } = resolveLineupPlayer(slot, awayTeamObj, inspectorEvents);
                             return (
                               <div
                                 key={idx}
@@ -6024,6 +6116,11 @@ export default function AdminPortal({ onExit }) {
                                   <span className="font-semibold text-white group-hover:text-[#00E676] transition-colors truncate">
                                     {name}
                                   </span>
+                                  {goals > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-xs font-mono font-bold text-[#00E676] flex items-center gap-0.5 shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                   {isCaptain && (
                                     <span className="text-[9px] font-black bg-[#FFB800] text-black px-1.5 py-0.2 rounded font-mono shadow shrink-0">
                                       C
@@ -6053,7 +6150,7 @@ export default function AdminPortal({ onExit }) {
                       ) : (
                         <div className="space-y-1">
                           {awayBench.map((slot, idx) => {
-                            const { jerseyNumber, name, position, raw } = resolveLineupPlayer(slot, awayTeamObj);
+                            const { jerseyNumber, name, position, goals, raw } = resolveLineupPlayer(slot, awayTeamObj, inspectorEvents);
                             return (
                               <div
                                 key={idx}
@@ -6073,6 +6170,11 @@ export default function AdminPortal({ onExit }) {
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="w-6 text-center font-mono font-bold text-slate-400 shrink-0">#{jerseyNumber}</span>
                                   <span className="group-hover:text-white transition-colors truncate">{name}</span>
+                                  {goals > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-[#00E676]/15 border border-[#00E676]/30 text-xs font-mono font-bold text-[#00E676] flex items-center gap-0.5 shrink-0" title={`Scored ${goals} goal(s)`}>
+                                      {'⚽'.repeat(goals)}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase">
