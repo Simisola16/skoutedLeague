@@ -32,7 +32,7 @@ export default function SponsorsMarquee({ sponsors = [], onNavigateSponsors }) {
     {
       name: 'African Scouting Hub',
       tier: 'Scouting Partner',
-      logoUrl: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&q=80&w=400',
+      logoUrl: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&q=80&w=400',
       websiteUrl: 'https://skoutedyouthleague.com'
     }
   ];
