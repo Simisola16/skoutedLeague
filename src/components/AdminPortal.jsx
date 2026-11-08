@@ -218,6 +218,8 @@ export default function AdminPortal({ onExit }) {
   const [eventTeamId, setEventTeamId] = useState('');
   const [eventPlayerId, setEventPlayerId] = useState('');
   const [assistPlayerId, setAssistPlayerId] = useState('');
+  const [subInPlayerId, setSubInPlayerId] = useState('');
+  const [subOutPlayerId, setSubOutPlayerId] = useState('');
   const [eventMinute, setEventMinute] = useState(0);
   const [eventDescription, setEventDescription] = useState('');
   const [eventLoading, setEventLoading] = useState(false);
@@ -1734,28 +1736,50 @@ export default function AdminPortal({ onExit }) {
     e.preventDefault();
     if (!activeFixture) return;
 
+    const isSub = eventType === 'SUB_IN';
+    if (isSub) {
+      if (!subInPlayerId || !subOutPlayerId) {
+        alert('Please select both Player Coming ON (IN) and Player Going OFF (OUT)');
+        return;
+      }
+      if (subInPlayerId === subOutPlayerId) {
+        alert('Player coming ON cannot be the same as the player going OFF');
+        return;
+      }
+    }
+
     setEventLoading(true);
     setEventSuccessMsg('');
 
     try {
+      const inP = isSub ? activeTeamSquad.find(p => String(p._id) === String(subInPlayerId)) : null;
+      const outP = isSub ? activeTeamSquad.find(p => String(p._id) === String(subOutPlayerId)) : null;
+      const subDesc = isSub
+        ? `${inP ? `#${inP.jerseyNumber} ${inP.firstName} ${inP.lastName}` : 'Player'} on for ${outP ? `#${outP.jerseyNumber} ${outP.firstName} ${outP.lastName}` : 'Player'}`
+        : eventDescription;
+
       const payload = {
         minute: Number(eventMinute),
         type: eventType,
         teamId: eventTeamId,
-        playerId: eventPlayerId || null,
-        assistPlayerId: assistPlayerId || null,
-        description: eventDescription
+        playerId: isSub ? subInPlayerId : (eventPlayerId || null),
+        assistPlayerId: isSub ? subOutPlayerId : (assistPlayerId || null),
+        inPlayerId: isSub ? subInPlayerId : null,
+        outPlayerId: isSub ? subOutPlayerId : null,
+        description: subDesc || eventDescription
       };
 
       const res = await api.logMatchEvent(activeFixture._id, payload);
       if (res.success) {
-        setEventSuccessMsg(`${eventType} recorded and broadcasted!`);
+        setEventSuccessMsg(isSub ? 'Substitution recorded and broadcasted!' : `${eventType} recorded and broadcasted!`);
         if (eventType === 'GOAL') {
           confetti({ particleCount: 60, spread: 80, origin: { y: 0.5 } });
         }
         setEventDescription('');
         setEventPlayerId('');
         setAssistPlayerId('');
+        setSubInPlayerId('');
+        setSubOutPlayerId('');
         setTimeout(() => setEventSuccessMsg(''), 4000);
       } else {
         alert(res.error || 'Failed to log event');
@@ -2961,49 +2985,89 @@ export default function AdminPortal({ onExit }) {
                       </div>
                     ) : (
                       <div className="divide-y divide-white/5 space-y-2">
-                        {fixtureEvents.map((evt, idx) => (
-                          <div key={evt._id || idx} className="pt-2 flex items-center justify-between text-xs gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="font-mono font-black text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/20 px-2 py-0.5 rounded text-[11px] shrink-0">
-                                {evt.minute}'
-                              </span>
-                              <span className="font-bold text-white shrink-0">
-                                {evt.type === 'GOAL' && '⚽ GOAL'}
-                                {evt.type === 'YELLOW_CARD' && '🟨 Yellow Card'}
-                                {evt.type === 'RED_CARD' && '🟥 Red Card'}
-                                {evt.type === 'SUB_IN' && '🔄 Substitution'}
-                                {evt.type === 'VAR' && '📺 VAR Check'}
-                                {evt.type === 'OWN_GOAL' && '🥅 Own Goal'}
-                              </span>
-                              <span className="text-slate-300 truncate font-medium">
-                                {evt.player ? `${evt.player.firstName} ${evt.player.lastName}` : (evt.description || 'Squad')}
-                              </span>
-                            </div>
+                        {fixtureEvents.map((evt, idx) => {
+                          const isSub = evt.type === 'SUB_IN' || evt.type === 'SUB_OUT' || evt.type === 'SUBSTITUTION';
+                          const inPlayer = evt.inPlayer || evt.player;
+                          const outPlayer = evt.outPlayer || evt.assistPlayer;
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
-                                {evt.team?.shortCode || evt.team?.name}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleEditEventMinute(evt)}
-                                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-[#00E676] text-[10px] font-mono border border-white/5 flex items-center gap-0.5 transition-colors"
-                                title="Edit timeline minute"
-                              >
-                                <Edit2 className="w-2.5 h-2.5" />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteEvent(evt)}
-                                className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[10px] border border-rose-500/20 transition-colors"
-                                title="Delete event"
-                              >
-                                <Trash2 className="w-2.5 h-2.5" />
-                              </button>
+                          return (
+                            <div key={evt._id || idx} className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                <span className="font-mono font-black text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/20 px-2 py-0.5 rounded text-[11px] shrink-0">
+                                  {evt.minute}'
+                                </span>
+                                
+                                {isSub ? (
+                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                    <span className="font-bold text-white shrink-0 flex items-center gap-1 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">
+                                      <span className="text-xs">🔄</span>
+                                      <span>SUB</span>
+                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {inPlayer && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/30 px-2 py-0.5 rounded-lg">
+                                          <span>🟢 IN:</span>
+                                          <span>#{inPlayer.jerseyNumber || '?'} {inPlayer.firstName || ''} {inPlayer.lastName || ''}</span>
+                                        </span>
+                                      )}
+                                      {outPlayer && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-lg">
+                                          <span>🔴 OUT:</span>
+                                          <span>#{outPlayer.jerseyNumber || '?'} {outPlayer.firstName || ''} {outPlayer.lastName || ''}</span>
+                                        </span>
+                                      )}
+                                      {!inPlayer && !outPlayer && (
+                                        <span className="text-slate-300 font-medium">{evt.description || 'Substitution'}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="font-bold text-white shrink-0">
+                                      {evt.type === 'GOAL' && '⚽ GOAL'}
+                                      {evt.type === 'YELLOW_CARD' && '🟨 Yellow Card'}
+                                      {evt.type === 'RED_CARD' && '🟥 Red Card'}
+                                      {evt.type === 'VAR' && '📺 VAR Check'}
+                                      {evt.type === 'VAR_DECISION' && '📺 VAR Decision'}
+                                      {evt.type === 'OWN_GOAL' && '🥅 Own Goal'}
+                                    </span>
+                                    <span className="text-slate-300 truncate font-medium">
+                                      {evt.player ? `${evt.player.firstName} ${evt.player.lastName}` : (evt.description || 'Squad')}
+                                    </span>
+                                    {evt.assistPlayer && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        (Assist: {evt.assistPlayer.firstName} {evt.assistPlayer.lastName})
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                                <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                                  {evt.team?.shortCode || evt.team?.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditEventMinute(evt)}
+                                  className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-[#00E676] text-[10px] font-mono border border-white/5 flex items-center gap-0.5 transition-colors"
+                                  title="Edit timeline minute"
+                                >
+                                  <Edit2 className="w-2.5 h-2.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEvent(evt)}
+                                  className="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[10px] border border-rose-500/20 transition-colors"
+                                  title="Delete event"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3077,24 +3141,89 @@ export default function AdminPortal({ onExit }) {
                         </div>
                       </div>
 
-                      {/* Player Selector */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                          Player
-                        </label>
-                        <select
-                          value={eventPlayerId}
-                          onChange={(e) => setEventPlayerId(e.target.value)}
-                          className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
-                        >
-                          <option value="">-- Select Squad Player --</option>
-                          {activeTeamSquad.map(p => (
-                            <option key={p._id} value={p._id}>
-                              #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {/* Substitution Dual Selector (IN & OUT) */}
+                      {eventType === 'SUB_IN' ? (
+                        <div className="p-3 rounded-2xl bg-[#090B10] border border-[#2A3144] space-y-3 shadow-inner">
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <span className="text-[11px] font-extrabold text-white flex items-center gap-1.5 uppercase tracking-wider">
+                              <ArrowRightLeft className="w-3.5 h-3.5 text-[#00E676]" />
+                              <span>Official Substitution Pair</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                              Match Action
+                            </span>
+                          </div>
+
+                          {/* Player Coming ON (IN) */}
+                          <div className="space-y-1">
+                            <label className="flex items-center justify-between text-[11px] font-bold text-[#00E676]">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></span>
+                                <span>Player Coming ON (IN) *</span>
+                              </span>
+                              <span className="text-[9px] font-mono text-emerald-400/90 bg-emerald-500/15 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                                Substitute
+                              </span>
+                            </label>
+                            <select
+                              value={subInPlayerId}
+                              onChange={(e) => setSubInPlayerId(e.target.value)}
+                              className="w-full bg-[#121522] border border-[#00E676]/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E676] font-medium"
+                            >
+                              <option value="">-- Select Player Entering (IN) --</option>
+                              {activeTeamSquad.map(p => (
+                                <option key={p._id} value={p._id}>
+                                  #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Player Going OFF (OUT) */}
+                          <div className="space-y-1">
+                            <label className="flex items-center justify-between text-[11px] font-bold text-rose-400">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                                <span>Player Going OFF (OUT) *</span>
+                              </span>
+                              <span className="text-[9px] font-mono text-rose-400/90 bg-rose-500/15 px-1.5 py-0.2 rounded border border-rose-500/30">
+                                Starter Leaving
+                              </span>
+                            </label>
+                            <select
+                              value={subOutPlayerId}
+                              onChange={(e) => setSubOutPlayerId(e.target.value)}
+                              className="w-full bg-[#121522] border border-rose-500/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
+                            >
+                              <option value="">-- Select Player Leaving (OUT) --</option>
+                              {activeTeamSquad.map(p => (
+                                <option key={p._id} value={p._id}>
+                                  #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Standard Single Player Selector */
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            Player
+                          </label>
+                          <select
+                            value={eventPlayerId}
+                            onChange={(e) => setEventPlayerId(e.target.value)}
+                            className="w-full bg-[#090B10] border border-[#232838] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
+                          >
+                            <option value="">-- Select Squad Player --</option>
+                            {activeTeamSquad.map(p => (
+                              <option key={p._id} value={p._id}>
+                                #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       {/* Assist Player (only for Goal) */}
                       {eventType === 'GOAL' && (

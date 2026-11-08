@@ -16,6 +16,8 @@ export default function MatchOperatorModal({
   const [eventTeamId, setEventTeamId] = useState('');
   const [eventPlayerId, setEventPlayerId] = useState('');
   const [assistPlayerId, setAssistPlayerId] = useState('');
+  const [subInPlayerId, setSubInPlayerId] = useState('');
+  const [subOutPlayerId, setSubOutPlayerId] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [homePlayers, setHomePlayers] = useState([]);
   const [awayPlayers, setAwayPlayers] = useState([]);
@@ -171,28 +173,56 @@ export default function MatchOperatorModal({
     e.preventDefault();
     if (!currentFixture) return;
 
+    const isSub = eventType === 'SUB_IN' || eventType === 'SUBSTITUTION';
+    if (isSub) {
+      if (!subInPlayerId || !subOutPlayerId) {
+        alert('Please select both Player Coming ON (IN) and Player Going OFF (OUT)');
+        return;
+      }
+      if (subInPlayerId === subOutPlayerId) {
+        alert('Player coming ON cannot be the same as the player going OFF');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const inP = isSub ? currentTeamPlayers.find(p => String(p._id) === String(subInPlayerId)) : null;
+      const outP = isSub ? currentTeamPlayers.find(p => String(p._id) === String(subOutPlayerId)) : null;
+      const subDesc = isSub
+        ? `${inP ? `#${inP.jerseyNumber} ${inP.firstName} ${inP.lastName}` : 'Player'} on for ${outP ? `#${outP.jerseyNumber} ${outP.firstName} ${outP.lastName}` : 'Player'}`
+        : eventDescription;
+
       const res = await api.logMatchEvent(currentFixture._id, {
         minute,
         type: eventType,
         teamId: eventTeamId || currentFixture.homeTeam?._id,
-        playerId: eventPlayerId || undefined,
-        assistPlayerId: assistPlayerId || undefined,
-        description: eventDescription
+        playerId: isSub ? subInPlayerId : (eventPlayerId || undefined),
+        assistPlayerId: isSub ? subOutPlayerId : (assistPlayerId || undefined),
+        inPlayerId: isSub ? subInPlayerId : undefined,
+        outPlayerId: isSub ? subOutPlayerId : undefined,
+        description: subDesc || eventDescription
       });
 
       if (res.success) {
         if (eventType === 'GOAL') {
           confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } });
         }
-        setStatusMsg(`Logged ${eventType} live! Socket.io & Email alerts triggered.`);
+        setStatusMsg(isSub ? 'Substitution recorded live!' : `Logged ${eventType} live!`);
         setEventDescription('');
         setEventPlayerId('');
         setAssistPlayerId('');
+        setSubInPlayerId('');
+        setSubOutPlayerId('');
         if (onFixtureUpdated) onFixtureUpdated(res.data.fixture);
         setTimeout(() => setStatusMsg(''), 2500);
       }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
     } catch (err) {
       console.error(err);
     } finally {
@@ -414,41 +444,83 @@ export default function MatchOperatorModal({
                   </div>
                 </div>
 
-                {/* Player Selector */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1">Involved Player</label>
-                    <select
-                      value={eventPlayerId}
-                      onChange={(e) => setEventPlayerId(e.target.value)}
-                      className="w-full bg-[#141720] border border-[#252A38] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
-                    >
-                      <option value="">-- Choose Player --</option>
-                      {currentTeamPlayers.map(p => (
-                        <option key={p._id} value={p._id}>
-                          #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Player Selector / Substitution Pair */}
+                {eventType === 'SUB_IN' ? (
+                  <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-[#0F121A] border border-[#252A38]">
+                    <div>
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-[#00E676] mb-1">
+                        <span className="w-2 h-2 rounded-full bg-[#00E676]"></span>
+                        <span>Player IN (Entering) *</span>
+                      </label>
+                      <select
+                        value={subInPlayerId}
+                        onChange={(e) => setSubInPlayerId(e.target.value)}
+                        className="w-full bg-[#141720] border border-[#00E676]/40 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      >
+                        <option value="">-- Player Entering --</option>
+                        {currentTeamPlayers.map(p => (
+                          <option key={p._id} value={p._id}>
+                            #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  {/* Assist Player (if Goal) */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1">Assist (Optional)</label>
-                    <select
-                      value={assistPlayerId}
-                      onChange={(e) => setAssistPlayerId(e.target.value)}
-                      className="w-full bg-[#141720] border border-[#252A38] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
-                    >
-                      <option value="">-- None --</option>
-                      {currentTeamPlayers.filter(p => p._id !== eventPlayerId).map(p => (
-                        <option key={p._id} value={p._id}>
-                          #{p.jerseyNumber} {p.firstName} {p.lastName}
-                        </option>
-                      ))}
-                    </select>
+                    <div>
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-rose-400 mb-1">
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span>Player OUT (Leaving) *</span>
+                      </label>
+                      <select
+                        value={subOutPlayerId}
+                        onChange={(e) => setSubOutPlayerId(e.target.value)}
+                        className="w-full bg-[#141720] border border-rose-500/40 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500"
+                      >
+                        <option value="">-- Player Leaving --</option>
+                        {currentTeamPlayers.map(p => (
+                          <option key={p._id} value={p._id}>
+                            #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">Involved Player</label>
+                      <select
+                        value={eventPlayerId}
+                        onChange={(e) => setEventPlayerId(e.target.value)}
+                        className="w-full bg-[#141720] border border-[#252A38] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      >
+                        <option value="">-- Choose Player --</option>
+                        {currentTeamPlayers.map(p => (
+                          <option key={p._id} value={p._id}>
+                            #{p.jerseyNumber} {p.firstName} {p.lastName} ({p.position})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Assist Player (if Goal) */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">Assist (Optional)</label>
+                      <select
+                        value={assistPlayerId}
+                        onChange={(e) => setAssistPlayerId(e.target.value)}
+                        className="w-full bg-[#141720] border border-[#252A38] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+                      >
+                        <option value="">-- None --</option>
+                        {currentTeamPlayers.filter(p => p._id !== eventPlayerId).map(p => (
+                          <option key={p._id} value={p._id}>
+                            #{p.jerseyNumber} {p.firstName} {p.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 {/* Description input */}
                 <div>

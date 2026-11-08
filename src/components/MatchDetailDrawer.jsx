@@ -210,38 +210,79 @@ export default function MatchDetailDrawer({
 
                       {/* Event Details */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          {ev.player ? (
-                            <button
-                              type="button"
-                              onClick={() => onPlayerClick && onPlayerClick(ev.player)}
-                              className="font-bold text-xs text-white truncate hover:text-[#00E676] hover:underline cursor-pointer text-left transition-colors"
-                              title="Click to view full player details"
-                            >
-                              {ev.player.firstName} {ev.player.lastName}
-                            </button>
-                          ) : (
-                            <span className="font-bold text-xs text-white truncate">
-                              {ev.team?.name}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-slate-400 font-mono">({ev.team?.shortCode})</span>
-                        </div>
-                        {ev.assistPlayer && (
-                          <div className="text-[11px] text-slate-400">
-                            Assist:{' '}
-                            <button
-                              type="button"
-                              onClick={() => onPlayerClick && onPlayerClick(ev.assistPlayer)}
-                              className="text-slate-300 hover:text-[#00E676] hover:underline cursor-pointer transition-colors"
-                              title="Click to view full player details"
-                            >
-                              {ev.assistPlayer.firstName} {ev.assistPlayer.lastName}
-                            </button>
+                        {isSub ? (
+                          <div className="space-y-1">
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-white font-extrabold">
+                                <span>🔄</span>
+                                <span>Substitution</span>
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">({ev.team?.shortCode || ev.team?.name})</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {(ev.inPlayer || ev.player) && (
+                                <button
+                                  type="button"
+                                  onClick={() => onPlayerClick && onPlayerClick(ev.inPlayer || ev.player)}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-[#00E676] bg-[#00E676]/10 border border-[#00E676]/30 px-2 py-0.5 rounded-lg hover:underline cursor-pointer"
+                                  title="Click to view full player details"
+                                >
+                                  <span>🟢 IN:</span>
+                                  <span>#{(ev.inPlayer || ev.player).jerseyNumber ? `#${(ev.inPlayer || ev.player).jerseyNumber}` : ''} {(ev.inPlayer || ev.player).firstName || ''} {(ev.inPlayer || ev.player).lastName || ''}</span>
+                                </button>
+                              )}
+                              {(ev.outPlayer || ev.assistPlayer) && (
+                                <button
+                                  type="button"
+                                  onClick={() => onPlayerClick && onPlayerClick(ev.outPlayer || ev.assistPlayer)}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-lg hover:underline cursor-pointer"
+                                  title="Click to view full player details"
+                                >
+                                  <span>🔴 OUT:</span>
+                                  <span>#{(ev.outPlayer || ev.assistPlayer).jerseyNumber ? `#${(ev.outPlayer || ev.assistPlayer).jerseyNumber}` : ''} {(ev.outPlayer || ev.assistPlayer).firstName || ''} {(ev.outPlayer || ev.assistPlayer).lastName || ''}</span>
+                                </button>
+                              )}
+                            </div>
+                            {ev.description && (
+                              <p className="text-[11px] text-slate-400 mt-0.5">{ev.description}</p>
+                            )}
                           </div>
-                        )}
-                        {ev.description && (
-                          <p className="text-[11px] text-slate-300 mt-0.5">{ev.description}</p>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1.5">
+                              {ev.player ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onPlayerClick && onPlayerClick(ev.player)}
+                                  className="font-bold text-xs text-white truncate hover:text-[#00E676] hover:underline cursor-pointer text-left transition-colors"
+                                  title="Click to view full player details"
+                                >
+                                  {ev.player.firstName} {ev.player.lastName}
+                                </button>
+                              ) : (
+                                <span className="font-bold text-xs text-white truncate">
+                                  {ev.team?.name}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-mono">({ev.team?.shortCode})</span>
+                            </div>
+                            {ev.assistPlayer && (
+                              <div className="text-[11px] text-slate-400">
+                                Assist:{' '}
+                                <button
+                                  type="button"
+                                  onClick={() => onPlayerClick && onPlayerClick(ev.assistPlayer)}
+                                  className="text-slate-300 hover:text-[#00E676] hover:underline cursor-pointer transition-colors"
+                                  title="Click to view full player details"
+                                >
+                                  {ev.assistPlayer.firstName} {ev.assistPlayer.lastName}
+                                </button>
+                              </div>
+                            )}
+                            {ev.description && (
+                              <p className="text-[11px] text-slate-300 mt-0.5">{ev.description}</p>
+                            )}
+                          </>
                         )}
                       </div>
 
