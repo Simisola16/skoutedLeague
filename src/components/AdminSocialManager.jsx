@@ -15,7 +15,10 @@ import {
   Radio,
   Eye,
   CheckCircle2,
-  Filter
+  Filter,
+  Video,
+  Play,
+  Square
 } from 'lucide-react';
 import { api } from '../services/api';
 import { SocialIcon } from './SocialIcons';
@@ -37,6 +40,14 @@ export default function AdminSocialManager() {
   const [curatePinned, setCuratePinned] = useState(false);
   const [curatingLoading, setCuratingLoading] = useState(false);
 
+  // YouTube Live Stream Broadcast State
+  const [liveStreamInfo, setLiveStreamInfo] = useState(null);
+  const [liveStreamLoading, setLiveStreamLoading] = useState(false);
+  const [liveDetecting, setLiveDetecting] = useState(false);
+  const [liveVideoInput, setLiveVideoInput] = useState('');
+  const [liveTitleInput, setLiveTitleInput] = useState('');
+  const [broadcastingLive, setBroadcastingLive] = useState(false);
+
   // YouTube Sync State
   const [syncingYT, setSyncingYT] = useState(false);
   const [syncSummary, setSyncSummary] = useState(null);
@@ -47,6 +58,59 @@ export default function AdminSocialManager() {
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const fetchLiveStream = async (forceRefresh = false) => {
+    if (forceRefresh) setLiveDetecting(true);
+    else setLiveStreamLoading(true);
+    try {
+      const res = await api.getLiveStream(forceRefresh);
+      if (res.success && res.data) {
+        setLiveStreamInfo(res.data);
+        if (res.data.videoId) {
+          setLiveVideoInput(res.data.videoId);
+        }
+        if (res.data.title) {
+          setLiveTitleInput(res.data.title);
+        }
+        if (forceRefresh) {
+          showToast(`Live stream detected: ${res.data.videoId} (${res.data.isLive ? 'Live Now' : 'Offline'})`);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching live stream info:', err);
+    } finally {
+      setLiveStreamLoading(false);
+      setLiveDetecting(false);
+    }
+  };
+
+  const handleBroadcastLive = async (customIsLive = null) => {
+    if (!liveVideoInput.trim()) {
+      showToast('Please provide a YouTube URL or Video ID', 'error');
+      return;
+    }
+    setBroadcastingLive(true);
+    try {
+      const payload = {
+        url: liveVideoInput.trim(),
+        title: liveTitleInput.trim() || liveStreamInfo?.title || 'Skouted Youth League Match Live',
+        isLiveNow: typeof customIsLive === 'boolean' ? customIsLive : true
+      };
+      const res = await api.updateLiveStream(payload);
+      if (res.success) {
+        showToast(res.message || 'Live stream broadcast updated!');
+        if (res.data) {
+          setLiveStreamInfo(res.data);
+        }
+      } else {
+        showToast(res.error || 'Failed to update live stream', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Error updating live stream', 'error');
+    } finally {
+      setBroadcastingLive(false);
+    }
   };
 
   const fetchPosts = async () => {
@@ -65,6 +129,7 @@ export default function AdminSocialManager() {
 
   useEffect(() => {
     fetchPosts();
+    fetchLiveStream();
   }, [platformFilter]);
 
   // Handle Manual YouTube Sync
@@ -274,6 +339,143 @@ export default function AdminSocialManager() {
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* YOUTUBE LIVE STREAM BROADCAST COMMAND CARD */}
+      {/* ========================================================= */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-[#170E12] via-[#14121B] to-[#0D111A] border border-red-500/30 space-y-4 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-11 h-11 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 shadow-lg shadow-red-600/20">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#10131C] ${
+                liveStreamInfo?.isLive ? 'bg-red-500 animate-ping' : 'bg-slate-600'
+              }`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-extrabold text-white tracking-tight">YouTube Matchday Live Broadcast Control</h3>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase border ${
+                  liveStreamInfo?.isLive
+                    ? 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>
+                  {liveStreamInfo?.isLive ? '🔴 LIVE ON AIR NOW' : '⚪ STANDBY / OFFLINE'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Controls the live match stream displayed in the homepage video player for all visitors in real time.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => fetchLiveStream(true)}
+              disabled={liveDetecting}
+              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-200 hover:text-white border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              title="Automatically detect current YouTube channel live stream"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#00E676] ${liveDetecting ? 'animate-spin' : ''}`} />
+              <span>{liveDetecting ? 'Detecting Live...' : 'Auto-Detect YouTube'}</span>
+            </button>
+
+            {liveStreamInfo?.videoId && (
+              <a
+                href={`https://www.youtube.com/watch?v=${liveStreamInfo.videoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Watch on YouTube</span>
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Current Active Live Stream Status Bar */}
+        <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Active Broadcast:</span>
+              <span className="font-mono font-bold text-[#00E676] truncate">{liveStreamInfo?.videoId || 'None set'}</span>
+              {liveStreamInfo?.source && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-slate-400 border border-white/10">
+                  {liveStreamInfo.source === 'auto_detected' ? 'Auto-detected' : 'Admin override'}
+                </span>
+              )}
+            </div>
+            <div className="text-white font-medium truncate">
+              {liveStreamInfo?.title || 'No active title configured'}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {liveStreamInfo?.isLive ? (
+              <button
+                type="button"
+                onClick={() => handleBroadcastLive(false)}
+                disabled={broadcastingLive}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Set Stream Offline</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleBroadcastLive(true)}
+                disabled={broadcastingLive}
+                className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Set Stream LIVE</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick URL / Video ID Override Form */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1">
+          <div className="md:col-span-5 space-y-1">
+            <label className="text-[11px] font-bold text-slate-300">YouTube URL or Video ID</label>
+            <input
+              type="text"
+              value={liveVideoInput}
+              onChange={(e) => setLiveVideoInput(e.target.value)}
+              placeholder="e.g. lU5MVdwXWvE or https://youtube.com/watch?v=..."
+              className="w-full px-3 py-2 rounded-xl bg-[#090B10] border border-white/10 text-white text-xs font-mono placeholder-slate-600 focus:outline-none focus:border-red-500"
+            />
+          </div>
+
+          <div className="md:col-span-5 space-y-1">
+            <label className="text-[11px] font-bold text-slate-300">Matchday Broadcast Title</label>
+            <input
+              type="text"
+              value={liveTitleInput}
+              onChange={(e) => setLiveTitleInput(e.target.value)}
+              placeholder="e.g. SYL 2026/2027 SEASON WEEK 1 MATCH"
+              className="w-full px-3 py-2 rounded-xl bg-[#090B10] border border-white/10 text-white text-xs placeholder-slate-600 focus:outline-none focus:border-red-500"
+            />
+          </div>
+
+          <div className="md:col-span-2 flex items-end">
+            <button
+              type="button"
+              onClick={() => handleBroadcastLive(true)}
+              disabled={broadcastingLive}
+              className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/20 cursor-pointer disabled:opacity-50 transition-all"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>{broadcastingLive ? 'Saving...' : 'Broadcast'}</span>
+            </button>
           </div>
         </div>
       </div>

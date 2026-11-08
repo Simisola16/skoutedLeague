@@ -1,5 +1,5 @@
 export const YOUTUBE_CHANNEL_ID = 'UCy_dA9AmAWwGcDhh1PQtARA';
-export const YOUTUBE_LIVE_EMBED_URL = 'https://www.youtube.com/embed/live_stream?channel=UCy_dA9AmAWwGcDhh1PQtARA';
+export const YOUTUBE_LIVE_EMBED_URL = 'https://www.youtube.com/embed/lU5MVdwXWvE?autoplay=1&mute=1';
 
 export const SOCIAL_LINKS = {
   facebook: {

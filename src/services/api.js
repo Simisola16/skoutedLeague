@@ -882,6 +882,20 @@ export const api = {
     return res.json();
   },
 
+  getLiveStream: async (refresh = false) => {
+    const res = await fetch(`${API_BASE}/social/live${refresh ? '?refresh=true' : ''}`);
+    return res.json();
+  },
+
+  updateLiveStream: async (payload) => {
+    const res = await fetch(`${API_BASE}/social/live`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
   deleteSocialPost: async (id) => {
     const res = await fetch(`${API_BASE}/social/posts/${id}`, {
       method: 'DELETE',

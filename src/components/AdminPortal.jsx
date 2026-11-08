@@ -5494,22 +5494,41 @@ export default function AdminPortal({ onExit }) {
       {/* MODAL 3: MATCHDAY LINEUP INSPECTION MODAL */}
       {/* ========================================================= */}
       {inspectingFixtureLineups && (() => {
-        const homeTeamObj = (typeof inspectingFixtureLineups.homeTeam === 'object' && inspectingFixtureLineups.homeTeam !== null)
-          ? inspectingFixtureLineups.homeTeam
-          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) ||
-            (Array.isArray(adminTeams) && adminTeams.find(t => String(t._id) === String(inspectingFixtureLineups.homeTeam))) ||
-            { name: inspectingFixtureLineups.homeTeamName || 'Home Team', shortCode: '' };
+        const resolveTeamDetails = (teamRef, fallbackName = 'Club') => {
+          const teamId = (typeof teamRef === 'object' && teamRef !== null) ? (teamRef._id || teamRef.id) : teamRef;
+          const matchInTeams = (Array.isArray(teams) && teams.find(t => String(t._id || t.id) === String(teamId))) || null;
+          const matchInAdminTeams = (Array.isArray(adminTeams) && adminTeams.find(t => String(t._id || t.id) === String(teamId))) || null;
 
-        const awayTeamObj = (typeof inspectingFixtureLineups.awayTeam === 'object' && inspectingFixtureLineups.awayTeam !== null)
-          ? inspectingFixtureLineups.awayTeam
-          : (Array.isArray(teams) && teams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) ||
-            (Array.isArray(adminTeams) && adminTeams.find(t => String(t._id) === String(inspectingFixtureLineups.awayTeam))) ||
-            { name: inspectingFixtureLineups.awayTeamName || 'Away Team', shortCode: '' };
+          if (typeof teamRef === 'object' && teamRef !== null && teamRef.name) {
+            return {
+              ...teamRef,
+              squad: (Array.isArray(teamRef.squad) && teamRef.squad.length > 0) ? teamRef.squad : (matchInTeams?.squad || matchInAdminTeams?.squad || []),
+              logo: teamRef.logo || matchInTeams?.logo || matchInAdminTeams?.logo || '',
+              shortCode: teamRef.shortCode || matchInTeams?.shortCode || matchInAdminTeams?.shortCode || '',
+              homeKitColor: teamRef.homeKitColor || matchInTeams?.homeKitColor || matchInAdminTeams?.homeKitColor || '#00E676'
+            };
+          }
+
+          if (matchInTeams) return matchInTeams;
+          if (matchInAdminTeams) return matchInAdminTeams;
+
+          return {
+            _id: teamId,
+            name: (typeof teamRef === 'object' && teamRef?.name) || fallbackName,
+            shortCode: (typeof teamRef === 'object' && teamRef?.shortCode) || '',
+            squad: [],
+            logo: '',
+            homeKitColor: '#00E676'
+          };
+        };
+
+        const homeTeamObj = resolveTeamDetails(inspectingFixtureLineups.homeTeam, inspectingFixtureLineups.homeTeamName || 'Home Club');
+        const awayTeamObj = resolveTeamDetails(inspectingFixtureLineups.awayTeam, inspectingFixtureLineups.awayTeamName || 'Away Club');
 
         const homeName = homeTeamObj.name || inspectingFixtureLineups.homeTeamName || 'Home Club';
         const awayName = awayTeamObj.name || inspectingFixtureLineups.awayTeamName || 'Away Club';
-        const homeCode = homeTeamObj.shortCode || '';
-        const awayCode = awayTeamObj.shortCode || '';
+        const homeCode = (homeTeamObj.shortCode || '').trim();
+        const awayCode = (awayTeamObj.shortCode || '').trim();
 
         const homeStarting = inspectingFixtureLineups.homeLineup?.startingXI || [];
         const homeBench = inspectingFixtureLineups.homeLineup?.bench || [];
@@ -5538,7 +5557,10 @@ export default function AdminPortal({ onExit }) {
                       <h3 className="font-extrabold text-base text-white tracking-tight">Matchday Starting XI & Bench Inspection</h3>
                     </div>
                     <div className="text-xs text-slate-400 font-mono mt-0.5">
-                      {homeName} vs {awayName} • {inspectingFixtureLineups.date || 'Upcoming'} at {inspectingFixtureLineups.time || 'TBD'} ({inspectingFixtureLineups.venue || 'Stadium'})
+                      {homeName} vs {awayName}
+                      {inspectingFixtureLineups.date ? ` • ${inspectingFixtureLineups.date}` : ''}
+                      {inspectingFixtureLineups.time ? ` at ${inspectingFixtureLineups.time}` : ''}
+                      {inspectingFixtureLineups.venue ? ` (${inspectingFixtureLineups.venue})` : ''}
                     </div>
                   </div>
                 </div>
