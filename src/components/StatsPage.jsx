@@ -474,11 +474,11 @@ export default function StatsPage({
                   <th className="py-3 px-3 sm:px-4">Player</th>
                   <th className="py-3 px-3 sm:px-4 hidden md:table-cell">Club</th>
                   <th className="py-3 px-3 sm:px-4 text-center">Pos</th>
-                  <th className="py-3 px-3 sm:px-4 text-center">MP</th>
-                  <th className="py-3 px-3 sm:px-4 text-center font-bold text-amber-400">Goals</th>
-                  <th className="py-3 px-3 sm:px-4 text-center font-bold text-[#00E676]">Assists</th>
-                  <th className="py-3 px-3 sm:px-4 text-center hidden sm:table-cell font-bold text-orange-400">G+A</th>
-                  <th className="py-3 px-3 sm:px-4 text-center hidden lg:table-cell text-slate-300">G/M</th>
+                  <th className="py-3 px-3 sm:px-4 text-center" title="Matches Played">MP</th>
+                  <th className="py-3 px-3 sm:px-4 text-center font-bold text-amber-400" title="Total Goals Scored">Goals</th>
+                  <th className="py-3 px-3 sm:px-4 text-center font-bold text-[#00E676]" title="Total Assists Delivered">Assists</th>
+                  <th className="py-3 px-3 sm:px-4 text-center hidden sm:table-cell font-bold text-orange-400" title="Goal Contributions (Goals + Assists)">G+A</th>
+                  <th className="py-3 px-3 sm:px-4 text-center hidden lg:table-cell text-slate-300" title="Goals per Match ratio (Goals ÷ Matches Played)">G/M</th>
                   <th className="py-3 px-3 sm:px-4 text-right">Profile</th>
                 </tr>
               </thead>
@@ -591,9 +591,10 @@ export default function StatsPage({
                         <button
                           type="button"
                           className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-[#00E676]/15 text-[#00E676] text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                          title="View complete player profile & scout dossier"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Dossier</span>
+                          <span className="hidden sm:inline">View Profile</span>
                         </button>
                       </td>
                     </tr>
@@ -619,3 +620,4 @@ export default function StatsPage({
     </div>
   );
 }
+
