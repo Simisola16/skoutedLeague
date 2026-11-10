@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Calendar, Trophy, Users, Shield, Newspaper, Camera } from 'lucide-react';
+import { Compass, Calendar, Trophy, Users, Shield, Newspaper, Camera, Award } from 'lucide-react';
 
 export default function BottomNav({
   currentPath = '/',
@@ -10,6 +10,7 @@ export default function BottomNav({
   const navItems = [
     { id: 'fixtures', label: 'Fixtures', path: '/fixtures', icon: Calendar, badge: liveCount },
     { id: 'table', label: 'Table', path: '/table', icon: Trophy },
+    { id: 'stats', label: 'Scorers', path: '/stats', icon: Award },
     { id: 'teams', label: 'Teams', path: '/teams', icon: Users },
     { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera },
     { id: 'news', label: 'News', path: '/news', icon: Newspaper },
@@ -20,6 +21,12 @@ export default function BottomNav({
     if (path === '/fixtures') {
       return currentPath === '/' || currentPath === '/fixtures';
     }
+    if (path === '/table') {
+      return currentPath === '/table' || currentPath === '/standings';
+    }
+    if (path === '/stats') {
+      return currentPath === '/stats' || currentPath === '/top-scorers' || currentPath === '/leaders';
+    }
     if (path.startsWith('/team')) {
       return currentPath.startsWith('/team');
     }
@@ -28,7 +35,7 @@ export default function BottomNav({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0D0F14]/95 backdrop-blur-md border-t border-[#1E2330] lg:hidden safe-bottom">
-      <div className="grid grid-cols-6 h-16 items-center px-1">
+      <div className="grid grid-cols-7 h-16 items-center px-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);

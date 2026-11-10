@@ -34,11 +34,12 @@ export default function Header({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Official Navigation Architecture with Gallery
+  // Official Navigation Architecture with Gallery & Top Scorers
   const navItems = [
     { id: 'about', label: 'About', path: '/about', icon: Compass },
     { id: 'fixtures', label: 'Fixtures & Results', path: '/fixtures', icon: Calendar },
     { id: 'table', label: 'Table / Standings', path: '/table', icon: Trophy },
+    { id: 'stats', label: 'Top Scorers', path: '/stats', icon: Award },
     { id: 'teams', label: 'Teams', path: '/teams', icon: Users, badge: '12' },
     { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera },
     { id: 'news', label: 'News', path: '/news', icon: Newspaper },
@@ -56,6 +57,12 @@ export default function Header({
   const isActive = (path) => {
     if (path === '/fixtures') {
       return currentPath === '/' || currentPath === '/fixtures';
+    }
+    if (path === '/table') {
+      return currentPath === '/table' || currentPath === '/standings';
+    }
+    if (path === '/stats') {
+      return currentPath === '/stats' || currentPath === '/top-scorers' || currentPath === '/leaders';
     }
     return currentPath === path;
   };

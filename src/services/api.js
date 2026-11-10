@@ -288,8 +288,8 @@ export const api = {
     return res.json();
   },
 
-  getLeaders: async () => {
-    const res = await fetch(`${API_BASE}/stats/leaders`);
+  getLeaders: async (params = {}) => {
+    const res = await fetch(`${API_BASE}/stats/leaders${buildQuery(params)}`);
     return res.json();
   },
 

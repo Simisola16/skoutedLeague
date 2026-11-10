@@ -34,6 +34,7 @@ export default function Footer({
   const navLinks = [
     { label: 'Fixtures & Results', path: '/fixtures', icon: Calendar },
     { label: 'Table / Standings', path: '/table', icon: Trophy },
+    { label: 'Top Scorers & Assists', path: '/stats', icon: Award },
     { label: 'Teams Directory', path: '/teams', icon: Users },
     { label: 'Media & Social Hub', path: '/media', icon: Radio },
     { label: 'Tournament Gallery', path: '/gallery', icon: Camera },

@@ -224,6 +224,7 @@ export default function AdminPortal({ onExit }) {
   const [eventDescription, setEventDescription] = useState('');
   const [eventLoading, setEventLoading] = useState(false);
   const [eventSuccessMsg, setEventSuccessMsg] = useState('');
+  const [directMinuteInput, setDirectMinuteInput] = useState('');
 
   // Fixture creation
   const [stage, setStage] = useState('Week 1');
@@ -2906,6 +2907,38 @@ export default function AdminPortal({ onExit }) {
                             </button>
                             <button onClick={() => handleMinuteAdjust(5)} className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white" title="Forward 5 minutes">
                               +5m
+                            </button>
+                          </div>
+
+                          {/* Direct Exact Minute Setter */}
+                          <div className="flex items-center gap-1 mt-2 text-[10px] font-mono">
+                            <input
+                              type="number"
+                              min="0"
+                              max="130"
+                              placeholder={`${activeFixture.minute || 0}'`}
+                              value={directMinuteInput}
+                              onChange={(e) => setDirectMinuteInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && directMinuteInput !== '') {
+                                  handleSetMinute(directMinuteInput);
+                                  setDirectMinuteInput('');
+                                }
+                              }}
+                              className="w-12 bg-black/50 border border-white/15 rounded px-1.5 py-0.5 text-center text-white placeholder-slate-500 font-bold focus:outline-none focus:border-[#00E676]"
+                              title="Type minute and hit Set"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (directMinuteInput !== '') {
+                                  handleSetMinute(directMinuteInput);
+                                  setDirectMinuteInput('');
+                                }
+                              }}
+                              className="px-2 py-0.5 rounded bg-[#00E676] hover:bg-[#00c864] text-black font-extrabold uppercase tracking-wider text-[9px] shadow"
+                            >
+                              Set Min
                             </button>
                           </div>
                         </div>

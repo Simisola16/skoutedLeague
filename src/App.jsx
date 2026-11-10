@@ -21,6 +21,7 @@ import TournamentHero from './components/TournamentHero';
 import GalleryPage from './components/GalleryPage';
 import TeamRegisterPage from './components/TeamRegisterPage';
 import FixturesPage from './components/FixturesPage';
+import StatsPage from './components/StatsPage';
 
 // New Content & Media Components
 import AboutHeroShowcase from './components/AboutHeroShowcase';
@@ -103,6 +104,18 @@ export default function App() {
       '/standings': {
         title: 'League Table & Championship Standings | Skouted Youth League',
         description: 'View the official 12-club league table standings, points, goal difference, and recent form guides for the Skouted Youth League Championship.'
+      },
+      '/stats': {
+        title: 'Top Scorers & Assists Leaderboard | Skouted Youth League Championship',
+        description: 'Track the official Golden Boot race, highest goal scorers, top playmakers, and assist leaders in the Skouted Youth League Season 2026/2027.'
+      },
+      '/top-scorers': {
+        title: 'Top Scorers & Assists Leaderboard | Skouted Youth League Championship',
+        description: 'Track the official Golden Boot race, highest goal scorers, top playmakers, and assist leaders in the Skouted Youth League Season 2026/2027.'
+      },
+      '/leaders': {
+        title: 'Top Scorers & Assists Leaderboard | Skouted Youth League Championship',
+        description: 'Track the official Golden Boot race, highest goal scorers, top playmakers, and assist leaders in the Skouted Youth League Season 2026/2027.'
       },
       '/teams': {
         title: 'Accredited League Clubs | Skouted Youth League Championship',
@@ -188,7 +201,7 @@ export default function App() {
         api.getFixtures(),
         api.getTeams(),
         api.getStandings(),
-        api.getLeaders(),
+        api.getLeaders({ limit: 50 }),
         api.getNews({ limit: 12 }),
         api.getPodcasts({ limit: 10 }),
         api.getSponsors(),
@@ -525,6 +538,19 @@ export default function App() {
         )}
 
         {/* ========================================================= */}
+        {/* ROUTE 3B: TOP SCORERS & ASSISTS LEADERBOARD (/stats, /top-scorers, /leaders) */}
+        {/* ========================================================= */}
+        {(currentPath === '/stats' || currentPath === '/top-scorers' || currentPath === '/leaders') && (
+          <StatsPage
+            leaders={leaders}
+            teams={teams}
+            onBackToHome={() => navigateTo('/')}
+            onSelectPlayer={(p) => setSelectedPlayerForDetails(p)}
+            onSelectTeam={(t) => setSelectedTeamProfile(t)}
+          />
+        )}
+
+        {/* ========================================================= */}
         {/* ROUTE: DEDICATED TOURNAMENT GALLERY (/gallery) */}
         {/* ========================================================= */}
         {currentPath === '/gallery' && (
@@ -692,6 +718,125 @@ export default function App() {
               </div>
 
             </section>
+
+            {/* Golden Boot & Playmaker Highlights Teaser */}
+            {leaders?.topScorers?.length > 0 && (
+              <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#17130B] via-[#121622] to-[#0A0D15] border border-amber-500/30 p-5 sm:p-7 shadow-2xl">
+                <div className="absolute top-0 right-0 w-72 h-72 bg-amber-500/10 blur-3xl pointer-events-none rounded-full" />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-500/20 shrink-0">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase font-bold text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30">
+                          Championship Golden Boot Race
+                        </span>
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-black font-display text-white tracking-tight mt-0.5">
+                        Highest Goal Scorers & Playmakers
+                      </h3>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => navigateTo('/stats')}
+                    className="self-start md:self-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer group shrink-0"
+                  >
+                    <span>View Full Leaderboard</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+
+                {/* Top 2 Highlighted Players Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-4">
+                  {/* Leading Scorer */}
+                  {leaders.topScorers[0] && (
+                    <div
+                      onClick={() => setSelectedPlayerForDetails(leaders.topScorers[0])}
+                      className="p-3.5 rounded-2xl bg-black/40 border border-amber-500/30 hover:border-amber-400 flex items-center gap-3.5 cursor-pointer transition-all group"
+                    >
+                      <div className="relative w-14 h-14 rounded-xl bg-black/70 border border-white/15 overflow-hidden shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                        {leaders.topScorers[0].photo || leaders.topScorers[0].photoUrl ? (
+                          <img
+                            src={leaders.topScorers[0].photo || leaders.topScorers[0].photoUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-mono font-bold text-amber-400 text-sm">
+                            #{leaders.topScorers[0].jerseyNumber}
+                          </div>
+                        )}
+                        <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-md bg-amber-400 text-black font-mono font-black text-[9px] flex items-center justify-center shadow">
+                          1
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono font-bold text-amber-400 flex items-center gap-1">
+                          <span>⚽ TOP SCORER</span>
+                        </div>
+                        <div className="font-bold text-sm text-white group-hover:text-amber-300 transition-colors truncate">
+                          {leaders.topScorers[0].firstName} {leaders.topScorers[0].lastName}
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          {leaders.topScorers[0].team?.name}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xl font-black font-display text-amber-400">
+                          {leaders.topScorers[0].stats?.goals}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400">Goals</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Leading Playmaker */}
+                  {leaders.topAssists?.[0] && (
+                    <div
+                      onClick={() => setSelectedPlayerForDetails(leaders.topAssists[0])}
+                      className="p-3.5 rounded-2xl bg-black/40 border border-[#00E676]/30 hover:border-[#00E676] flex items-center gap-3.5 cursor-pointer transition-all group"
+                    >
+                      <div className="relative w-14 h-14 rounded-xl bg-black/70 border border-white/15 overflow-hidden shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                        {leaders.topAssists[0].photo || leaders.topAssists[0].photoUrl ? (
+                          <img
+                            src={leaders.topAssists[0].photo || leaders.topAssists[0].photoUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-mono font-bold text-[#00E676] text-sm">
+                            #{leaders.topAssists[0].jerseyNumber}
+                          </div>
+                        )}
+                        <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-md bg-[#00E676] text-black font-mono font-black text-[9px] flex items-center justify-center shadow">
+                          1
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono font-bold text-[#00E676] flex items-center gap-1">
+                          <span>🎯 TOP ASSISTS</span>
+                        </div>
+                        <div className="font-bold text-sm text-white group-hover:text-[#00E676] transition-colors truncate">
+                          {leaders.topAssists[0].firstName} {leaders.topAssists[0].lastName}
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate">
+                          {leaders.topAssists[0].team?.name}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xl font-black font-display text-[#00E676]">
+                          {leaders.topAssists[0].stats?.assists}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400">Assists</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* League News Widget (3-Card Grid) */}
             <NewsWidget
