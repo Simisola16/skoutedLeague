@@ -3,6 +3,7 @@ import {
   Trophy, 
   Shield, 
   Bell, 
+  Award,
   UserPlus, 
   ExternalLink, 
   ArrowUp, 
