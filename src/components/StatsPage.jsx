@@ -377,7 +377,7 @@ export default function StatsPage({
                     <div className="text-right">
                       <div className="text-[10px] font-mono text-slate-500">Matches</div>
                       <div className="text-xs font-mono font-bold text-slate-300">
-                        {player.stats?.matches || 1} MP
+                        {player.stats?.matches || player.team?.stats?.played || 2} MP
                       </div>
                       <div className="text-[10px] text-[#00E676] font-semibold mt-1 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 justify-end">
                         <span>Profile</span>
@@ -487,8 +487,8 @@ export default function StatsPage({
                   const rank = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
                   const goals = player.stats?.goals || 0;
                   const assists = player.stats?.assists || 0;
-                  const matches = player.stats?.matches || 1;
-                  const gpm = (goals / matches).toFixed(2);
+                  const matches = player.stats?.matches || player.team?.stats?.played || 2;
+                  const gpm = (goals / Math.max(1, matches)).toFixed(2);
                   const isTop3 = rank <= 3;
 
                   return (
