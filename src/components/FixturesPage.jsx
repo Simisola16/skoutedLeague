@@ -412,7 +412,33 @@ export default function FixturesPage({
   const liveCount     = useMemo(() => fixtures.filter(f => ['1ST HALF','2ND HALF','HT','PENS','LIVE'].includes(f.status)).length, [fixtures]);
   const upcomingCount = useMemo(() => fixtures.filter(f => f.status === 'UPCOMING' || f.status === 'RESCHEDULED').length, [fixtures]);
   const finishedCount = useMemo(() => fixtures.filter(f => f.status === 'FT').length, [fixtures]);
-  const stages        = useMemo(() => { const s = new Set(); fixtures.forEach(f => f.stage && s.add(f.stage)); return [...s]; }, [fixtures]);
+  const stages        = useMemo(() => {
+    const s = new Set();
+    fixtures.forEach(f => f.stage && s.add(f.stage));
+    return [...s].sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
+  }, [fixtures]);
+
+  const allTeams = useMemo(() => {
+    const map = new Map();
+    fixtures.forEach(f => {
+      if (f.homeTeam?._id) map.set(f.homeTeam._id.toString(), f.homeTeam);
+      if (f.awayTeam?._id) map.set(f.awayTeam._id.toString(), f.awayTeam);
+    });
+    return Array.from(map.values());
+  }, [fixtures]);
+
+  const activeByeTeam = useMemo(() => {
+    if (!selectedStage || selectedStage === 'ALL' || !allTeams.length) return null;
+    const stageFixtures = fixtures.filter(f => f.stage === selectedStage);
+    if (!stageFixtures.length) return null;
+    const playingIds = new Set();
+    stageFixtures.forEach(f => {
+      if (f.homeTeam?._id) playingIds.add(f.homeTeam._id.toString());
+      if (f.awayTeam?._id) playingIds.add(f.awayTeam._id.toString());
+    });
+    const byeTeams = allTeams.filter(t => !playingIds.has(t._id.toString()));
+    return byeTeams.length === 1 ? byeTeams[0] : null;
+  }, [fixtures, selectedStage, allTeams]);
 
   const leg1Count = useMemo(() => fixtures.filter(f => {
     const md = parseInt(f.matchday || f.stage?.replace(/\D/g, '') || '0');
@@ -840,6 +866,31 @@ export default function FixturesPage({
           </div>
         )}
       </div>
+
+      {/* ── Bye Announcement Banner ─────────────────────────────────────── */}
+      {activeByeTeam && (
+        <div className="mb-4 rounded-xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 via-[#141720]/80 to-[#141720]/40 p-3.5 flex items-center justify-between gap-3 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Official Bye</span>
+                <span className="text-[11px] text-slate-400 font-mono">• {selectedStage}</span>
+              </div>
+              <p className="text-xs text-slate-200 mt-1 truncate">
+                <strong className="text-white font-bold">{activeByeTeam.name}</strong> <span className="text-slate-400 font-mono">({activeByeTeam.shortCode})</span> rests this matchday.
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-slate-300 font-mono shrink-0">
+            <span>10 Clubs Active</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-[#00E676] font-semibold">5 Matches</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Fixtures Grid ───────────────────────────────────────────────── */}
       {!filteredFixtures.length ? (
