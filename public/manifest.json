@@ -1,17 +1,76 @@
 {
-  "short_name": "SYL",
+  "id": "com.skoutedyouthleague.twa",
   "name": "Skouted Youth League Championship",
-  "description": "Official Skouted Youth League Championship Season 2026/2027. Real-time scores, standings, fixtures, and grassroots football scouting.",
-  "icons": [
-    {
-      "src": "/logo.png",
-      "type": "image/png",
-      "sizes": "192x192 512x512"
-    }
-  ],
+  "short_name": "SYL",
+  "description": "Official Skouted Youth League Championship Season 2026/2027 at Lekan Salami Stadium, Adamasingba, Ibadan. Real-time scores, standings, fixtures, and grassroots football scouting.",
   "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#0D0F14",
   "theme_color": "#00E676",
-  "display": "standalone",
-  "orientation": "portrait"
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["sports", "entertainment", "news"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Skouted Youth League Championship Home"
+    },
+    {
+      "src": "/screenshots/mobile-fixtures.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Live Matchday Scores & Fixtures"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Fixtures",
+      "short_name": "Fixtures",
+      "description": "View official matchday schedule and live scores",
+      "url": "/#fixtures",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "League Standings",
+      "short_name": "Standings",
+      "description": "Check current 11-club tournament table",
+      "url": "/#standings",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Top Scorers",
+      "short_name": "Scorers",
+      "description": "Follow golden boot leaders and match statistics",
+      "url": "/#stats",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

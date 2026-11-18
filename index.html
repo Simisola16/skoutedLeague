@@ -16,9 +16,24 @@
     <link rel="canonical" href="https://skoutedyouthleague.com/" />
 
     <!-- Favicon & PWA App Icons -->
-    <link rel="icon" type="image/png" href="/logo.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Service Worker Registration for PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(reg) {
+              console.log('[SYL PWA] Active scope:', reg.scope);
+            })
+            .catch(function(err) {
+              console.warn('[SYL PWA] Registration error:', err);
+            });
+        });
+      }
+    </script>
 
     <!-- Geo Tags (Ibadan, Oyo State, Nigeria) -->
     <meta name="geo.region" content="NG-OY" />
