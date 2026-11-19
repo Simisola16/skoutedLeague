@@ -662,7 +662,7 @@ export default function AdminMediaManager() {
       
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border animate-in slide-in-from-top ${
+        <div className={`fixed top-[4.5rem] sm:top-4 left-3 right-3 sm:left-auto sm:right-4 z-50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border animate-in slide-in-from-top ${
           toast.type === 'error'
             ? 'bg-rose-950 border-rose-500/50 text-rose-300'
             : 'bg-[#0E1B15] border-[#00E676]/40 text-[#00E676]'
@@ -673,9 +673,9 @@ export default function AdminMediaManager() {
       )}
 
       {/* Top Media Architecture Sub-Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#1E2536]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 border-b border-[#1E2536]">
         
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
           {[
             { id: 'gallery', label: 'Gallery & Media Hub', icon: Camera, count: mediaSummary.total || mediaItems.length },
             { id: 'social', label: 'Social Reels & Auto-Sync', icon: Radio, count: 'AUTO' },
@@ -690,7 +690,7 @@ export default function AdminMediaManager() {
               <button
                 key={tab.id}
                 onClick={() => setSubTab(tab.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border cursor-pointer ${
+                className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border cursor-pointer shrink-0 ${
                   active
                     ? 'bg-[#00E676] text-black border-[#00E676] shadow-sm shadow-[#00E676]/20'
                     : 'bg-[#121622] border-[#222838] text-slate-400 hover:text-white hover:border-slate-600'
@@ -709,11 +709,11 @@ export default function AdminMediaManager() {
         </div>
 
         {/* Global Action depending on subTab */}
-        <div>
+        <div className="w-full sm:w-auto">
           {subTab === 'gallery' && (
             <button
               onClick={() => setShowUploadModal(true)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold text-xs flex items-center gap-2 shadow-md shadow-[#00E676]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#00E676]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Upload Media to Cloudinary</span>
@@ -737,7 +737,7 @@ export default function AdminMediaManager() {
                 });
                 setShowArticleModal(true);
               }}
-              className="px-4 py-2 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create News Article</span>
@@ -747,7 +747,7 @@ export default function AdminMediaManager() {
           {subTab === 'podcasts' && (
             <button
               onClick={() => setShowPodcastModal(true)}
-              className="px-4 py-2 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Publish Episode</span>
@@ -757,7 +757,7 @@ export default function AdminMediaManager() {
           {subTab === 'sponsors' && (
             <button
               onClick={() => setShowSponsorModal(true)}
-              className="px-4 py-2 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-[#00E676] text-black font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Sponsor Partner</span>
@@ -1171,8 +1171,8 @@ export default function AdminMediaManager() {
       {/* MODAL: DRAG & DROP MULTI-FILE UPLOADER DIRECTLY TO CLOUDINARY */}
       {/* =================================================================== */}
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-3xl bg-[#111520] border border-[#23293A] p-6 sm:p-8 space-y-5 my-auto shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-[#111520] border-t sm:border border-[#23293A] p-5 sm:p-8 space-y-5 my-0 sm:my-auto max-h-[92dvh] overflow-y-auto safe-bottom shadow-2xl animate-in zoom-in-95 duration-200">
             
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2536]">
               <div className="flex items-center gap-2.5">
@@ -1374,8 +1374,8 @@ export default function AdminMediaManager() {
       {/* MODAL: EDIT MEDIA METADATA */}
       {/* =================================================================== */}
       {editingMedia && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-[#111520] border border-[#23293A] p-6 space-y-4 my-auto shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-[#111520] border-t sm:border border-[#23293A] p-5 sm:p-6 space-y-4 my-0 sm:my-auto max-h-[92dvh] overflow-y-auto safe-bottom shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2536]">
               <h3 className="text-base font-bold text-white">Edit Media Metadata</h3>
               <button onClick={() => setEditingMedia(null)} className="text-slate-400 hover:text-white cursor-pointer">
@@ -1480,8 +1480,8 @@ export default function AdminMediaManager() {
       {/* MODAL: ADD / EDIT NEWS ARTICLE */}
       {/* ==================================================================== */}
       {showArticleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-3xl bg-[#111520] border border-[#23293A] p-6 space-y-4 my-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-[#111520] border-t sm:border border-[#23293A] p-5 sm:p-6 space-y-4 my-0 sm:my-auto max-h-[92dvh] overflow-y-auto safe-bottom">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2536]">
               <h3 className="text-base font-bold text-white">
                 {editingArticle ? 'Edit News Article' : 'Create News Article'}
@@ -1622,8 +1622,8 @@ export default function AdminMediaManager() {
       {/* MODAL: ADD PODCAST */}
       {/* ==================================================================== */}
       {showPodcastModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-[#111520] border border-[#23293A] p-6 space-y-4 my-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-[#111520] border-t sm:border border-[#23293A] p-5 sm:p-6 space-y-4 my-0 sm:my-auto max-h-[92dvh] overflow-y-auto safe-bottom">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2536]">
               <h3 className="text-base font-bold text-white">Publish Podcast Episode</h3>
               <button onClick={() => setShowPodcastModal(false)} className="text-slate-400 hover:text-white">
@@ -1632,7 +1632,7 @@ export default function AdminMediaManager() {
             </div>
 
             <form onSubmit={handleSavePodcast} className="space-y-4 text-xs">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Episode #</label>
                   <input
@@ -1643,7 +1643,7 @@ export default function AdminMediaManager() {
                     className="w-full px-3 py-2 rounded-xl bg-[#161B26] border border-[#252A38] text-white"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-slate-300 font-semibold mb-1">Episode Title *</label>
                   <input
                     type="text"
@@ -1760,8 +1760,8 @@ export default function AdminMediaManager() {
       {/* MODAL: ADD SPONSOR */}
       {/* ==================================================================== */}
       {showSponsorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-3xl bg-[#111520] border border-[#23293A] p-6 space-y-4 my-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-[#111520] border-t sm:border border-[#23293A] p-5 sm:p-6 space-y-4 my-0 sm:my-auto max-h-[92dvh] overflow-y-auto safe-bottom">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2536]">
               <h3 className="text-base font-bold text-white">Add Sponsor Partner</h3>
               <button onClick={() => setShowSponsorModal(false)} className="text-slate-400 hover:text-white">

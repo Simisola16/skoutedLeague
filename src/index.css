@@ -92,8 +92,21 @@ body {
 }
 
 /* Safe area padding for mobile iPhone notches and home bars */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  padding-bottom: max(0.375rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Prevent automatic iOS zoom on form focus inside Admin Mobile Shell */
+@media (max-width: 639px) {
+  .admin-mobile-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .admin-mobile-shell select,
+  .admin-mobile-shell textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Printable Official Team Match Sheet */

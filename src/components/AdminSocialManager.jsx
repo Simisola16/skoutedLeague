@@ -220,7 +220,7 @@ export default function AdminSocialManager() {
     <div className="space-y-6">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border animate-in slide-in-from-top ${
+        <div className={`fixed top-[4.5rem] sm:top-4 left-3 right-3 sm:left-auto sm:right-4 z-50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border animate-in slide-in-from-top ${
           toast.type === 'error'
             ? 'bg-rose-950 border-rose-500/50 text-rose-300'
             : 'bg-[#0E1B15] border-[#00E676]/40 text-[#00E676]'
@@ -231,7 +231,7 @@ export default function AdminSocialManager() {
       )}
 
       {/* Top Banner / Auto-Sync Overview */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-[#111622] via-[#0E131E] to-[#0A0D15] border border-slate-800 space-y-4">
+      <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#111622] via-[#0E131E] to-[#0A0D15] border border-slate-800 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 shadow-lg shadow-red-500/10 shrink-0">
@@ -251,11 +251,11 @@ export default function AdminSocialManager() {
           </div>
 
           {/* YouTube Sync Trigger */}
-          <div className="flex items-center gap-2.5 self-start md:self-auto shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
             <button
               onClick={handleSyncYouTube}
               disabled={syncingYT}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer disabled:opacity-50 transition-all"
+              className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 cursor-pointer disabled:opacity-50 transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingYT ? 'animate-spin' : ''}`} />
               <span>{syncingYT ? 'Syncing YouTube...' : 'Sync YouTube Now'}</span>
@@ -263,7 +263,7 @@ export default function AdminSocialManager() {
 
             <button
               onClick={() => setShowWebhookGuide(!showWebhookGuide)}
-              className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs border border-white/10 flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="flex-1 sm:flex-initial min-h-[42px] px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               <LinkIcon className="w-3.5 h-3.5" />
               <span>Webhook Ingest API</span>
@@ -374,12 +374,12 @@ export default function AdminSocialManager() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
             <button
               type="button"
               onClick={() => fetchLiveStream(true)}
               disabled={liveDetecting}
-              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-200 hover:text-white border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              className="flex-1 sm:flex-initial min-h-[40px] px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-200 hover:text-white border border-white/10 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
               title="Automatically detect current YouTube channel live stream"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#00E676] ${liveDetecting ? 'animate-spin' : ''}`} />
@@ -391,7 +391,7 @@ export default function AdminSocialManager() {
                 href={`https://www.youtube.com/watch?v=${liveStreamInfo.videoId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors"
+                className="flex-1 sm:flex-initial min-h-[40px] px-3 py-2 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 text-xs font-bold text-red-400 hover:text-red-300 flex items-center justify-center gap-1.5 transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Watch on YouTube</span>
@@ -498,7 +498,7 @@ export default function AdminSocialManager() {
           <p className="text-xs text-slate-300 leading-relaxed">
             Connect your social media auto-posting workflow directly to the Skouted Youth League platform. Whenever a new Instagram post, Reel, or Facebook update is published, your automation bot can post JSON directly to the league:
           </p>
-          <div className="p-3 rounded-xl bg-black/60 font-mono text-[11px] text-slate-300 space-y-1.5 overflow-x-auto">
+          <div className="p-3 rounded-xl bg-black/60 font-mono text-[11px] text-slate-300 space-y-1.5 overflow-x-auto max-w-full break-all">
             <div><strong className="text-indigo-400">Endpoint:</strong> POST <span className="text-[#00E676]">https://skoutedyouthleague.com/api/social/webhook</span></div>
             <div><strong className="text-indigo-400">Header:</strong> <span className="text-amber-400">x-sync-secret:</span> skouted_social_sync_secret_2026</div>
             <div><strong className="text-indigo-400">Payload:</strong> &#123; "platform": "instagram" | "facebook" | "youtube", "postUrl": "https://...", "caption": "Matchday 14 highlights!", "thumbnailUrl": "https://..." &#125;</div>

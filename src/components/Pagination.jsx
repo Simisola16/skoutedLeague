@@ -26,7 +26,7 @@ export default function Pagination({ currentPage, totalPages, totalItems, onPage
     return pages;
   };
 
-  const btnBase = 'min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center';
+  const btnBase = 'min-w-[36px] h-9 sm:min-w-[32px] sm:h-8 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center';
   const activeCls = 'bg-[#00E676]/15 border-[#00E676] text-[#00E676]';
   const inactiveCls = 'bg-[#141720] border-[#222735] text-slate-400 hover:text-white hover:border-slate-600';
   const disabledCls = 'bg-[#141720] border-[#222735] text-slate-600 opacity-40 cursor-not-allowed';
