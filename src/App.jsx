@@ -407,9 +407,15 @@ export default function App() {
   }, [fixtures]);
 
   // -------------------------------------------------------------
-  // ISOLATED ROUTING: /sk-control or /league-ops
+  // ISOLATED ROUTING: /admin, /sk-control or /league-ops
   // -------------------------------------------------------------
-  if (currentPath === '/sk-control' || currentPath.startsWith('/sk-control') || currentPath === '/league-ops') {
+  if (
+    currentPath === '/admin' ||
+    currentPath.startsWith('/admin') ||
+    currentPath === '/sk-control' ||
+    currentPath.startsWith('/sk-control') ||
+    currentPath === '/league-ops'
+  ) {
     return (
       <AdminPortal
         onExit={() => navigateTo('/')}

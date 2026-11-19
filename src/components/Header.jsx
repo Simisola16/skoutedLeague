@@ -18,7 +18,8 @@ import {
   ChevronDown,
   Camera,
   UserPlus,
-  Download
+  Download,
+  Lock
 } from 'lucide-react';
 import { SOCIAL_LINKS_ARRAY, SOCIAL_LINKS } from '../constants/socialLinks';
 import { SocialIcon } from './SocialIcons';
@@ -357,6 +358,21 @@ export default function Header({
                 <span>Register Club (New Academy)</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {/* Admin Control Panel in Mobile Menu */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleNavClick('/admin');
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/25 font-bold text-xs cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <Lock className="w-4 h-4 text-purple-400" />
+                <span>Admin Control Panel</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-purple-400" />
             </button>
           </div>
 

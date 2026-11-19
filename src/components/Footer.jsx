@@ -16,7 +16,8 @@ import {
   Users,
   CheckCircle2,
   Sparkles,
-  Radio
+  Radio,
+  Lock
 } from 'lucide-react';
 import { SOCIAL_LINKS_ARRAY } from '../constants/socialLinks';
 import { SocialIcon } from './SocialIcons';
@@ -254,6 +255,17 @@ export default function Footer({
                 <div className="flex items-center gap-2">
                   <UserPlus className="w-4 h-4 text-[#00E676]" />
                   <span>Register Academy</span>
+                </div>
+                <span>→</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate && onNavigate('/admin')}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:text-white font-bold transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-purple-400" />
+                  <span>Admin Control Console</span>
                 </div>
                 <span>→</span>
               </button>
