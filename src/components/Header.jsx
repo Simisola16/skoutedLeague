@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, 
   Shield, 
@@ -15,6 +15,7 @@ import {
   Compass, 
   Users,
   ChevronRight,
+  ChevronDown,
   Camera,
   UserPlus,
   Download
@@ -35,7 +36,9 @@ export default function Header({
   liveMatchesCount = 0
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const moreMenuRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -45,21 +48,38 @@ export default function Header({
     }
   }, []);
 
-  // Official Navigation Architecture with Gallery & Top Scorers
-  const navItems = [
-    { id: 'about', label: 'About', path: '/about', icon: Compass },
-    { id: 'fixtures', label: 'Fixtures & Results', path: '/fixtures', icon: Calendar },
-    { id: 'table', label: 'Table / Standings', path: '/table', icon: Trophy },
-    { id: 'stats', label: 'Top Scorers', path: '/stats', icon: Award },
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Primary desktop navigation items (concise, streamlined)
+  const primaryNavItems = [
+    { id: 'fixtures', label: 'Fixtures', path: '/fixtures', icon: Calendar },
+    { id: 'table', label: 'Standings', path: '/table', icon: Trophy },
+    { id: 'stats', label: 'Scorers', path: '/stats', icon: Award },
     { id: 'teams', label: 'Teams', path: '/teams', icon: Users, badge: '12' },
-    { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera },
     { id: 'news', label: 'News', path: '/news', icon: Newspaper },
+    { id: 'gallery', label: 'Gallery', path: '/gallery', icon: Camera }
+  ];
+
+  // Secondary items housed in the "More ▾" dropdown on desktop
+  const secondaryNavItems = [
     { id: 'podcasts', label: 'Podcasts', path: '/podcasts', icon: Headphones },
+    { id: 'about', label: 'About League', path: '/about', icon: Compass },
     { id: 'sponsors', label: 'Sponsors', path: '/sponsors', icon: Handshake }
   ];
 
+  const allNavItems = [...primaryNavItems, ...secondaryNavItems];
+
   const handleNavClick = (path) => {
     setMobileMenuOpen(false);
+    setMoreMenuOpen(false);
     if (onNavigate) {
       onNavigate(path);
     }
@@ -78,9 +98,11 @@ export default function Header({
     return currentPath === path;
   };
 
+  const isMoreActive = secondaryNavItems.some(item => isActive(item.path));
+
   return (
     <header className="sticky top-0 z-40 bg-[#0D0F14]/95 backdrop-blur-md border-b border-[#1E2330]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="w-full max-w-[1536px] mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 xl:gap-3">
         
         {/* Brand Logo & Live Badge */}
         <div className="flex items-center gap-3 shrink-0">
@@ -112,7 +134,7 @@ export default function Header({
           {liveMatchesCount > 0 && (
             <div 
               onClick={() => handleNavClick('/fixtures')}
-              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] text-xs font-mono font-bold cursor-pointer"
+              className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF4B4B]/15 border border-[#FF4B4B]/30 text-[#FF4B4B] text-xs font-mono font-bold cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-[#FF4B4B] animate-ping"></span>
               <span>{liveMatchesCount} LIVE</span>
@@ -120,15 +142,15 @@ export default function Header({
           )}
         </div>
 
-        {/* Desktop Global Navigation Menu (Official 1-7 Items) */}
+        {/* Desktop Global Navigation Menu */}
         <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5">
-          {navItems.map((item) => {
+          {primaryNavItems.map((item) => {
             const active = isActive(item.path);
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.path)}
-                className={`px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   active
                     ? 'bg-[#00E676]/15 text-[#00E676] border border-[#00E676]/30 shadow-sm shadow-[#00E676]/10'
                     : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
@@ -143,34 +165,55 @@ export default function Header({
               </button>
             );
           })}
+
+          {/* "More" Dropdown Menu for Secondary Items */}
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              className={`px-2.5 xl:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap ${
+                isMoreActive || moreMenuOpen
+                  ? 'bg-white/10 text-white border border-white/15'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
+              }`}
+            >
+              <span>More</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${moreMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {moreMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-[#141824] border border-[#22293A] rounded-2xl p-1.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                {secondaryNavItems.map((item) => {
+                  const active = isActive(item.path);
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavClick(item.path)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+                        active
+                          ? 'bg-[#00E676]/15 text-[#00E676]'
+                          : 'text-slate-300 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 text-slate-400" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* Right Action CTA (8. Team Portal / Login) & User Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Right Action CTA & User Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
-          {/* Desktop Social Quick Links */}
-          <div className="hidden 2xl:flex items-center gap-1.5 pr-2 mr-1 border-r border-white/10">
-            {SOCIAL_LINKS_ARRAY.map((social) => (
-              <a
-                key={social.id}
-                href={social.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`${social.name} (${social.handle})`}
-                className={`w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 ${social.textHover} ${social.borderHover} flex items-center justify-center transition-all text-slate-300`}
-                aria-label={social.name}
-              >
-                <SocialIcon platform={social.id} className="w-3.5 h-3.5" />
-              </a>
-            ))}
-          </div>
-
-          {/* Official YouTube Live Broadcast Stream Badge */}
+          {/* YouTube Live Broadcast Stream */}
           <a
             href={SOCIAL_LINKS.youtube.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 hover:border-red-500/50 text-red-300 hover:text-white transition-all text-xs font-bold cursor-pointer group"
+            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 hover:border-red-500/50 text-red-300 hover:text-white transition-all text-xs font-bold cursor-pointer group shrink-0"
             title="Watch live on YouTube (@Skoutedyouthleague)"
           >
             <span className="relative flex h-2 w-2">
@@ -178,35 +221,23 @@ export default function Header({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
             <SocialIcon platform="youtube" className="w-3.5 h-3.5 text-red-500" />
-            <span className="hidden xl:inline">Live Stream</span>
+            <span className="hidden xl:inline text-[11px]">Live Stream</span>
           </a>
 
           {/* Live Match Push Alerts Bell */}
           <button
             onClick={onOpenFanAlerts}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#252A38] text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#252A38] text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer shrink-0"
             title="Subscribe to live match push alerts (Kickoff, Goals, Subs, Full-time)"
           >
             <Bell className="w-3.5 h-3.5 text-[#FFB800] animate-pulse" />
-            <span className="hidden md:inline text-[11px]">Match Alerts</span>
+            <span className="hidden xl:inline text-[11px]">Match Alerts</span>
           </button>
-
-          {/* Install PWA App Button (Hidden if already in standalone app) */}
-          {!isStandalone && onOpenInstallApp && (
-            <button
-              onClick={onOpenInstallApp}
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 border border-[#00E676]/30 text-[#00E676] transition-all text-xs font-bold cursor-pointer"
-              title="Download & Install SYL App"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Install App</span>
-            </button>
-          )}
 
           {/* Secondary CTA: Register Club */}
           <button
             onClick={() => handleNavClick('/team/register')}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all text-xs font-bold cursor-pointer"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all text-xs font-bold cursor-pointer shrink-0 whitespace-nowrap"
             title="Register a new academy"
           >
             <UserPlus className="w-3.5 h-3.5 text-[#00E676]" />
@@ -216,7 +247,7 @@ export default function Header({
           {/* Primary CTA: Team Portal / Login */}
           <button
             onClick={onOpenTeamDashboard || (() => handleNavClick('/team/login'))}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold transition-all text-xs shadow-md shadow-[#00E676]/25 hover:shadow-lg hover:shadow-[#00E676]/40 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-black font-extrabold transition-all text-xs shadow-md shadow-[#00E676]/25 hover:shadow-lg hover:shadow-[#00E676]/40 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shrink-0 whitespace-nowrap"
             title="Team Portal / Login"
           >
             <Shield className="w-3.5 h-3.5 fill-black" />
@@ -269,7 +300,7 @@ export default function Header({
           </div>
 
           <div className="grid grid-cols-1 gap-1">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const active = isActive(item.path);
               const Icon = item.icon;
               return (
@@ -392,10 +423,10 @@ export default function Header({
                 setMobileMenuOpen(false);
                 if (onOpenFanAlerts) onOpenFanAlerts();
               }}
-              className="flex-1 py-2 px-3 rounded-xl bg-white/5 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 px-3 rounded-xl bg-white/5 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Bell className="w-3.5 h-3.5 text-[#FFB800]" />
-              <span>Goal Alerts</span>
+              <span>Match Alerts</span>
             </button>
             {!user && (
               <button
@@ -403,7 +434,7 @@ export default function Header({
                   setMobileMenuOpen(false);
                   if (onOpenRegisterTeam) onOpenRegisterTeam();
                 }}
-                className="flex-1 py-2 px-3 rounded-xl bg-white/5 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 px-3 rounded-xl bg-white/5 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Register Club</span>
               </button>
