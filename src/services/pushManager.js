@@ -25,6 +25,22 @@ export const pushManager = {
     );
   },
 
+  isIOS: () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  },
+
+  isStandalone: () => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches
+    );
+  },
+
   getPermission: () => {
     if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
     return Notification.permission; // 'default', 'granted', 'denied'

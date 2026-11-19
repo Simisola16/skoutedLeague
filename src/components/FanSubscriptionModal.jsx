@@ -25,11 +25,15 @@ export default function FanSubscriptionModal({
 
   const [pushSupported, setPushSupported] = useState(true);
   const [pushPermission, setPushPermission] = useState('default');
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setPushSupported(pushManager.isSupported());
       setPushPermission(pushManager.getPermission());
+      setIsIOS(pushManager.isIOS());
+      setIsStandalone(pushManager.isStandalone());
       setErrorMsg('');
       setSuccessMsg('');
     }
@@ -261,21 +265,46 @@ export default function FanSubscriptionModal({
               </label>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !pushSupported}
-              className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
-            >
-              {loading ? (
-                <span>Activating Push Alerts...</span>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Turn On Phone Push Alerts</span>
-                </>
-              )}
-            </button>
+            {/* iOS Safari Home Screen Requirement Guide vs Standard Submit Button */}
+            {isIOS && !isStandalone ? (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2 text-xs">
+                <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>🍏 iPhone / iPad Quick Install:</span>
+                </div>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  To get lock-screen push notifications on iPhone, Apple requires adding the app to your Home Screen:
+                </p>
+                <div className="space-y-1.5 text-[11px] text-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">1</span>
+                    <span>Tap the Safari <strong>Share</strong> button (<span className="text-amber-300">Square with arrow ↑</span>)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">2</span>
+                    <span>Scroll down and tap <strong>"Add to Home Screen" (➕)</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">3</span>
+                    <span>Open the app from your home screen and turn on alerts!</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading || !pushSupported}
+                className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
+              >
+                {loading ? (
+                  <span>Activating Push Alerts...</span>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Turn On Phone Push Alerts</span>
+                  </>
+                )}
+              </button>
+            )}
             <p className="text-[11px] text-center text-slate-500">
               Popups appear directly on your phone lock screen & status bar
             </p>
