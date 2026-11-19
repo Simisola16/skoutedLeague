@@ -125,12 +125,13 @@ export default function FanSubscriptionModal({
   return (
     <div
       onClick={handleClose}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#141720] border-t sm:border border-[#222735] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-300 cursor-default"
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-[#141720] border-t sm:border border-[#222735] rounded-t-3xl sm:rounded-3xl px-5 pt-3 pb-6 sm:p-6 safe-bottom shadow-2xl relative animate-in slide-in-from-bottom duration-300 cursor-default"
       >
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-3.5 sm:hidden" />
         {/* Close Button */}
         <button
           onClick={handleClose}
@@ -207,7 +208,7 @@ export default function FanSubscriptionModal({
                 onChange={(e) => setSelectedTeam(e.target.value)}
                 className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
               >
-                <option value="ALL">⭐ All 11 Clubs (Every Matchday Action)</option>
+                <option value="ALL">⭐ All {teams.length || 12} Clubs (Every Matchday Action)</option>
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>
                     {t.name} ({t.shortCode})
@@ -275,17 +276,17 @@ export default function FanSubscriptionModal({
                   To get lock-screen push notifications on iPhone, Apple requires adding the app to your Home Screen:
                 </p>
                 <div className="space-y-1.5 text-[11px] text-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">1</span>
-                    <span>Tap the Safari <strong>Share</strong> button (<span className="text-amber-300">Square with arrow ↑</span>)</span>
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <span>Tap <strong>•••</strong> at the bottom-right of Safari then <strong>Share</strong> (<span className="text-amber-300">↑</span>), or tap <strong>Share</strong> directly on older iOS</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">2</span>
-                    <span>Scroll down and tap <strong>"Add to Home Screen" (➕)</strong></span>
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <span>Scroll down (or tap <strong>More</strong>) and tap <strong>&quot;Add to Home Screen&quot; (➕)</strong></span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0">3</span>
-                    <span>Open the app from your home screen and turn on alerts!</span>
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <span>Keep <strong>&quot;Open as Web App&quot;</strong> on, tap <strong>Add</strong>, then open SYL from your Home Screen to turn on alerts!</span>
                   </div>
                 </div>
               </div>
