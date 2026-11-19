@@ -32,9 +32,10 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then(function(reg) {
               console.log('[SYL PWA] Active scope:', reg.scope);
+              reg.update().catch(function() {});
             })
             .catch(function(err) {
               console.warn('[SYL PWA] Registration error:', err);

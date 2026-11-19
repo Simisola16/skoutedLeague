@@ -1,7 +1,7 @@
 // Skouted Youth League Championship - Service Worker
-// Version: 1.0.1
+// Version: 1.0.2
 
-const CACHE_NAME = 'syl-pwa-cache-v1';
+const CACHE_NAME = 'syl-pwa-cache-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -51,10 +51,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests: Network-first with cache fallback
+  // Navigation requests: Network-first (bypassing HTTP disk cache) with cache fallback
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();

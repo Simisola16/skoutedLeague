@@ -8,7 +8,6 @@ import {
   Sparkles,
   Check,
   Shield,
-  Apple,
   MoreHorizontal,
   Copy,
   ArrowDown,
@@ -21,7 +20,7 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
   const [isStandalone, setIsStandalone] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showAndroidManualGuide, setShowAndroidManualGuide] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -48,6 +47,14 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
     }
   }, []);
 
+  // Reset inline guide whenever the modal reopens so iPhone & Android always open with the clean Install App button
+  useEffect(() => {
+    if (isOpen) {
+      setShowInstallGuide(false);
+      setCopiedLink(false);
+    }
+  }, [isOpen]);
+
   // Never render if already installed and running standalone
   if (!isOpen || isStandalone) return null;
 
@@ -70,8 +77,9 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
         setInstalling(false);
       }
     } else {
-      // If browser hasn't fired beforeinstallprompt yet
-      setShowAndroidManualGuide(true);
+      // On iPhone (Apple Safari blocks native 1-tap prompts) or browsers without beforeinstallprompt:
+      // Smoothly reveal the quick inline install steps after user taps "Install App Now"
+      setShowInstallGuide(true);
     }
   };
 
@@ -115,7 +123,7 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
         </button>
 
         {/* Header with App Logo and Badges */}
-        <div className="flex items-center gap-3.5 mb-4 pr-8">
+        <div className="flex items-center gap-3.5 mb-5 pr-8">
           <img
             src="/icon-192.png"
             alt="SYL App Icon"
@@ -140,7 +148,7 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
         </div>
 
         {/* Why Install Highlights */}
-        <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2 mb-4">
+        <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2 mb-5">
           <div className="flex items-center gap-2.5 text-xs text-slate-300">
             <span className="w-5 h-5 rounded-lg bg-[#00E676]/15 text-[#00E676] flex items-center justify-center shrink-0">
               <Sparkles className="w-3 h-3" />
@@ -161,157 +169,75 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
           </div>
         </div>
 
-        {/* Dynamic Platform Instructions */}
-        {isIOS ? (
-          /* 🍏 iOS / iPhone Instructions */
-          <div className="space-y-3">
-            {iosBrowser === 'inapp' ? (
-              /* Opened inside WhatsApp / Instagram / Facebook in-app browser */
-              <>
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+        {/* Unified Android + iPhone Install CTA (Sleek Identical Design on Both Platforms) */}
+        <div className="space-y-3">
+          {showInstallGuide && (
+            isIOS ? (
+              iosBrowser === 'inapp' ? (
+                <div className="p-3.5 rounded-xl bg-[#0D111A] border border-[#00E676]/30 space-y-2.5 text-xs text-slate-200 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 font-bold text-[#00E676]">
                     <Compass className="w-4 h-4 shrink-0" />
-                    <span>Open in Safari to Install on iPhone</span>
+                    <span>Open in Safari to finish installing</span>
                   </div>
-                  <p className="text-xs text-slate-200 leading-relaxed">
-                    In-app browsers (like WhatsApp or Instagram) don&apos;t allow installing apps. Tap the <strong>Safari / Open in Browser</strong> icon, or copy the link below and open it in <strong>Safari</strong>.
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    In-app browsers (WhatsApp / Instagram) block app installs. Copy the link below and open it in <strong>Safari</strong>, then tap <strong>Install App Now</strong>.
                   </p>
                 </div>
-
-                <button
-                  onClick={handleCopyUrl}
-                  className="w-full btn-primary min-h-[44px] py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/25 cursor-pointer"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Link Copied — Paste in Safari!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Copy Link to Open in Safari</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleDismiss}
-                  className="w-full py-2 text-center text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  Continue on Website
-                </button>
-              </>
-            ) : (
-              /* Safari (iOS 26 & classic iOS) or Chrome on iPhone */
-              <>
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
+              ) : (
+                <div className="p-3.5 rounded-xl bg-[#0D111A] border border-[#00E676]/30 space-y-2.5 text-xs text-slate-200 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-                      <Apple className="w-4 h-4 shrink-0" />
-                      <span>Install on your iPhone in 3 quick steps:</span>
+                    <div className="flex items-center gap-1.5 font-bold text-[#00E676]">
+                      <Download className="w-3.5 h-3.5 shrink-0" />
+                      <span>Complete Install on iPhone:</span>
                     </div>
                   </div>
-                  <p className="text-[11px] text-amber-200/80 leading-snug">
-                    Apple iOS installs web apps through your browser menu (takes 5 seconds):
-                  </p>
-
                   {iosBrowser === 'chrome' ? (
-                    <div className="space-y-2 text-xs text-slate-200 pt-0.5">
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          1
-                        </span>
-                        <span className="leading-relaxed">
-                          Tap the <strong>Share</strong> icon (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-white/10 text-amber-300 align-middle mx-0.5">
-                            <Share className="w-3 h-3" />
-                          </span>
-                          ) in Chrome&apos;s <strong>top-right</strong> address bar.
-                        </span>
+                    <div className="space-y-1.5 text-[11px] text-slate-200">
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>Tap <strong>Share</strong> (<Share className="w-3 h-3 inline text-[#00E676] mx-0.5 -mt-0.5" />) in Chrome&apos;s <strong>top-right</strong> bar</span>
                       </div>
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          2
-                        </span>
-                        <span className="leading-relaxed">
-                          Scroll down and tap <strong>&quot;Add to Home Screen&quot;</strong> (
-                          <span className="inline-flex items-center px-1 py-0.5 rounded bg-white/10 text-amber-300 align-middle mx-0.5">
-                            <Plus className="w-3 h-3" />
-                          </span>
-                          ).
-                        </span>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Tap <strong>&quot;Add to Home Screen&quot;</strong> (<Plus className="w-3 h-3 inline text-[#00E676] mx-0.5 -mt-0.5" />)</span>
                       </div>
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          3
-                        </span>
-                        <span className="leading-relaxed">
-                          Tap <strong>&quot;Add&quot;</strong> in the top-right. The SYL app will appear on your Home Screen!
-                        </span>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Tap <strong>&quot;Add&quot;</strong> in the top-right corner</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-2 text-xs text-slate-200 pt-0.5">
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          1
-                        </span>
-                        <span className="leading-relaxed">
-                          Tap the{' '}
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/15 text-white font-bold align-middle mx-0.5">
-                            <MoreHorizontal className="w-3.5 h-3.5" />
+                    <div className="space-y-1.5 text-[11px] text-slate-200">
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+                        <span>
+                          Tap{' '}
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-white/15 text-white align-middle mx-0.5">
+                            <MoreHorizontal className="w-3 h-3" />
                           </span>{' '}
-                          button at the <strong>bottom-right</strong> of Safari, then tap <strong>Share</strong> (
-                          <Share className="w-3.5 h-3.5 inline text-amber-300 mx-0.5 -mt-0.5" />
-                          ) <span className="text-slate-400">(or tap Share directly at the bottom on older iOS)</span>.
+                          at bottom-right → <strong>Share</strong> (<Share className="w-3 h-3 inline text-[#00E676] mx-0.5 -mt-0.5" />) <span className="text-slate-400">(or Share at bottom)</span>
                         </span>
                       </div>
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          2
-                        </span>
-                        <span className="leading-relaxed">
-                          Scroll down (or tap <strong>More</strong>) and tap <strong>&quot;Add to Home Screen&quot;</strong> (
-                          <span className="inline-flex items-center px-1 py-0.5 rounded bg-white/10 text-amber-300 align-middle mx-0.5">
-                            <Plus className="w-3 h-3" />
-                          </span>
-                          ).
-                        </span>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+                        <span>Tap <strong>More</strong> / scroll down → <strong>&quot;Add to Home Screen&quot;</strong> (<Plus className="w-3 h-3 inline text-[#00E676] mx-0.5 -mt-0.5" />)</span>
                       </div>
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          3
-                        </span>
-                        <span className="leading-relaxed">
-                          Keep <strong>&quot;Open as Web App&quot;</strong> on and tap <strong>&quot;Add&quot;</strong> in the top-right. Open SYL from your Home Screen!
-                        </span>
+                      <div className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#00E676]/20 text-[#00E676] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+                        <span>Keep <strong>&quot;Open as Web App&quot;</strong> on → tap <strong>&quot;Add&quot;</strong></span>
                       </div>
                     </div>
                   )}
+                  {iosBrowser === 'safari' && (
+                    <div className="flex items-center justify-end gap-1 pt-1 text-[11px] font-bold text-[#00E676]">
+                      <span>Tap ••• below to finish</span>
+                      <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
+                    </div>
+                  )}
                 </div>
-
-                {iosBrowser === 'safari' && (
-                  <div className="flex items-center justify-end gap-1.5 pr-1 text-[11px] font-bold text-[#00E676]">
-                    <span>Tap ••• below to start</span>
-                    <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
-                  </div>
-                )}
-
-                <button
-                  onClick={handleDismiss}
-                  className="w-full min-h-[44px] py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Continue on Website
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          /* 🤖 Android / Chrome / Windows / Mac */
-          <div className="space-y-3">
-            {showAndroidManualGuide ? (
-              <div className="p-3.5 rounded-xl bg-[#1C2030] border border-[#2B3247] space-y-2 text-xs text-slate-300">
+              )
+            ) : (
+              <div className="p-3.5 rounded-xl bg-[#1C2030] border border-[#2B3247] space-y-2 text-xs text-slate-300 animate-in fade-in duration-200">
                 <div className="font-bold text-white flex items-center gap-1.5">
                   <Download className="w-4 h-4 text-[#00E676]" />
                   <span>Manual Installation:</span>
@@ -320,25 +246,53 @@ export default function PWAInstallModal({ isOpen, onClose, deferredPrompt, onIns
                   Tap your browser menu (the <strong>3 vertical dots ⋮</strong> in Chrome at the top right) and select <strong>&quot;Install app&quot;</strong> or <strong>&quot;Add to Home screen&quot;</strong>.
                 </p>
               </div>
-            ) : null}
+            )
+          )}
 
+          {showInstallGuide && isIOS && iosBrowser === 'inapp' ? (
             <button
-              onClick={handleInstallClick}
+              onClick={handleCopyUrl}
+              className="w-full btn-primary min-h-[46px] py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/25 hover:shadow-xl hover:shadow-[#00E676]/40 transition-all cursor-pointer"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Link Copied — Open in Safari!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>Copy Link for Safari</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={showInstallGuide && isIOS ? handleDismiss : handleInstallClick}
               disabled={installing}
-              className="w-full btn-primary min-h-[44px] py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/25 hover:shadow-xl hover:shadow-[#00E676]/40 transition-all cursor-pointer"
+              className="w-full btn-primary min-h-[46px] py-3.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/25 hover:shadow-xl hover:shadow-[#00E676]/40 transition-all cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>{installing ? 'Preparing Install...' : 'Install App Now'}</span>
+              {showInstallGuide && isIOS ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Got It, Ready to Add</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>{installing ? 'Preparing Install...' : 'Install App Now'}</span>
+                </>
+              )}
             </button>
+          )}
 
-            <button
-              onClick={handleDismiss}
-              className="w-full py-2 text-center text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Continue on Website
-            </button>
-          </div>
-        )}
+          <button
+            onClick={handleDismiss}
+            className="w-full py-2 text-center text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            Continue on Website
+          </button>
+        </div>
       </div>
     </div>
   );
