@@ -41,7 +41,7 @@ import FloatingSocialShare from './components/FloatingSocialShare';
 import MediaPage from './components/MediaPage';
 import SocialFeedWidget from './components/SocialFeedWidget';
 
-import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight } from 'lucide-react';
+import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight, X } from 'lucide-react';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -236,15 +236,15 @@ export default function App() {
       });
     }
 
-    // First visit prompt for fan goal alerts (non-intrusive, dismissible)
-    const hasSubscribed = localStorage.getItem('skouted_fan_subscribed');
+    // First visit prompt for live match push alerts (non-intrusive, dismissible)
+    const hasSubscribed = localStorage.getItem('skouted_fan_subscribed') || localStorage.getItem('syl_push_subscribed');
     const wasDismissed = sessionStorage.getItem('skouted_fan_dismissed');
     if (!hasSubscribed && !wasDismissed) {
       const timer = setTimeout(() => {
         if (!sessionStorage.getItem('skouted_fan_dismissed')) {
           setShowFanAlerts(true);
         }
-      }, 10000);
+      }, 7000);
       return () => clearTimeout(timer);
     }
   }, []);

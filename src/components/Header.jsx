@@ -170,14 +170,14 @@ export default function Header({
             <span className="hidden xl:inline">Live Stream</span>
           </a>
 
-          {/* Goal Alerts Bell */}
+          {/* Live Match Push Alerts Bell */}
           <button
             onClick={onOpenFanAlerts}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#252A38] text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
-            title="Subscribe to instant goal alerts"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#1A1D28] hover:bg-[#252A38] border border-[#252A38] text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+            title="Subscribe to live match push alerts (Kickoff, Goals, Subs, Full-time)"
           >
-            <Bell className="w-3.5 h-3.5 text-[#FFB800]" />
-            <span className="hidden xl:inline text-[11px]">Goal Alerts</span>
+            <Bell className="w-3.5 h-3.5 text-[#FFB800] animate-pulse" />
+            <span className="hidden md:inline text-[11px]">Match Alerts</span>
           </button>
 
           {/* Secondary CTA: Register Club */}

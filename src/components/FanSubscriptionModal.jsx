@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, Bell, Check, Shield, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bell, Check, Shield, AlertCircle, Smartphone, Mail, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import { pushManager } from '../services/pushManager';
 
 export default function FanSubscriptionModal({
   isOpen,
@@ -8,15 +9,85 @@ export default function FanSubscriptionModal({
   teams = [],
   defaultTeamId = ''
 }) {
+  const [activeTab, setActiveTab] = useState('push'); // 'push' or 'email'
   const [email, setEmail] = useState('');
   const [selectedTeam, setSelectedTeam] = useState(defaultTeamId || 'ALL');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Push alert preferences
+  const [notifyGoals, setNotifyGoals] = useState(true);
+  const [notifyKickoff, setNotifyKickoff] = useState(true);
+  const [notifySubs, setNotifySubs] = useState(true);
+  const [notifyCards, setNotifyCards] = useState(true);
+  const [notifyFullTime, setNotifyFullTime] = useState(true);
+
+  const [pushSupported, setPushSupported] = useState(true);
+  const [pushPermission, setPushPermission] = useState('default');
+
+  useEffect(() => {
+    if (isOpen) {
+      setPushSupported(pushManager.isSupported());
+      setPushPermission(pushManager.getPermission());
+      setErrorMsg('');
+      setSuccessMsg('');
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    try {
+      sessionStorage.setItem('skouted_fan_dismissed', 'true');
+    } catch {}
+    if (onClose) onClose();
+  };
+
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  // Handle Push Notification Activation
+  const handlePushSubscribe = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const res = await pushManager.subscribe({
+        teamId: selectedTeam,
+        notifyGoals,
+        notifyKickoff,
+        notifySubs,
+        notifyCards,
+        notifyFullTime
+      });
+
+      if (res.success) {
+        setSuccessMsg('Live Phone Alerts Enabled! A welcome notification has been sent to your device.');
+        setPushPermission('granted');
+        try {
+          localStorage.setItem('skouted_fan_subscribed', 'true');
+          localStorage.setItem('syl_push_subscribed', 'true');
+        } catch {}
+        setTimeout(() => {
+          handleClose();
+        }, 2400);
+      } else {
+        setErrorMsg(res.error || 'Failed to activate push alerts.');
+      }
+    } catch (err) {
+      console.error('[Push Subscription Error]:', err);
+      if (err.message && err.message.includes('not granted')) {
+        setErrorMsg('Notification permission was blocked. Please enable notifications in your phone browser settings.');
+      } else {
+        setErrorMsg(err.message || 'Error enabling push alerts.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Email Subscription
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
       setErrorMsg('Please enter your email address');
@@ -30,10 +101,12 @@ export default function FanSubscriptionModal({
     try {
       const res = await api.subscribeFan({ email, teamId: selectedTeam });
       if (res.success) {
-        setSuccessMsg(res.message || 'Subscribed! You will get instant goal alerts.');
-        localStorage.setItem('skouted_fan_subscribed', 'true');
+        setSuccessMsg(res.message || 'Subscribed! You will get instant goal alerts via email.');
+        try {
+          localStorage.setItem('skouted_fan_subscribed', 'true');
+        } catch {}
         setTimeout(() => {
-          onClose();
+          handleClose();
         }, 2200);
       } else {
         setErrorMsg(res.error || 'Failed to subscribe');
@@ -47,17 +120,16 @@ export default function FanSubscriptionModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md bg-[#141720] border-t sm:border border-[#222735] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-300 cursor-default"
       >
-        
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
         >
           <X className="w-4 h-4" />
@@ -65,13 +137,41 @@ export default function FanSubscriptionModal({
 
         {/* Bell Banner */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFB800]/15 border border-[#FFB800]/30 flex items-center justify-center text-[#FFB800]">
+          <div className="w-12 h-12 rounded-2xl bg-[#00E676]/15 border border-[#00E676]/30 flex items-center justify-center text-[#00E676]">
             <Bell className="w-6 h-6 animate-bounce" />
           </div>
           <div>
-            <h3 className="text-lg font-black font-display text-white">Never Miss a Goal!</h3>
-            <p className="text-xs text-slate-400">Get instant Resend email alerts when your team scores</p>
+            <h3 className="text-lg font-black font-display text-white">Live Matchday Alerts</h3>
+            <p className="text-xs text-slate-400">Get instant popups for goals, kickoffs & subs</p>
           </div>
+        </div>
+
+        {/* Mode Switcher: Phone Push vs Email */}
+        <div className="flex p-1 bg-[#0D0F14] border border-[#222735] rounded-xl mb-4">
+          <button
+            type="button"
+            onClick={() => { setActiveTab('push'); setErrorMsg(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'push'
+                ? 'bg-[#00E676] text-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Phone Push (Lock Screen)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('email'); setErrorMsg(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'email'
+                ? 'bg-[#00E676] text-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Email Alerts</span>
+          </button>
         </div>
 
         {/* Status Messages */}
@@ -87,23 +187,23 @@ export default function FanSubscriptionModal({
             <div className="w-12 h-12 rounded-full bg-[#00E676]/20 border border-[#00E676] flex items-center justify-center mx-auto text-[#00E676]">
               <Check className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-white">Subscription Active!</h4>
+            <h4 className="text-sm font-bold text-white">Alerts Active!</h4>
             <p className="text-xs text-slate-400">{successMsg}</p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Team Selection */}
+        ) : activeTab === 'push' ? (
+          /* ── PHONE PUSH TAB ── */
+          <form onSubmit={handlePushSubscribe} className="space-y-4">
+            {/* Club Selection */}
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                Select Your Favorite Club *
+                Target Club For Alerts
               </label>
               <select
                 value={selectedTeam}
                 onChange={(e) => setSelectedTeam(e.target.value)}
                 className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
               >
-                <option value="ALL">⭐ All League Clubs (Every Match Goal Alert)</option>
+                <option value="ALL">⭐ All 11 Clubs (Every Matchday Action)</option>
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>
                     {t.name} ({t.shortCode})
@@ -112,7 +212,95 @@ export default function FanSubscriptionModal({
               </select>
             </div>
 
-            {/* Email Input */}
+            {/* Event Checkboxes */}
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5 text-xs text-slate-300">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyKickoff}
+                  onChange={e => setNotifyKickoff(e.target.checked)}
+                  className="accent-[#00E676] w-4 h-4 rounded"
+                />
+                <span>⚽ Match Kickoff (When game starts)</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyGoals}
+                  onChange={e => setNotifyGoals(e.target.checked)}
+                  className="accent-[#00E676] w-4 h-4 rounded"
+                />
+                <span>⚡ Goals Scored (Instant scorer & scoreline)</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifySubs}
+                  onChange={e => setNotifySubs(e.target.checked)}
+                  className="accent-[#00E676] w-4 h-4 rounded"
+                />
+                <span>🔄 Substitutions (Player IN ⇄ OUT)</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyCards}
+                  onChange={e => setNotifyCards(e.target.checked)}
+                  className="accent-[#00E676] w-4 h-4 rounded"
+                />
+                <span>🟨 Red & Yellow Cards</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyFullTime}
+                  onChange={e => setNotifyFullTime(e.target.checked)}
+                  className="accent-[#00E676] w-4 h-4 rounded"
+                />
+                <span>🏁 Full-Time Whistle & Final Score</span>
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || !pushSupported}
+              className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
+            >
+              {loading ? (
+                <span>Activating Push Alerts...</span>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Turn On Phone Push Alerts</span>
+                </>
+              )}
+            </button>
+            <p className="text-[11px] text-center text-slate-500">
+              Popups appear directly on your phone lock screen & status bar
+            </p>
+          </form>
+        ) : (
+          /* ── EMAIL ALERTS TAB ── */
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                Select Your Favorite Club
+              </label>
+              <select
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
+                className="w-full bg-[#0D0F14] border border-[#252A38] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#00E676]"
+              >
+                <option value="ALL">⭐ All League Clubs</option>
+                {teams.map(t => (
+                  <option key={t._id} value={t._id}>
+                    {t.name} ({t.shortCode})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                 Your Email Address *
@@ -127,30 +315,15 @@ export default function FanSubscriptionModal({
               />
             </div>
 
-            {/* Notification Checkboxes */}
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2 text-xs text-slate-300">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" defaultChecked className="accent-[#00E676]" />
-                <span>Instant Goal scored notifications</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" defaultChecked className="accent-[#00E676]" />
-                <span>Full-time match summary & final score</span>
-              </label>
-            </div>
-
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
               className="w-full btn-primary py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#00E676]/20 disabled:opacity-50"
             >
-              {loading ? 'Subscribing...' : 'Activate Instant Goal Alerts'}
+              {loading ? 'Subscribing...' : 'Activate Email Alerts'}
             </button>
-
           </form>
         )}
-
       </div>
     </div>
   );

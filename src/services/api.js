@@ -303,6 +303,30 @@ export const api = {
     return res.json();
   },
 
+  // Web Push Notifications
+  getVapidPublicKey: async () => {
+    const res = await fetch(`${API_BASE}/push/vapid-public-key`);
+    return res.json();
+  },
+
+  subscribePush: async (payload) => {
+    const res = await fetch(`${API_BASE}/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return res.json();
+  },
+
+  unsubscribePush: async (endpoint) => {
+    const res = await fetch(`${API_BASE}/push/unsubscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint })
+    });
+    return res.json();
+  },
+
   // Admin Protected Endpoints
   getAdminTeams: async (params = {}) => {
     const res = await fetch(`${API_BASE}/admin/teams${buildQuery(params)}`, {

@@ -94,3 +94,63 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push Event: Display System Notification on Mobile Device / Desktop
+self.addEventListener('push', (event) => {
+  let payload = {
+    title: '⚽ Skouted Youth League',
+    body: 'Live matchday update!',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'syl-match-alert',
+    vibrate: [200, 100, 200, 100, 200],
+    data: { url: '/#fixtures' }
+  };
+
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() };
+    } catch (err) {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+
+  const options = {
+    body: payload.body,
+    icon: payload.icon || '/icon-192.png',
+    badge: payload.badge || '/icon-192.png',
+    tag: payload.tag || 'syl-match-alert',
+    vibrate: payload.vibrate || [200, 100, 200, 100, 200],
+    renotify: true,
+    data: payload.data || { url: '/#fixtures' },
+    actions: [
+      { action: 'open', title: '👀 View Match' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, options)
+  );
+});
+
+// Notification Click Event: Focus or Open App
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/#fixtures';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if ('navigate' in client && targetUrl) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
