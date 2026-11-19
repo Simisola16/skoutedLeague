@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   Shield, 
@@ -16,7 +16,8 @@ import {
   Users,
   ChevronRight,
   Camera,
-  UserPlus
+  UserPlus,
+  Download
 } from 'lucide-react';
 import { SOCIAL_LINKS_ARRAY, SOCIAL_LINKS } from '../constants/socialLinks';
 import { SocialIcon } from './SocialIcons';
@@ -30,9 +31,19 @@ export default function Header({
   onOpenRegisterTeam,
   onOpenFanAlerts,
   onOpenTeamDashboard,
+  onOpenInstallApp,
   liveMatchesCount = 0
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const standalone = window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+      setIsStandalone(standalone);
+    }
+  }, []);
 
   // Official Navigation Architecture with Gallery & Top Scorers
   const navItems = [
@@ -179,6 +190,18 @@ export default function Header({
             <Bell className="w-3.5 h-3.5 text-[#FFB800] animate-pulse" />
             <span className="hidden md:inline text-[11px]">Match Alerts</span>
           </button>
+
+          {/* Install PWA App Button (Hidden if already in standalone app) */}
+          {!isStandalone && onOpenInstallApp && (
+            <button
+              onClick={onOpenInstallApp}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#00E676]/10 hover:bg-[#00E676]/20 border border-[#00E676]/30 text-[#00E676] transition-all text-xs font-bold cursor-pointer"
+              title="Download & Install SYL App"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Install App</span>
+            </button>
+          )}
 
           {/* Secondary CTA: Register Club */}
           <button
@@ -347,6 +370,20 @@ export default function Header({
               ))}
             </div>
           </div>
+
+          {/* Install App CTA in Mobile Menu */}
+          {!isStandalone && onOpenInstallApp && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenInstallApp();
+              }}
+              className="w-full mb-3 py-2.5 px-3 rounded-xl bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/30 text-[#00E676] text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download & Install SYL App</span>
+            </button>
+          )}
 
           {/* Quick Action Footer in Mobile Menu */}
           <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2">

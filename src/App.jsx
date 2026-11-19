@@ -40,6 +40,7 @@ import YouTubeLiveEmbed from './components/YouTubeLiveEmbed';
 import FloatingSocialShare from './components/FloatingSocialShare';
 import MediaPage from './components/MediaPage';
 import SocialFeedWidget from './components/SocialFeedWidget';
+import PWAInstallModal from './components/PWAInstallModal';
 
 import { Activity, Trophy, Award, Shield, Flame, Clock, Calendar, Bell, ChevronDown, ArrowRight, X } from 'lucide-react';
 
@@ -65,6 +66,8 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegisterTeam, setShowRegisterTeam] = useState(false);
   const [showFanAlerts, setShowFanAlerts] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [selectedPlayerForDetails, setSelectedPlayerForDetails] = useState(null);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState(null);
   const [selectedTeamProfile, setSelectedTeamProfile] = useState(null);
@@ -236,16 +239,40 @@ export default function App() {
       });
     }
 
-    // First visit prompt for live match push alerts (non-intrusive, dismissible)
-    const hasSubscribed = localStorage.getItem('skouted_fan_subscribed') || localStorage.getItem('syl_push_subscribed');
-    const wasDismissed = sessionStorage.getItem('skouted_fan_dismissed');
-    if (!hasSubscribed && !wasDismissed) {
-      const timer = setTimeout(() => {
-        if (!sessionStorage.getItem('skouted_fan_dismissed')) {
-          setShowFanAlerts(true);
+    // PWA Install Prompt Listener for web visitors
+    const isStandalone = typeof window !== 'undefined' && (
+      window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches
+    );
+
+    if (!isStandalone) {
+      const isDismissed = sessionStorage.getItem('syl_install_dismissed');
+      const isInstalled = localStorage.getItem('syl_app_installed');
+
+      const handleBeforeInstall = (e) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        if (!isDismissed && !isInstalled) {
+          setShowInstallModal(true);
         }
-      }, 7000);
-      return () => clearTimeout(timer);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+      // Auto pop-up after 2.5s for visitors if not installed/dismissed
+      if (!isDismissed && !isInstalled) {
+        const timer = setTimeout(() => {
+          setShowInstallModal(true);
+        }, 2500);
+        return () => {
+          clearTimeout(timer);
+          window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+        };
+      }
+
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      };
     }
   }, []);
 
@@ -471,6 +498,7 @@ export default function App() {
         onOpenLogin={() => setShowLogin(true)}
         onOpenRegisterTeam={() => navigateTo('/team/register')}
         onOpenFanAlerts={() => setShowFanAlerts(true)}
+        onOpenInstallApp={() => setShowInstallModal(true)}
         onOpenTeamDashboard={() => {
           const target = (user && user.isVerified) ? '/team/dashboard' : '/team/login';
           navigateTo(target);
@@ -612,6 +640,7 @@ export default function App() {
             favoriteTeamIds={favoriteTeamIds}
             onToggleFavorite={handleToggleFavorite}
             onOpenFanAlerts={() => setShowFanAlerts(true)}
+        onOpenInstallApp={() => setShowInstallModal(true)}
           />
         )}
 
@@ -876,6 +905,7 @@ export default function App() {
       <Footer
         onNavigate={navigateTo}
         onOpenFanAlerts={() => setShowFanAlerts(true)}
+        onOpenInstallApp={() => setShowInstallModal(true)}
         onOpenRegisterTeam={() => navigateTo('/team/register')}
         onOpenLogin={() => setShowLogin(true)}
         leagueSettings={leagueSettings}
@@ -890,6 +920,17 @@ export default function App() {
           onPlayerClick={(player) => setSelectedPlayerForDetails(player)}
         />
       )}
+
+      {/* PWA App Install Modal */}
+      <PWAInstallModal
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+        deferredPrompt={deferredPrompt}
+        onInstallAccepted={() => {
+          setShowInstallModal(false);
+          setTimeout(() => setShowFanAlerts(true), 1200);
+        }}
+      />
 
       {/* Fan Goal Alert Modal */}
       <FanSubscriptionModal
